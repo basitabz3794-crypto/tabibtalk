@@ -94,8 +94,18 @@ router.post('/firebase-session', async (req, res) => {
   let user = store.findUserByFirebaseUid(decoded.uid) || store.findUserByEmail(email);
 
   if (!user) {
+    // A Firebase account with no record here means a signup that never
+    // finished (the profile POST failed). Logging in can't fix that on its
+    // own, so say what will, rather than asking for a name on a login form.
+    if (!profile) {
+      return res.status(409).json({
+        error: 'We couldn\'t find your account details. Please use the "Create account" tab with this email and password to finish setting up your account.',
+        needsProfile: true,
+      });
+    }
+
     // First time we've seen this account — signup. Require the profile fields.
-    const p = profile || {};
+    const p = profile;
     const required = { name: 'your name', phone: 'your phone number', college: 'your college name', nationality: 'your nationality', grade: 'your year/grade in college' };
     for (const [field, label] of Object.entries(required)) {
       if (!p[field] || !String(p[field]).trim()) return res.status(400).json({ error: `Please enter ${label}.` });

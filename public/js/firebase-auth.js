@@ -72,20 +72,41 @@ const TTAuth = (function () {
   // must verify their email first.
   async function signUp(email, password, profile) {
     const auth = await ready();
-    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    let cred;
 
-    // Send the verification email before anything else can fail.
-    try { await cred.user.sendEmailVerification(actionSettings()); } catch (e) { /* non-fatal; user can resend */ }
+    try {
+      cred = await auth.createUserWithEmailAndPassword(email, password);
+      // Send the verification email before anything else can fail.
+      try { await cred.user.sendEmailVerification(actionSettings()); } catch (e) { /* non-fatal; user can resend */ }
+    } catch (err) {
+      if (err.code !== 'auth/email-already-in-use') throw err;
+      // The Firebase account exists but our server may never have received the
+      // profile (e.g. the network dropped right after the password was set).
+      // If they can sign in, they own the account, so finish the job rather
+      // than dead-ending them: signing up says "already exists, log in", while
+      // logging in can't proceed without a profile.
+      try {
+        cred = await auth.signInWithEmailAndPassword(email, password);
+      } catch (signInErr) {
+        throw err; // wrong password — the address really is taken by someone else
+      }
+      if (!cred.user.emailVerified) {
+        try { await cred.user.sendEmailVerification(actionSettings()); } catch (e) {}
+      }
+    }
 
     // Hand the profile to the server so the account record exists with the
-    // details typed at signup. Expected to come back 403 needsVerification.
+    // details typed at signup. Normally comes back 403 needsVerification.
     const idToken = await cred.user.getIdToken();
     const r = await postSession(idToken, profile);
 
-    // Don't leave a half-signed-in Firebase session lying around.
-    await auth.signOut();
+    // Already verified and the server accepted us: the session is live, so stay
+    // signed in and let the caller go straight through to the app.
+    if (r.ok) return { ok: true, user: r.data };
 
-    if (!r.ok && !r.data.needsVerification) {
+    // Otherwise don't leave a half-signed-in Firebase session lying around.
+    await auth.signOut();
+    if (!r.data.needsVerification) {
       throw new Error(r.data.error || 'Could not finish creating your account.');
     }
     return { needsVerification: true, email: email };

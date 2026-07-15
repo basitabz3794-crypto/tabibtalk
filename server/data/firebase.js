@@ -16,7 +16,11 @@
 // the caller falls back to the local JSON store — so the app still boots for
 // local development without Firebase credentials.
 
-const admin = require('firebase-admin');
+// firebase-admin v13+ dropped the old `admin.credential.cert` / `admin.auth()`
+// namespace in favour of these modular entry points.
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getDatabase } = require('firebase-admin/database');
 
 let app = null;
 let initError = null;
@@ -32,8 +36,8 @@ function init() {
 
   try {
     const serviceAccount = JSON.parse(raw);
-    app = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    app = getApps().length ? getApps()[0] : initializeApp({
+      credential: cert(serviceAccount),
       databaseURL: process.env.FIREBASE_DATABASE_URL,
     });
     return app;
@@ -61,21 +65,21 @@ function whyDisabled() {
 // ({ uid, email, email_verified, ... }) or throws.
 async function verifyIdToken(idToken) {
   if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
-  return admin.auth().verifyIdToken(idToken, true /* checkRevoked */);
+  return getAuth(init()).verifyIdToken(idToken, true /* checkRevoked */);
 }
 
 // Invalidate every refresh token this user holds. Combined with the
 // checkRevoked flag in verifyIdToken, this makes logout effective everywhere.
 async function revokeTokens(uid) {
   if (!isEnabled()) return;
-  return admin.auth().revokeRefreshTokens(uid);
+  return getAuth(init()).revokeRefreshTokens(uid);
 }
 
 // Look up a Firebase Auth user by email (used to link pre-Firebase accounts).
 async function getAuthUserByEmail(email) {
   if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
   try {
-    return await admin.auth().getUserByEmail(email);
+    return await getAuth(init()).getUserByEmail(email);
   } catch (err) {
     if (err.code === 'auth/user-not-found') return null;
     throw err;
@@ -87,7 +91,7 @@ async function getAuthUserByEmail(email) {
 // is exactly the shape the local JSON store used — so route code is unchanged.
 
 function progressRef(userId) {
-  return admin.database().ref(`progress/${userId}`);
+  return getDatabase(init()).ref(`progress/${userId}`);
 }
 
 async function getProgress(userId) {

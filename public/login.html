@@ -147,7 +147,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
   const password = document.getElementById('su-password').value;
   busy(btn, true, 'Creating your account…');
   try {
-    await TTAuth.signUp(email, password, {
+    const r = await TTAuth.signUp(email, password, {
       name: document.getElementById('su-name').value,
       phone: document.getElementById('su-phone').value,
       college: document.getElementById('su-college').value,
@@ -161,6 +161,8 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       try { localStorage.removeItem(k); } catch(e){}
     });
     lastCredentials = { email, password };
+    // Completing an already-verified account signs straight in.
+    if (r.ok) { window.location.href = nextUrl(); return; }
     showAlert('Verification email sent! Check your inbox, then log in.', 'success');
     showVerify(email);
   } catch (err) {
