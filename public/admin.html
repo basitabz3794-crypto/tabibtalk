@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Hub — Tabib Talk</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<link rel="stylesheet" href="/css/scifi.css">
+<style>
+  .stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-bottom:28px; }
+  @media (min-width:720px){ .stat-grid { grid-template-columns:repeat(4,1fr); } }
+  .stat-card { padding:18px 20px; }
+  .stat-card .n { font-family:var(--font-display); font-size:1.9rem; font-weight:700; color:var(--text); }
+  .stat-card .l { color:var(--muted); font-size:.82rem; margin-top:2px; }
+  .stat-card.accent .n { background:var(--accent-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:22px; border-bottom:1px solid var(--border); padding-bottom:0; }
+  .tabs button { background:none; border:none; border-bottom:2px solid transparent; color:var(--muted); font:inherit; font-weight:600;
+    padding:11px 14px; cursor:pointer; transition:all .15s var(--ease); }
+  .tabs button.on { color:var(--accent); border-bottom-color:var(--accent); }
+  .panel { display:none; } .panel.on { display:block; }
+
+  table.data { width:100%; border-collapse:collapse; font-size:.88rem; }
+  table.data th { text-align:left; color:var(--muted); font-weight:600; padding:10px 12px; border-bottom:1px solid var(--border); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+  table.data td { padding:12px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); vertical-align:middle; }
+  table.data tr:last-child td { border-bottom:none; }
+  .table-scroll { overflow-x:auto; }
+
+  .sub-card { display:flex; gap:16px; padding:16px; margin-bottom:12px; }
+  .sub-card img { width:120px; height:120px; object-fit:cover; border-radius:12px; border:1px solid var(--border); cursor:pointer; background:var(--bg-2); }
+  .sub-info { flex:1; min-width:0; }
+  .method-badge { display:inline-block; font-size:.66rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:4px 9px; border-radius:999px; }
+  .method-badge.paypal { background:rgba(59,130,246,.15); color:#7fb0ff; }
+  .method-badge.instapay { background:rgba(52,211,153,.14); color:var(--ok); }
+  .method-badge.upi { background:var(--gold-dim); color:var(--gold); }
+  .row-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .row-actions .btn { padding:8px 13px; font-size:.83rem; }
+  .empty { color:var(--muted); padding:30px; text-align:center; }
+  .gate { max-width:400px; }
+  h3.sec { font-family:var(--font-display); font-weight:600; margin:0 0 14px; }
+
+  /* ---- Accounts section ---- */
+  .cur-switch { display:flex; gap:4px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:4px; }
+  .cur-switch button { background:none; border:none; color:var(--muted); font:inherit; font-weight:700; font-size:.78rem;
+    padding:7px 14px; border-radius:999px; cursor:pointer; transition:all .2s cubic-bezier(.2,.8,.2,1); }
+  .cur-switch button.on { background:linear-gradient(135deg,#22d3ee,#8b5cf6 55%,#e879f9); color:#04070d; box-shadow:0 0 18px rgba(139,92,246,.4); }
+
+  .chart-grid { display:grid; grid-template-columns:1fr; gap:16px; margin-top:16px; }
+  @media (min-width:820px){ .chart-grid { grid-template-columns:1fr 1fr; } }
+
+  .bar-row { display:flex; align-items:flex-end; gap:8px; height:170px; }
+  .bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; }
+  .bar-track { width:100%; height:110px; display:flex; align-items:flex-end;
+    background:rgba(255,255,255,.03); border-radius:8px; overflow:hidden; }
+  .bar-fill { width:100%; border-radius:8px 8px 0 0;
+    background:linear-gradient(180deg,#22d3ee,#8b5cf6);
+    box-shadow:0 0 16px rgba(34,211,238,.35);
+    animation: barGrow .9s cubic-bezier(.2,.9,.2,1) both; transform-origin:bottom; }
+  @keyframes barGrow { from { transform:scaleY(0); opacity:.3; } to { transform:scaleY(1); opacity:1; } }
+  .bar-amt { font-size:.68rem; font-weight:700; color:var(--text); white-space:nowrap; }
+  .bar-lbl { font-size:.62rem; color:var(--muted); white-space:nowrap; }
+
+  .split-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0;
+    border-bottom:1px solid rgba(255,255,255,.06); font-size:.9rem; color:var(--text-dim); }
+  .split-row:last-child { border-bottom:none; }
+  .split-row b { color:var(--text); }
+</style>
+</head>
+<body class="scifi">
+<div class="nebula"></div>
+<canvas id="scifi-field"></canvas>
+
+<header class="site-header" id="site-header"></header>
+<div class="wrap">
+  <h1 class="page-title">Admin Hub</h1>
+  <p class="page-sub">Everything happening across Tabib Talk — subscriptions, users, requests and violations, in one place.</p>
+
+  <div id="gate" class="card gate">
+    <div class="field"><label for="admin-key">Admin key</label><input type="password" id="admin-key" placeholder="Enter your ADMIN_KEY"></div>
+    <button class="btn btn-primary" id="unlock-btn">Unlock hub</button>
+    <div id="gate-alert"></div>
+  </div>
+
+  <div id="hub" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn btn-outline" id="refresh-btn" title="Reload the latest data">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+        Refresh
+      </button>
+    </div>
+    <div class="stat-grid" id="stats"></div>
+    <div class="tabs" id="tabs">
+      <button class="on" data-tab="subs">Subscriptions</button>
+      <button data-tab="users">Users</button>
+      <button data-tab="resets">Password resets</button>
+      <button data-tab="recs">Recommendations</button>
+      <button data-tab="devices">Devices &amp; violations</button>
+      <button data-tab="notify">Notifications</button>
+      <button data-tab="shares">Phrase Shares</button>
+      <button data-tab="interests">Interests</button>
+      <button data-tab="accounts">Accounts</button>
+      <button data-tab="dev">Developer</button>
+    </div>
+    <div class="panel on" id="panel-subs"></div>
+    <div class="panel" id="panel-users"></div>
+    <div class="panel" id="panel-resets"></div>
+    <div class="panel" id="panel-recs"></div>
+    <div class="panel" id="panel-devices"></div>
+    <div class="panel" id="panel-notify"></div>
+    <div class="panel" id="panel-shares"></div>
+    <div class="panel" id="panel-interests"></div>
+    <div class="panel" id="panel-accounts"></div>
+    <div class="panel" id="panel-dev"></div>
+  </div>
+</div>
+
+<script src="/js/header.js"></script>
+<script src="/js/scifi.js"></script>
+<script>
+let KEY = '';
+function ah(){ return { 'x-admin-key': KEY }; }
+async function adminGet(path){ const r = await fetch(path, { headers: ah() }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
+async function adminPost(path, body){ const r = await fetch(path, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, ah()), body: JSON.stringify(body||{}) }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
+function fmt(iso){ if(!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
+function fmtD(iso){ if(!iso) return '—'; try { return new Date(iso).toLocaleDateString(); } catch(e){ return iso; } }
+
+renderHeader('account');
+enableCopyProtection();
+  enableBlurOnBlur();
+
+document.getElementById('unlock-btn').addEventListener('click', async () => {
+  KEY = document.getElementById('admin-key').value;
+  try {
+    await adminGet('/api/admin/overview'); // validates the key
+    document.getElementById('gate').style.display='none';
+    document.getElementById('hub').style.display='block';
+    loadAll();
+  } catch(e){ document.getElementById('gate-alert').innerHTML = '<div class="alert alert-error" style="margin-top:12px">Invalid admin key.</div>'; }
+});
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); document.getElementById('panel-'+b.dataset.tab).classList.add('on');
+}));
+
+async function loadAll(){ await Promise.all([loadStats(), loadSubs(), loadUsers(), loadResets(), loadRecs(), loadDevices(), loadNotify(), loadShares(), loadInterests(), loadDev(), loadAccounts()]); }
+
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('refresh-btn');
+  const original = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Refreshing…';
+  try { await loadAll(); } finally { btn.disabled = false; btn.innerHTML = original; }
+});
+
+async function loadStats(){
+  const { totals } = await adminGet('/api/admin/overview');
+  const cards = [
+    ['Total users', totals.users, true], ['Active subscriptions', totals.active, true],
+    ['Pending review', totals.pending, false], ['Suspended (expired)', totals.suspended, false],
+    ['Approved (all-time)', totals.approved, false], ['Rejected', totals.rejected, false],
+    ['Reset requests', totals.resetRequests, false], ['Flagged devices', totals.flaggedDevices, false],
+  ];
+  document.getElementById('stats').innerHTML = cards.map(([l,n,a])=>`<div class="card stat-card ${a?'accent':''}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+}
+
+function subCard(p, actions){
+  return `<div class="card sub-card">
+    ${p.screenshotPath?`<img src="${p.screenshotPath}" onclick="window.open('${p.screenshotPath}','_blank')">`:'<div style="width:120px;height:120px;border-radius:12px;background:var(--bg-2);display:grid;place-items:center;color:var(--faint);font-size:.7rem">no image</div>'}
+    <div class="sub-info">
+      <span class="method-badge ${p.method}">${p.method}</span>
+      <span class="pill pill-${p.status==='approved'?(p.expired?'suspended':'active'):(p.status==='rejected'?'rejected':'pending')}" style="margin-left:6px">${p.expired?'suspended':p.status}</span>
+      <div style="font-weight:700;color:var(--text);margin-top:8px">${p.planName}</div>
+      <div style="font-size:.84rem">${p.userName?p.userName+' · ':''}${p.userEmail}</div>
+      <div style="color:var(--muted);font-size:.8rem">Submitted ${fmt(p.submittedAt)}${p.reviewedAt?' · reviewed '+fmt(p.reviewedAt):''}</div>
+      ${p.planExpiresAt?`<div style="color:var(--muted);font-size:.8rem">Plan ${p.expired?'expired':'expires'} ${fmtD(p.planExpiresAt)}</div>`:''}
+      ${p.referenceNote?`<div style="font-size:.82rem;margin-top:4px">Note: ${p.referenceNote}</div>`:''}
+      ${actions||''}
+    </div>
+  </div>`;
+}
+
+async function loadSubs(){
+  const d = await adminGet('/api/admin/subscriptions');
+  const sec = (title, arr, withReview) => `<h3 class="sec">${title} <span style="color:var(--muted);font-weight:500">(${arr.length})</span></h3>` +
+    (arr.length ? arr.map(p=>subCard(p, withReview?`<div class="row-actions">
+        <button class="btn btn-primary" onclick="approve('${p.method}','${p.id}')">Approve &amp; activate</button>
+        <button class="btn btn-ghost" onclick="reject('${p.method}','${p.id}')">Reject</button>
+      </div>`:'')).join('') : '<div class="empty">Nothing here.</div>');
+  document.getElementById('panel-subs').innerHTML =
+    sec('Pending review', d.pending, true) +
+    sec('Active subscriptions', d.active, false) +
+    sec('Suspended (plan duration ended)', d.suspended, false) +
+    sec('Rejected', d.rejected, false);
+}
+async function approve(method,id){ await adminPost(`/api/${method}/admin/approve/${id}`); loadAll(); }
+async function reject(method,id){ const reason = prompt('Reason for rejection (optional):')||''; await fetch(`/api/${method}/admin/reject/${id}`, {method:'POST', headers:Object.assign({'Content-Type':'application/json'},ah()), body:JSON.stringify({reason})}); loadAll(); }
+window.approve=approve; window.reject=reject;
+
+async function loadUsers(){
+  const { users } = await adminGet('/api/admin/users');
+  document.getElementById('panel-users').innerHTML = `<div class="card"><div class="table-scroll"><table class="data">
+    <thead><tr><th>Name</th><th>Email</th><th>Nationality</th><th>Grade</th><th>Tier</th><th>Subscription</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${users.length? users.map(u=>`<tr>
+      <td style="color:var(--text)">${u.name||'—'}</td><td>${u.email}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
+      <td style="text-transform:capitalize">${u.tier}</td>
+      <td><span class="pill pill-${u.subState==='active'?'active':(u.subState==='suspended'?'suspended':'none')}">${u.subState}</span>${u.planId?'<div style="font-size:.72rem;color:var(--muted)">'+u.planId+'</div>':''}</td>
+      <td>${u.deviceCount}</td>
+      <td><span class="pill pill-${u.status==='active'?'active':'banned'}">${u.status}</span></td>
+      <td><div class="row-actions">
+        <button class="btn btn-outline" onclick="manageSub('${u.id}','${u.planId||''}','${u.subState}')">Manage plan</button>
+        ${u.subState==='active'?`<button class="btn btn-ghost" onclick="userAction('${u.id}','suspend')">Suspend</button>`:`<button class="btn btn-ghost" onclick="userAction('${u.id}','reactivate')">Reactivate</button>`}
+        ${u.status==='banned'?`<button class="btn btn-primary" onclick="userAction('${u.id}','unban')">Unban</button>`:`<button class="btn btn-danger" onclick="userAction('${u.id}','ban')">Ban</button>`}
+      </div></td>
+    </tr>`).join('') : '<tr><td colspan="9" class="empty">No users yet.</td></tr>'}</tbody></table></div></div>`;
+}
+async function userAction(id, action){
+  if(action==='ban' && !confirm('Ban this user? They will be logged out and unable to sign in.')) return;
+  await adminPost(`/api/admin/users/${id}/action`, { action }); loadAll();
+}
+window.userAction=userAction;
+
+// Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
+function manageSub(userId, currentPlan, subState){
+  const plans = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime'];
+  const opts = plans.map(p=>`<option value="${p}" ${p===currentPlan?'selected':''}>${p}</option>`).join('');
+  const html = `
+    <div class="modal-overlay open" id="manage-modal">
+      <div class="modal">
+        <button class="modal-x" onclick="closeManage()">&times;</button>
+        <h2>Manage subscription</h2>
+        <p style="color:var(--muted);margin-top:0">Set or adjust this user's plan. Changes apply immediately.</p>
+        <div class="field"><label>Set / change plan</label><select id="mng-plan">${opts}</select></div>
+        <div class="row-actions" style="margin-bottom:16px">
+          <button class="btn btn-primary" onclick="doManage('${userId}','change')">Apply plan</button>
+          <button class="btn btn-outline" onclick="doManage('${userId}','activate')">Activate fresh</button>
+        </div>
+        <div class="field"><label>Adjust duration (days)</label><input type="number" id="mng-days" value="30" min="1"></div>
+        <div class="row-actions" style="margin-bottom:16px">
+          <button class="btn btn-outline" onclick="doManage('${userId}','extend')">Extend</button>
+          <button class="btn btn-ghost" onclick="doManage('${userId}','reduce')">Reduce</button>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-ghost" onclick="doManage('${userId}','reactivate')">Reactivate</button>
+          <button class="btn btn-danger" onclick="doManage('${userId}','expire')">Expire now</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeManage(){ const m=document.getElementById('manage-modal'); if(m) m.remove(); }
+async function doManage(userId, action){
+  const planId = (document.getElementById('mng-plan')||{}).value;
+  const days = Number((document.getElementById('mng-days')||{}).value || 0);
+  await adminPost(`/api/admin/users/${userId}/action`, { action, planId, days });
+  closeManage(); loadAll();
+}
+window.manageSub=manageSub; window.closeManage=closeManage; window.doManage=doManage;
+
+async function loadResets(){
+  const { requests } = await adminGet('/api/admin/reset-requests');
+  document.getElementById('panel-resets').innerHTML = `<div class="card"><h3 class="sec">Password reset requests</h3><div class="table-scroll"><table class="data">
+    <thead><tr><th>Email</th><th>Requested</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>${requests.length? requests.map(r=>`<tr>
+      <td style="color:var(--text)">${r.email}</td><td>${fmt(r.requestedAt)}</td>
+      <td><span class="pill pill-${r.status==='used'?'active':(r.status==='link_sent'?'pending':'none')}">${r.status.replace('_',' ')}</span></td>
+      <td>${r.status==='used'?'—':`<button class="btn btn-primary" style="padding:8px 13px;font-size:.83rem" onclick="sendLink('${r.id}')">Get reset link</button>`}</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="empty">No reset requests.</td></tr>'}</tbody></table></div></div>`;
+}
+async function sendLink(id){
+  const r = await adminPost(`/api/admin/reset-requests/${id}/send-link`);
+  prompt('Copy this reset link and send it to '+r.email+':', r.resetLink);
+  loadResets();
+}
+window.sendLink=sendLink;
+
+async function loadRecs(){
+  const { recommendations } = await adminGet('/api/admin/recommendations');
+  document.getElementById('panel-recs').innerHTML = `<div class="card"><h3 class="sec">Recommendations from users</h3>${
+    recommendations.length? recommendations.map(r=>`<div style="padding:14px 0;border-bottom:1px solid var(--border-soft)">
+      <div style="color:var(--text)">${r.message.replace(/</g,'&lt;')}</div>
+      <div style="color:var(--muted);font-size:.8rem;margin-top:5px">${r.userName?r.userName+' · ':''}${r.userEmail} · ${fmt(r.submittedAt)}</div>
+    </div>`).join('') : '<div class="empty">No recommendations yet.</div>'}</div>`;
+}
+
+async function loadDevices(){
+  const { devices } = await adminGet('/api/admin/devices');
+  document.getElementById('panel-devices').innerHTML = `<div class="card"><h3 class="sec">Device history &amp; violations</h3><div class="table-scroll"><table class="data">
+    <thead><tr><th>User</th><th>Device</th><th>First seen</th><th>Last seen</th><th>Uses</th><th>State</th><th>Action</th></tr></thead>
+    <tbody>${devices.length? devices.map(d=>`<tr>
+      <td style="color:var(--text)">${d.userName?d.userName+'<br>':''}<span style="color:var(--muted);font-size:.8rem">${d.userEmail}</span></td>
+      <td style="font-family:monospace;font-size:.78rem">${(d.deviceId||'').slice(0,16)}…</td>
+      <td>${fmtD(d.firstSeen)}</td><td>${fmtD(d.lastSeen)}</td><td>${d.count||1}</td>
+      <td>${d.flagged?'<span class="pill pill-suspended">flagged</span>':(d.blocked?'<span class="pill pill-rejected">blocked</span>':'<span class="pill pill-active">ok</span>')}${d.flagReason?'<div style="font-size:.72rem;color:var(--muted)">'+d.flagReason+'</div>':''}</td>
+      <td>${d.flagged?'—':`<button class="btn btn-danger" style="padding:8px 13px;font-size:.83rem" onclick="flagDevice('${d.userId}','${d.deviceId}')">Flag</button>`}</td>
+    </tr>`).join('') : '<tr><td colspan="7" class="empty">No device activity yet.</td></tr>'}</tbody></table></div>
+    <p style="color:var(--muted);font-size:.82rem;margin-top:14px">Flagging a device marks a violation. Use the Users tab to suspend the subscription or ban the account.</p></div>`;
+}
+async function flagDevice(userId, deviceId){
+  const reason = prompt('Reason for flagging this device (optional):')||'Manual flag';
+  await adminPost(`/api/admin/devices/${userId}/${deviceId}/flag`, { reason }); loadAll();
+}
+window.flagDevice=flagDevice;
+
+async function loadNotify(){
+  const { notifications } = await adminGet('/api/admin/notifications');
+  document.getElementById('panel-notify').innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <h3 class="sec">Send a message to every user</h3>
+      <p style="color:var(--muted);font-size:.88rem;margin-top:-8px">This appears in every signed-in user's notification bell. They'll see it highlighted until they open it.</p>
+      <div class="field"><textarea id="notif-msg" rows="3" placeholder="Write your announcement…"></textarea></div>
+      <button class="btn btn-primary" id="send-notif-btn">Send to all users</button>
+      <div id="notif-send-status"></div>
+    </div>
+    <div class="card">
+      <h3 class="sec">Broadcast history</h3>
+      ${notifications.length ? notifications.map(n=>`
+        <div style="padding:14px 0;border-bottom:1px solid var(--border-soft)">
+          <div style="color:var(--text)">${n.message.replace(/</g,'&lt;')}</div>
+          <div style="color:var(--muted);font-size:.8rem;margin-top:5px">${fmt(n.createdAt)}</div>
+        </div>`).join('') : '<div class="empty">No messages sent yet.</div>'}
+    </div>`;
+  document.getElementById('send-notif-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('notif-msg').value;
+    if (!msg.trim()) return;
+    try {
+      await adminPost('/api/admin/notifications/send', { message: msg });
+      document.getElementById('notif-send-status').innerHTML = '<div class="alert alert-success" style="margin-top:12px">Sent to all users.</div>';
+      loadNotify();
+    } catch (e) {
+      document.getElementById('notif-send-status').innerHTML = `<div class="alert alert-error" style="margin-top:12px">${e.message}</div>`;
+    }
+  });
+}
+
+// ---- Item 4: Admin logging of every phrase share ----
+async function loadShares(){
+  const { shares } = await adminGet('/api/admin/shares');
+  document.getElementById('panel-shares').innerHTML = `<div class="card"><h3 class="sec">Phrase shares <span style="color:var(--muted);font-weight:500">(${shares.length})</span></h3>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>User</th><th>Tier</th><th>Phrase</th><th>When</th></tr></thead>
+      <tbody>${shares.length ? shares.map(s=>`<tr>
+        <td style="color:var(--text)">${s.userName||''} <span style="color:var(--muted);font-size:.8rem">${s.userEmail}</span></td>
+        <td style="text-transform:capitalize">${s.tier||'—'}</td>
+        <td>${(s.phraseEn||'').replace(/</g,'&lt;')}${s.phraseAr?' <span dir="rtl" style="color:var(--muted)">('+s.phraseAr.replace(/</g,'&lt;')+')</span>':''}</td>
+        <td style="color:var(--muted);font-size:.85rem">${fmt(s.createdAt)}</td>
+      </tr>`).join('') : '<tr><td colspan="4" class="empty">No phrases shared yet.</td></tr>'}</tbody>
+    </table></div></div>`;
+}
+
+// ---- Interests: leads from the in-app advertisement box ----
+async function loadInterests(){
+  const { interests, total, byAd } = await adminGet('/api/admin/interests');
+  const ads = Object.keys(byAd);
+  document.getElementById('panel-interests').innerHTML = `<div class="card">
+    <h3 class="sec">Interests</h3>
+    <p style="color:var(--muted);font-size:.88rem;margin-top:-8px">Everyone who tapped the call-to-action on the in-app advertisement box. Contact details are captured at the moment they responded. Edit the box itself under <b style="color:var(--txt, var(--text))">Developer &rarr; Advertisement box</b>.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 18px">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--txt, var(--text))">${total}</div>
+        <div style="color:var(--muted);font-size:.8rem">Total responses</div>
+      </div>
+      ${ads.map(a=>`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 18px">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--txt, var(--text))">${byAd[a]}</div>
+        <div style="color:var(--muted);font-size:.8rem">${(a||'—').replace(/</g,'&lt;')}</div>
+      </div>`).join('')}
+    </div>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Campaign</th><th>Plan</th><th>When</th></tr></thead>
+      <tbody>${interests.length ? interests.map(i=>`<tr>
+        <td style="color:var(--txt, var(--text))">${(i.name||'—').replace(/</g,'&lt;')}</td>
+        <td><a href="mailto:${encodeURIComponent(i.email)}" style="color:var(--accent)">${(i.email||'').replace(/</g,'&lt;')}</a></td>
+        <td style="white-space:nowrap">${(i.phone||'—').replace(/</g,'&lt;')}</td>
+        <td>${(i.adTitle||i.adId||'—').replace(/</g,'&lt;')}</td>
+        <td style="text-transform:capitalize">${i.tier||'—'}</td>
+        <td style="color:var(--muted);font-size:.85rem;white-space:nowrap">${fmt(i.createdAt)}</td>
+      </tr>`).join('') : '<tr><td colspan="6" class="empty">No interest responses yet.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// ---- Developer section: live-edit plan prices & durations ----
+const DEV_PLAN_ORDER = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime'];
+async function loadDev(){
+  const { plans, durationsDays } = await adminGet('/api/admin/plan-config');
+  const fx = await adminGet('/api/admin/fx-config');
+  const adc = await adminGet('/api/admin/ad-config');
+  const pay = await adminGet('/api/admin/payment-config');
+  const inpStyle = 'padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)';
+  document.getElementById('panel-dev').innerHTML = `<div class="card">
+    <h3 class="sec">Developer — live plan configuration</h3>
+
+    <!-- Global currency configuration: drives the INR/EGP figures for EVERY plan.
+         Uses a translucent fill rather than var(--bg-2): that token is #ffffff in
+         :root and body.scifi never redefines it, so it would render as a white
+         slab on this dark panel. -->
+    <div style="border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px;margin-bottom:18px;background:rgba(255,255,255,.04)">
+      <div style="font-weight:700;color:var(--txt, var(--text));margin-bottom:4px">Currency conversion rates</div>
+      <p style="color:var(--dim, var(--muted));font-size:.85rem;margin:0 0 12px">Every plan's INR and EGP price is calculated from its USD price using these rates, then rounded up to a clean figure. Leave a field blank to fall back to the built-in default (1 USD = ${fx.defaults.usdToInr} INR / ${fx.defaults.usdToEgp} EGP).</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">1 USD = ? INR</label>
+          <input type="number" min="0" step="0.01" id="fx-usdToInr" value="${fx.usdToInr}" placeholder="${fx.defaults.usdToInr}" style="${inpStyle};width:140px">
+        </div>
+        <div>
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">1 USD = ? EGP</label>
+          <input type="number" min="0" step="0.01" id="fx-usdToEgp" value="${fx.usdToEgp}" placeholder="${fx.defaults.usdToEgp}" style="${inpStyle};width:140px">
+        </div>
+        <button class="btn btn-primary" style="padding:10px 16px" onclick="saveFxConfig()">Save rates</button>
+      </div>
+      <div style="color:var(--dim, var(--muted));font-size:.8rem;margin-top:10px">Currently pricing at <b style="color:var(--txt, var(--text))">1 USD = ${fx.effective.usdToInr} INR</b> and <b style="color:var(--txt, var(--text))">1 USD = ${fx.effective.usdToEgp} EGP</b>.</div>
+      <div id="fx-save-status"></div>
+    </div>
+
+    <p style="color:var(--muted);font-size:.88rem">Changes apply immediately to the live pricing page. Duration is in months (converted to days internally); leave it blank for Lifetime to keep it non-expiring. The label replaces the small "launch price" note shown under each price.</p>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Plan</th><th>Price (USD)</th><th>INR</th><th>EGP</th><th>Duration (months)</th><th>Label</th><th>Action</th></tr></thead>
+      <tbody>${DEV_PLAN_ORDER.map(id=>{
+        const p = plans[id]; if(!p) return '';
+        const days = durationsDays[id];
+        const months = days ? (days/30).toFixed(1).replace(/\.0$/,'') : '';
+        return `<tr>
+          <!-- var(--txt) first: on this page (body.scifi) --text is still the
+               light-theme #10151b, so a plain var(--text) plan name renders
+               near-black on the dark row and is effectively invisible. -->
+          <td style="color:var(--txt, var(--text))">${p.name} <span style="color:var(--muted);font-size:.8rem">${p.period||''}</span></td>
+          <td><input type="number" min="0" step="0.01" id="dev-price-${id}" value="${p.priceNow}" style="width:90px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)"></td>
+          <td style="color:var(--muted);white-space:nowrap" id="dev-inr-${id}">&#8377;${p.inr.toLocaleString()}</td>
+          <td style="color:var(--muted);white-space:nowrap" id="dev-egp-${id}">E&pound;${p.egp.toLocaleString()}</td>
+          <td><input type="number" min="0" step="0.5" id="dev-days-${id}" value="${months}" placeholder="${id==='lifetime'?'never':''}" style="width:90px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)"></td>
+          <td><input type="text" id="dev-label-${id}" value="${(p.offerNote||'').replace(/"/g,'&quot;')}" placeholder="launch price" style="width:160px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)"></td>
+          <td><button class="btn btn-primary" style="padding:8px 14px;font-size:.85rem" onclick="saveDevPlan('${id}')">Save</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div id="dev-save-status"></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 class="sec">Developer — advertisement box</h3>
+    <p style="color:var(--muted);font-size:.88rem;margin-top:-8px">The promo box users see in the app (and its teaser in the notifications panel). Every field is yours — advertise anything. Whoever taps the button is recorded under <b style="color:var(--txt, var(--text))">Interests</b> with their name, email and phone.</p>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--txt, var(--text));font-weight:700">
+        <input type="checkbox" id="ad-enabled" ${adc.ad.enabled ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer">
+        Show the advertisement box
+      </label>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr;gap:12px;max-width:760px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Campaign id <span style="opacity:.7">(new id = fresh lead list)</span></label>
+          <input type="text" id="ad-adId" value="${(adc.ad.adId||'').replace(/"/g,'&quot;')}" placeholder="medical-german" style="${inpStyle};width:100%">
+        </div>
+        <div style="flex:1;min-width:150px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Badge</label>
+          <input type="text" id="ad-badge" value="${(adc.ad.badge||'').replace(/"/g,'&quot;')}" placeholder="Coming Soon" style="${inpStyle};width:100%">
+        </div>
+        <div style="flex:1;min-width:150px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Teaser badge <span style="opacity:.7">(notifications panel)</span></label>
+          <input type="text" id="ad-teaserBadge" value="${(adc.ad.teaserBadge||'').replace(/"/g,'&quot;')}" placeholder="New · Coming Soon" style="${inpStyle};width:100%">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:130px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Title — before</label>
+          <input type="text" id="ad-titlePre" value="${(adc.ad.titlePre||'').replace(/"/g,'&quot;')}" placeholder="Medical " style="${inpStyle};width:100%">
+        </div>
+        <div style="flex:1;min-width:130px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Title — highlighted</label>
+          <input type="text" id="ad-titleAccent" value="${(adc.ad.titleAccent||'').replace(/"/g,'&quot;')}" placeholder="German" style="${inpStyle};width:100%">
+        </div>
+        <div style="flex:1;min-width:130px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Title — after</label>
+          <input type="text" id="ad-titlePost" value="${(adc.ad.titlePost||'').replace(/"/g,'&quot;')}" placeholder="Trilingual" style="${inpStyle};width:100%">
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Subtitle</label>
+        <textarea id="ad-subtitle" rows="2" placeholder="What are you announcing?" style="${inpStyle};width:100%;resize:vertical;font-family:inherit">${(adc.ad.subtitle||'').replace(/</g,'&lt;')}</textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Button label</label>
+          <input type="text" id="ad-ctaLabel" value="${(adc.ad.ctaLabel||'').replace(/"/g,'&quot;')}" placeholder="Can’t wait ✨" style="${inpStyle};width:100%">
+        </div>
+        <div style="flex:2;min-width:220px">
+          <label style="display:block;font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:6px">Thank-you message (after they respond)</label>
+          <input type="text" id="ad-confirmText" value="${(adc.ad.confirmText||'').replace(/"/g,'&quot;')}" placeholder="✅ You’re on the list!" style="${inpStyle};width:100%">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveAdConfig()">Save advertisement box</button>
+    <div id="ad-save-status"></div>
+
+    <!-- Live preview of exactly what the user will see -->
+    <div style="margin-top:18px">
+      <div style="font-size:.8rem;color:var(--dim, var(--muted));margin-bottom:8px">Preview</div>
+      <div id="ad-preview" style="max-width:420px;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px;text-align:center;background:rgba(255,255,255,.04)">
+        <div style="display:inline-block;background:#c0392b;color:#fff;font-weight:800;letter-spacing:.08em;font-size:.68rem;padding:6px 13px;border-radius:999px;text-transform:uppercase" id="ad-pv-badge"></div>
+        <div style="font-size:1.5rem;font-weight:800;color:var(--txt, var(--text));margin:12px 0 8px" id="ad-pv-title"></div>
+        <div style="color:var(--dim, var(--muted));font-size:.9rem;line-height:1.5" id="ad-pv-sub"></div>
+        <button style="margin-top:14px;background:var(--gold,#f5b544);color:#04110d;border:none;border-radius:999px;padding:11px 22px;font-weight:800;cursor:default" id="ad-pv-cta"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 class="sec">Developer — payment gateway management</h3>
+    <p style="color:var(--muted);font-size:.88rem;margin-top:-8px">These fields dynamically update what users see on the checkout page for each payment method.</p>
+
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;color:var(--text);margin-bottom:8px">PayPal</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input type="text" id="pay-paypalLabel" value="${(pay.paypalLabel||'').replace(/"/g,'&quot;')}" placeholder="Label / note (optional)" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+        <input type="email" id="pay-paypalEmail" value="${(pay.paypalEmail||'').replace(/"/g,'&quot;')}" placeholder="PayPal email" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;color:var(--text);margin-bottom:8px">InstaPay</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input type="text" id="pay-instapayLabel" value="${(pay.instapayLabel||'').replace(/"/g,'&quot;')}" placeholder="Label / note (optional)" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+        <input type="text" id="pay-instapayAddress" value="${(pay.instapayAddress||'').replace(/"/g,'&quot;')}" placeholder="Instant Payment Address" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+        <input type="text" id="pay-instapayPhone" value="${(pay.instapayPhone||'').replace(/"/g,'&quot;')}" placeholder="Phone number" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;color:var(--text);margin-bottom:8px">UPI</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input type="text" id="pay-upiLabel" value="${(pay.upiLabel||'').replace(/"/g,'&quot;')}" placeholder="Label / note (optional)" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+        <input type="text" id="pay-upiId" value="${(pay.upiId||'').replace(/"/g,'&quot;')}" placeholder="UPI ID" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+        <input type="text" id="pay-upiPayeeName" value="${(pay.upiPayeeName||'').replace(/"/g,'&quot;')}" placeholder="Payee name" style="flex:1;min-width:180px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="savePaymentConfig()">Save payment details</button>
+    <div id="pay-save-status"></div>
+  </div>`;
+
+  // Advertisement preview: draw it once, then keep it in step as fields are typed.
+  adPreview();
+  AD_FIELDS.forEach(f => {
+    const el = document.getElementById('ad-' + f);
+    if (el) el.addEventListener('input', adPreview);
+  });
+}
+async function saveDevPlan(planId){
+  const priceEl = document.getElementById('dev-price-'+planId);
+  const monthsEl = document.getElementById('dev-days-'+planId);
+  const labelEl = document.getElementById('dev-label-'+planId);
+  const price = priceEl.value;
+  const months = monthsEl.value;
+  const body = { label: labelEl.value };
+  if (price !== '') body.priceNow = price;
+  if (months !== '') body.days = Math.round(Number(months) * 30);
+  try {
+    await adminPost(`/api/admin/plan-config/${planId}`, body);
+    document.getElementById('dev-save-status').innerHTML = `<div class="alert alert-success" style="margin-top:14px">Updated ${planId} — now live on the pricing page.</div>`;
+    loadDev();
+  } catch (e) {
+    document.getElementById('dev-save-status').innerHTML = `<div class="alert alert-error" style="margin-top:14px">${e.message}</div>`;
+  }
+}
+window.saveDevPlan = saveDevPlan;
+
+// Global FX rates — reloads the panel so every plan's INR/EGP column
+// immediately reflects the new rates (same figures the pricing page will show).
+async function saveFxConfig(){
+  const body = {
+    usdToInr: document.getElementById('fx-usdToInr').value,
+    usdToEgp: document.getElementById('fx-usdToEgp').value,
+  };
+  try {
+    const r = await adminPost('/api/admin/fx-config', body);
+    document.getElementById('fx-save-status').innerHTML = `<div class="alert alert-success" style="margin-top:12px">Rates saved — now pricing at 1 USD = ${r.effective.usdToInr} INR / ${r.effective.usdToEgp} EGP. All plans updated.</div>`;
+    loadDev();
+  } catch (e) {
+    document.getElementById('fx-save-status').innerHTML = `<div class="alert alert-error" style="margin-top:12px">${e.message}</div>`;
+  }
+}
+window.saveFxConfig = saveFxConfig;
+
+// ---- Advertisement box ----
+const AD_FIELDS = ['adId','badge','teaserBadge','titlePre','titleAccent','titlePost','subtitle','ctaLabel','confirmText'];
+function adPreview(){
+  const g = id => (document.getElementById('ad-'+id)||{}).value || '';
+  const set = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  set('ad-pv-badge', g('badge'));
+  set('ad-pv-sub', g('subtitle'));
+  set('ad-pv-cta', g('ctaLabel'));
+  const t = document.getElementById('ad-pv-title');
+  if(t){
+    t.innerHTML = '';
+    t.appendChild(document.createTextNode(g('titlePre')));
+    const sp = document.createElement('span');
+    sp.style.color = 'var(--gold, #f5b544)'; sp.style.fontStyle = 'italic';
+    sp.textContent = g('titleAccent');
+    t.appendChild(sp);
+    if(g('titlePost')){ t.appendChild(document.createElement('br')); t.appendChild(document.createTextNode(g('titlePost'))); }
+  }
+}
+window.adPreview = adPreview;
+
+async function saveAdConfig(){
+  const body = { enabled: document.getElementById('ad-enabled').checked };
+  AD_FIELDS.forEach(f => { const e = document.getElementById('ad-'+f); if(e) body[f] = e.value; });
+  try {
+    const r = await adminPost('/api/admin/ad-config', body);
+    document.getElementById('ad-save-status').innerHTML = `<div class="alert alert-success" style="margin-top:14px">Saved — the box is now ${r.ad.enabled ? 'live in the app' : 'hidden'}. Responses land under the Interests tab.</div>`;
+    loadDev(); loadInterests();
+  } catch (e) {
+    document.getElementById('ad-save-status').innerHTML = `<div class="alert alert-error" style="margin-top:14px">${e.message}</div>`;
+  }
+}
+window.saveAdConfig = saveAdConfig;
+
+async function savePaymentConfig(){
+  const body = {
+    paypalLabel: document.getElementById('pay-paypalLabel').value,
+    paypalEmail: document.getElementById('pay-paypalEmail').value,
+    instapayLabel: document.getElementById('pay-instapayLabel').value,
+    instapayAddress: document.getElementById('pay-instapayAddress').value,
+    instapayPhone: document.getElementById('pay-instapayPhone').value,
+    upiLabel: document.getElementById('pay-upiLabel').value,
+    upiId: document.getElementById('pay-upiId').value,
+    upiPayeeName: document.getElementById('pay-upiPayeeName').value,
+  };
+  try {
+    await adminPost('/api/admin/payment-config', body);
+    document.getElementById('pay-save-status').innerHTML = '<div class="alert alert-success" style="margin-top:14px">Saved — now live on the checkout page.</div>';
+  } catch (e) {
+    document.getElementById('pay-save-status').innerHTML = `<div class="alert alert-error" style="margin-top:14px">${e.message}</div>`;
+  }
+}
+window.savePaymentConfig = savePaymentConfig;
+
+/* ---- Accounts: every approved payment + earnings analysis ---- */
+let ACCT_CURRENCY = 'usd'; // usd | inr | egp — the admin can switch how amounts are shown
+let ACCT_DATA = null;
+
+function money(rec, cur) {
+  if (cur === 'inr') return '₹' + (rec.inr || 0).toLocaleString('en-IN');
+  if (cur === 'egp') return 'E£' + (rec.egp || 0).toLocaleString();
+  return '$' + (rec.usd || 0).toLocaleString();
+}
+function setAcctCurrency(cur) { ACCT_CURRENCY = cur; renderAccounts(); }
+window.setAcctCurrency = setAcctCurrency;
+
+async function loadAccounts() {
+  ACCT_DATA = await adminGet('/api/admin/accounts');
+  renderAccounts();
+}
+
+function bars(series, cur) {
+  const max = Math.max(1, ...series.map(s => s.usd));
+  return `<div class="bar-row">${series.map(s => {
+    const pct = Math.round((s.usd / max) * 100);
+    const amt = cur === 'inr' ? '₹' + Math.round(s.usd * 95.5).toLocaleString('en-IN')
+              : cur === 'egp' ? 'E£' + Math.round(s.usd * 49.6).toLocaleString()
+              : '$' + s.usd.toLocaleString();
+    return `<div class="bar-col" title="${s.count} payment${s.count===1?'':'s'} · ${amt}">
+      <div class="bar-track"><div class="bar-fill" style="height:${Math.max(pct,2)}%"></div></div>
+      <div class="bar-amt">${s.usd ? amt : '—'}</div>
+      <div class="bar-lbl">${s.label}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderAccounts() {
+  if (!ACCT_DATA) return;
+  const d = ACCT_DATA, cur = ACCT_CURRENCY;
+  const s = d.summary;
+
+  const totalShown = cur === 'inr' ? '₹' + s.totalInr.toLocaleString('en-IN')
+                   : cur === 'egp' ? 'E£' + s.totalEgp.toLocaleString()
+                   : '$' + s.totalUsd.toLocaleString();
+  const conv = (usd) => cur === 'inr' ? '₹' + Math.round(usd * 95.5).toLocaleString('en-IN')
+                      : cur === 'egp' ? 'E£' + Math.round(usd * 49.6).toLocaleString()
+                      : '$' + usd.toLocaleString();
+
+  const methodRows = Object.entries(d.byMethod).sort((a,b)=>b[1]-a[1])
+    .map(([m, usd]) => `<div class="split-row"><span class="method-badge ${m}">${m}</span><b>${conv(usd)}</b></div>`).join('')
+    || '<div class="empty">No payments yet.</div>';
+
+  const planRows = Object.entries(d.byPlan).sort((a,b)=>b[1]-a[1])
+    .map(([p, usd]) => `<div class="split-row"><span>${p}</span><b>${conv(usd)}</b></div>`).join('')
+    || '<div class="empty">No payments yet.</div>';
+
+  document.getElementById('panel-accounts').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+      <h3 class="sec" style="margin:0">Accounts &amp; earnings</h3>
+      <div class="cur-switch">
+        ${['usd','inr','egp'].map(c => `<button class="${cur===c?'on':''}" onclick="setAcctCurrency('${c}')">${c.toUpperCase()}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="card stat-card accent"><div class="n">${totalShown}</div><div class="l">Total earned (all time)</div></div>
+      <div class="card stat-card accent"><div class="n">${conv(s.last7Usd)}</div><div class="l">Last 7 days · ${s.last7Count} payment${s.last7Count===1?'':'s'}</div></div>
+      <div class="card stat-card"><div class="n">${conv(s.last30Usd)}</div><div class="l">Last 30 days · ${s.last30Count} payment${s.last30Count===1?'':'s'}</div></div>
+      <div class="card stat-card"><div class="n">${conv(s.avgUsd)}</div><div class="l">Average payment · ${s.totalPayments} total</div></div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card">
+        <h3 class="sec">Weekly earnings <span style="color:var(--muted);font-weight:500">(last 8 weeks)</span></h3>
+        ${bars(d.weekly, cur)}
+      </div>
+      <div class="card">
+        <h3 class="sec">Monthly earnings <span style="color:var(--muted);font-weight:500">(last 6 months)</span></h3>
+        ${bars(d.monthly, cur)}
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card"><h3 class="sec">By payment method</h3>${methodRows}</div>
+      <div class="card"><h3 class="sec">By plan</h3>${planRows}</div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3 class="sec">Payment ledger <span style="color:var(--muted);font-weight:500">(${d.records.length} approved)</span></h3>
+      <div class="table-scroll"><table class="data">
+        <thead><tr><th>Date</th><th>User</th><th>Plan</th><th>Method</th><th>Amount</th><th>Screenshot</th></tr></thead>
+        <tbody>${d.records.length ? d.records.map(r => `<tr>
+          <td>${fmtD(r.paidAt)}</td>
+          <td style="color:var(--text)">${r.userName || ''}<div style="color:var(--muted);font-size:.8rem">${r.userEmail}</div></td>
+          <td>${r.planName}</td>
+          <td><span class="method-badge ${r.method}">${r.method}</span></td>
+          <td style="color:var(--text);font-weight:700">${money(r, cur)}</td>
+          <td>${r.screenshotPath ? `<button class="btn btn-ghost" style="padding:7px 12px;font-size:.8rem" onclick="window.open('${r.screenshotPath}','_blank')">View</button>` : '—'}</td>
+        </tr>`).join('') : '<tr><td colspan="6" class="empty">No approved payments yet.</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+}
+</script>
+</body>
+</html>

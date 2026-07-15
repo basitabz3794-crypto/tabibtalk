@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Account — Tabib Talk</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<link rel="stylesheet" href="/css/scifi.css">
+<style>
+  .acct-grid { display:grid; grid-template-columns:1fr; gap:18px; }
+  @media (min-width:820px){ .acct-grid { grid-template-columns: 1.2fr 1fr; } }
+  .kv { display:flex; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid var(--border-soft); font-size:.92rem; }
+  .kv:last-child { border-bottom:none; }
+  .kv .k { color:var(--muted); } .kv .v { color:var(--text); font-weight:600; text-align:right; }
+  .plan-hero { text-align:center; padding:24px; }
+  .plan-hero .tier { font-family:var(--font-display); font-size:1.8rem; font-weight:700; text-transform:capitalize; background:var(--accent-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .plan-hero .exp { color:var(--muted); font-size:.9rem; margin-top:6px; }
+  .countdown { font-family:var(--font-display); font-size:1.3rem; color:var(--text); font-weight:600; margin-top:4px; }
+  .proof-row { display:flex; justify-content:space-between; align-items:center; padding:13px 0; border-bottom:1px solid var(--border-soft); }
+  .proof-row:last-child { border-bottom:none; }
+  h3.sec { font-family:var(--font-display); font-weight:600; font-size:1.1rem; margin:0 0 14px; color:var(--text); }
+</style>
+</head>
+<body class="scifi">
+<div class="nebula"></div>
+<canvas id="scifi-field"></canvas>
+
+<header class="site-header" id="site-header"></header>
+<div class="wrap">
+  <h1 class="page-title reveal">My Account</h1>
+  <div id="alert-box"></div>
+  <div id="content"></div>
+</div>
+<script src="/js/header.js"></script>
+<script src="/js/scifi.js"></script>
+<script>
+function fmtDate(iso){ if(!iso) return '—'; try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); } catch(e){ return iso; } }
+function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime() - Date.now(); return Math.ceil(ms/86400000); }
+
+(async () => {
+  renderHeader('account');
+  enableCopyProtection();
+  enableBlurOnBlur();
+  const user = await getCurrentUser();
+  const content = document.getElementById('content');
+  if (!user) { window.location.href = '/login.html?next=/account.html'; return; }
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('checkout') === 'success') {
+    document.getElementById('alert-box').innerHTML = '<div class="alert alert-success">Payment received! Once we confirm it, your plan will activate — you\'ll see it here.</div>';
+  }
+
+  // gather proofs across methods + devices
+  const [pp, ip, up] = await Promise.all([ api('/api/paypal/my-proofs'), api('/api/instapay/my-proofs'), api('/api/upi/my-proofs') ]);
+  const proofs = [...pp.proofs, ...ip.proofs, ...up.proofs].sort((a,b)=> new Date(b.submittedAt)-new Date(a.submittedAt));
+
+  const dl = daysLeft(user.planExpiresAt);
+  const PLAN_LABELS = {
+    'student-monthly':'Student · Monthly', 'student-6m':'Student · 6 months', 'student-12m':'Student · 12 months',
+    'professional-monthly':'Professional · Monthly', 'professional-6m':'Professional · 6 months', 'professional-yearly':'Professional · 12 months',
+    'lifetime':'Lifetime', 'explorer':'Explorer (free)'
+  };
+  const planLabel = PLAN_LABELS[user.planId] || (user.tier ? user.tier.charAt(0).toUpperCase()+user.tier.slice(1) : 'Explorer');
+  const expiryBlock = user.tier === 'lifetime'
+    ? `<div class="countdown">Lifetime — never expires</div>`
+    : (user.planExpiresAt
+        ? `<div class="exp">Your plan is active until</div><div class="countdown">${fmtDate(user.planExpiresAt)}</div><div class="exp">${dl>0? dl+' day'+(dl===1?'':'s')+' remaining — you\'ll need to subscribe again after this.' : 'Expired — subscribe again to regain full access.'}</div>`
+        : `<div class="exp">You're on the free Explorer plan. Upgrade any time to unlock everything.</div>`);
+
+  content.innerHTML = `
+    <div class="acct-grid">
+      <div class="card reveal d1">
+        <h3 class="sec">Personal details</h3>
+        <div class="kv"><span class="k">Name</span><span class="v">${user.name||'—'}</span></div>
+        <div class="kv"><span class="k">Email</span><span class="v">${user.email}</span></div>
+        <div class="kv"><span class="k">Nationality</span><span class="v">${user.nationality||'—'}</span></div>
+        <div class="kv"><span class="k">Year / grade</span><span class="v">${user.grade||'—'}</span></div>
+        <div class="kv"><span class="k">Phone</span><span class="v">${user.phone||'—'}</span></div>
+        <div class="kv"><span class="k">College</span><span class="v">${user.college||'—'}</span></div>
+        <div class="kv"><span class="k">Member since</span><span class="v">${fmtDate(user.createdAt)}</span></div>
+        <div class="kv"><span class="k">Account status</span><span class="v"><span class="pill pill-${user.status==='active'?'active':'suspended'}">${user.status||'active'}</span></span></div>
+      </div>
+      <div class="card reveal d2">
+        <h3 class="sec">Subscription</h3>
+        <div class="plan-hero">
+          <div class="tier">${user.tier}</div>
+          <div style="color:var(--accent);font-weight:600;font-size:.9rem;margin-top:2px">${planLabel}</div>
+          ${expiryBlock}
+          <div style="margin-top:18px"><a href="/plans.html" class="btn btn-primary">${user.tier==='explorer'?'Choose a plan':'Change plan'} &rarr;</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal d3" style="margin-top:18px">
+      <h3 class="sec">Suggest something to us</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-top:-8px">Ideas, topics you'd like added, or anything that would make Tabib Talk better for you. We read every note.</p>
+      <form id="rec-form">
+        <div class="field"><textarea id="rec-msg" rows="4" placeholder="Your feedback…" required></textarea></div>
+        <button type="submit" class="btn btn-accent">Send feedback</button>
+      </form>
+      <div id="rec-status"></div>
+    </div>
+
+    ${proofs.length ? `<div class="card reveal d4" style="margin-top:18px">
+      <h3 class="sec">Payment history</h3>
+      ${proofs.map(p=>`<div class="proof-row">
+        <div><div style="font-weight:600">${p.planId} <span style="color:var(--muted);font-weight:500;font-size:.8rem">(${p.method})</span></div>
+        <div style="color:var(--muted);font-size:.8rem">${fmtDate(p.submittedAt)}</div></div>
+        <span class="pill pill-${p.status==='approved'?'active':(p.status==='rejected'?'rejected':'pending')}">${p.status}</span>
+      </div>`).join('')}
+    </div>` : ''}
+
+    <div style="margin-top:22px"><button class="btn btn-ghost" id="logout-btn">Log out</button></div>
+  `;
+
+  document.getElementById('rec-form').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    try {
+      await api('/api/recommendations/submit', { method:'POST', body:{ message: document.getElementById('rec-msg').value } });
+      document.getElementById('rec-status').innerHTML = '<div class="alert alert-success" style="margin-top:14px">Thank you — your recommendation has been sent to us.</div>';
+      document.getElementById('rec-form').reset();
+    } catch(err){ document.getElementById('rec-status').innerHTML = `<div class="alert alert-error" style="margin-top:14px">${err.message}</div>`; }
+  });
+  document.getElementById('logout-btn').addEventListener('click', async ()=>{ await api('/api/auth/logout', {method:'POST'}); window.location.href='/index.html'; });
+})();
+</script>
+</body>
+</html>

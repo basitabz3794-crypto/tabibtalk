@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in or create your account — Tabib Talk</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<link rel="stylesheet" href="/css/scifi.css">
+<style>
+  .tab-row { display: flex; gap: 8px; margin-bottom: 22px; }
+  .tab-row button { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-weight: 650; cursor: pointer; color: var(--muted); font-family:inherit; transition:all .16s var(--ease); }
+  .tab-row button.active { background: var(--accent-grad); color: #04110d; border-color: transparent; }
+  .form-panel { display: none; } .form-panel.active { display: block; }
+  .forgot { text-align:right; margin-top:-6px; margin-bottom:14px; }
+  .forgot a { color: var(--accent); font-size:.85rem; font-weight:600; }
+</style>
+</head>
+<body class="scifi">
+<div class="nebula"></div>
+<canvas id="scifi-field"></canvas>
+
+<header class="site-header" id="site-header"></header>
+
+<div class="wrap narrow">
+  <h1 class="page-title reveal">Welcome</h1>
+  <p class="page-sub reveal d1">Create a free account to start with Explorer — it's the key to everything, and required before buying any plan.</p>
+
+  <div id="alert-box"></div>
+
+  <div class="tab-row reveal d1">
+    <button class="active" data-panel="login">Log in</button>
+    <button data-panel="signup">Create account</button>
+  </div>
+
+  <div class="card form-panel active reveal d2" id="panel-login">
+    <form id="login-form">
+      <div class="field"><label for="login-email">Email</label><input type="email" id="login-email" required></div>
+      <div class="field"><label for="login-password">Password</label><input type="password" id="login-password" required></div>
+      <div class="forgot"><a href="#" onclick="showForgot();return false;">Forgot password?</a></div>
+      <button type="submit" class="btn btn-primary btn-block">Log in</button>
+    </form>
+  </div>
+
+  <div class="card form-panel reveal d2" id="panel-signup">
+    <form id="signup-form">
+      <div class="field"><label for="su-name">Full name</label><input type="text" id="su-name" required placeholder="Your name"></div>
+      <div class="field"><label for="su-phone">Phone number</label><input type="tel" id="su-phone" required placeholder="e.g. +20 1XX XXX XXXX"></div>
+      <div class="field"><label for="su-college">College name</label><input type="text" id="su-college" required placeholder="e.g. Cairo University Faculty of Medicine"></div>
+      <div class="field"><label for="su-nationality">Nationality</label><input type="text" id="su-nationality" required placeholder="e.g. Egyptian, Indian"></div>
+      <div class="field"><label for="su-grade">Year / grade in college</label><input type="text" id="su-grade" required placeholder="e.g. 3rd year MBBS"></div>
+      <div class="field"><label for="su-email">Email</label><input type="email" id="su-email" required></div>
+      <div class="field"><label for="su-password">Password</label><input type="password" id="su-password" required minlength="6"><div class="hint">At least 6 characters.</div></div>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.85rem;color:var(--text-dim);margin-bottom:14px;cursor:pointer">
+        <input type="checkbox" id="su-terms" style="width:auto;margin-top:3px" required>
+        <span>I agree to the <a href="#" onclick="openTerms();return false;" style="color:var(--accent);font-weight:600">Terms &amp; Conditions</a> — no refunds, no auto-renewal, and no account or device sharing.</span>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Create free account</button>
+    </form>
+  </div>
+
+  <!-- Forgot-password panel -->
+  <div class="card form-panel reveal d2" id="panel-forgot">
+    <h3 style="font-family:var(--font-display);margin:0 0 6px">Reset your password</h3>
+    <p style="color:var(--muted);font-size:.9rem;margin-top:0">Enter your email and we'll send you a secure link to set a new password. It arrives straight away — no waiting for anyone to approve it.</p>
+    <form id="forgot-form">
+      <div class="field"><label for="fp-email">Email</label><input type="email" id="fp-email" required></div>
+      <button type="submit" class="btn btn-primary btn-block">Send reset link</button>
+    </form>
+    <p style="text-align:center;margin-top:14px"><a href="#" onclick="showLogin();return false;" style="color:var(--accent);font-size:.88rem">&larr; Back to log in</a></p>
+  </div>
+
+  <!-- Email-verification panel -->
+  <div class="card form-panel reveal d2" id="panel-verify">
+    <h3 style="font-family:var(--font-display);margin:0 0 6px">Verify your email</h3>
+    <p style="color:var(--muted);font-size:.9rem;margin-top:0">
+      We've sent a verification link to <b id="verify-email-label"></b>. Open it, then come back and log in.
+    </p>
+    <p style="color:var(--muted);font-size:.85rem">Can't find it? Check your spam folder.</p>
+    <button class="btn btn-primary btn-block" id="resend-btn">Resend verification email</button>
+    <p style="text-align:center;margin-top:14px"><a href="#" onclick="showLogin();return false;" style="color:var(--accent);font-size:.88rem">&larr; Back to log in</a></p>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="/js/header.js"></script>
+<script src="/js/scifi.js"></script>
+<script src="/js/firebase-auth.js"></script>
+<script>
+function showAlert(msg, type = 'error') { document.getElementById('alert-box').innerHTML = `<div class="alert alert-${type}">${msg}</div>`; }
+function clearAlert(){ document.getElementById('alert-box').innerHTML = ''; }
+
+// Remembered only for the "resend verification email" button, which needs to
+// sign back in to Firebase to ask for another email. Never persisted.
+let lastCredentials = { email: '', password: '' };
+
+function showVerify(email) {
+  document.getElementById('verify-email-label').textContent = email;
+  panelTo('panel-verify');
+  document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('active'));
+}
+
+function busy(btn, on, label) {
+  btn.disabled = on;
+  if (on) { btn.dataset.label = btn.textContent; btn.textContent = label; }
+  else if (btn.dataset.label) { btn.textContent = btn.dataset.label; }
+}
+function panelTo(id){ document.querySelectorAll('.form-panel').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function showForgot(){ panelTo('panel-forgot'); document.querySelectorAll('.tab-row button').forEach(b=>b.classList.remove('active')); }
+function showLogin(){ panelTo('panel-login'); document.querySelectorAll('.tab-row button').forEach(b=>b.classList.toggle('active', b.dataset.panel==='login')); }
+
+document.querySelectorAll('.tab-row button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); panelTo(`panel-${btn.dataset.panel}`);
+}));
+
+function nextUrl(){ return new URLSearchParams(window.location.search).get('next') || '/account.html'; }
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearAlert();
+  const btn = e.target.querySelector('button[type=submit]');
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  busy(btn, true, 'Logging in…');
+  try {
+    const r = await TTAuth.logIn(email, password);
+    if (r.needsVerification) {
+      lastCredentials = { email, password };
+      showAlert('Please verify your email first — we\'ve sent you a link.', 'error');
+      showVerify(email);
+      return;
+    }
+    window.location.href = nextUrl();
+  } catch (err) {
+    showAlert(TTAuth.friendlyError(err));
+  } finally { busy(btn, false); }
+});
+
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearAlert();
+  if (!document.getElementById('su-terms').checked) { showAlert('Please agree to the Terms & Conditions to continue.'); return; }
+  const btn = e.target.querySelector('button[type=submit]');
+  const email = document.getElementById('su-email').value;
+  const password = document.getElementById('su-password').value;
+  busy(btn, true, 'Creating your account…');
+  try {
+    await TTAuth.signUp(email, password, {
+      name: document.getElementById('su-name').value,
+      phone: document.getElementById('su-phone').value,
+      college: document.getElementById('su-college').value,
+      nationality: document.getElementById('su-nationality').value,
+      grade: document.getElementById('su-grade').value,
+    });
+    // A brand-new account always starts every progress metric (streak, time
+    // spent, course progress, bookmarks, saved questions) from zero — even
+    // if this browser was used to poke around anonymously before signing up.
+    ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q'].forEach(function(k){
+      try { localStorage.removeItem(k); } catch(e){}
+    });
+    lastCredentials = { email, password };
+    showAlert('Verification email sent! Check your inbox, then log in.', 'success');
+    showVerify(email);
+  } catch (err) {
+    showAlert(TTAuth.friendlyError(err));
+  } finally { busy(btn, false); }
+});
+
+document.getElementById('resend-btn').addEventListener('click', async (e) => {
+  clearAlert();
+  const btn = e.currentTarget;
+  if (!lastCredentials.email) { showAlert('Please log in again so we know which account to resend for.'); showLogin(); return; }
+  busy(btn, true, 'Sending…');
+  try {
+    const r = await TTAuth.resendVerification(lastCredentials.email, lastCredentials.password);
+    if (r.alreadyVerified) {
+      showAlert('That email is already verified — you can log in now.', 'success');
+      showLogin();
+    } else {
+      showAlert('Verification email sent. Check your inbox.', 'success');
+    }
+  } catch (err) {
+    showAlert(TTAuth.friendlyError(err));
+  } finally { busy(btn, false); }
+});
+
+document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearAlert();
+  const btn = e.target.querySelector('button[type=submit]');
+  busy(btn, true, 'Sending…');
+  try {
+    await TTAuth.sendReset(document.getElementById('fp-email').value);
+    showAlert('If that email is registered, a password reset link is on its way. Check your inbox.', 'success');
+  } catch (err) {
+    showAlert(TTAuth.friendlyError(err));
+  } finally { busy(btn, false); }
+});
+
+renderHeader('account');
+enableCopyProtection();
+  enableBlurOnBlur();
+</script>
+</body>
+</html>

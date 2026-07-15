@@ -1,0 +1,415 @@
+/* ============================================================
+   Tabib Talk — Sci-Fi Layer
+   Scoped entirely under `body.scifi`, so it applies ONLY to the
+   landing/plans pages and can never leak into the learning app's
+   lessons, phrases, quizzes or course content.
+   ============================================================ */
+
+body.scifi {
+  --void: #04070d;
+  --ink: #080d16;
+  --glass: rgba(255, 255, 255, .045);
+  --glass-line: rgba(255, 255, 255, .10);
+  --cy: #22d3ee;      /* cyan — the anchor, carried over from Tabib Talk's teal */
+  --vi: #8b5cf6;      /* violet */
+  --mg: #e879f9;      /* magenta */
+  --beam: linear-gradient(135deg, var(--cy), var(--vi) 55%, var(--mg));
+  --txt: #e8f1f8;
+  --dim: #8ea0b5;
+  --faint: #5a6b80;
+
+  background: var(--void);
+  color: var(--txt);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Kill the light-theme ambient glow from main.css on sci-fi pages */
+body.scifi::before { display: none; }
+
+/* ---------- Particle field (the signature element) ---------- */
+#scifi-field {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  display: block;
+}
+
+/* Deep nebula wash sitting under the particles */
+body.scifi .nebula {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(900px circle at 12% 8%, rgba(34,211,238,.10), transparent 60%),
+    radial-gradient(1000px circle at 88% 22%, rgba(139,92,246,.10), transparent 62%),
+    radial-gradient(800px circle at 50% 100%, rgba(232,121,249,.07), transparent 58%);
+}
+
+/* Everything real sits above the field */
+body.scifi .site-header,
+body.scifi .wrap,
+body.scifi .hero,
+body.scifi .site-footer,
+body.scifi .drawer,
+body.scifi .drawer-ov { position: relative; z-index: 2; }
+
+/* ---------- Glass surfaces ---------- */
+body.scifi .card,
+body.scifi .tier-card,
+body.scifi .glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 20px;
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.07);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Holographic sweep — a slow light bar crossing each glass panel */
+body.scifi .card::after,
+body.scifi .tier-card::after,
+body.scifi .glass::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.07), transparent);
+  transform: skewX(-18deg);
+  animation: holoSweep 7s ease-in-out infinite;
+  pointer-events: none;
+}
+body.scifi .tier-card:nth-child(2)::after { animation-delay: 1.4s; }
+body.scifi .tier-card:nth-child(3)::after { animation-delay: 2.8s; }
+@keyframes holoSweep {
+  0%, 65% { left: -60%; }
+  100% { left: 130%; }
+}
+
+/* Hover: the panel lifts and its edge ignites */
+body.scifi .card,
+body.scifi .tier-card {
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), border-color .4s, box-shadow .5s;
+}
+body.scifi .card:hover,
+body.scifi .tier-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(34,211,238,.5);
+  box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(34,211,238,.25),
+              0 0 40px rgba(34,211,238,.18), inset 0 1px 0 rgba(255,255,255,.09);
+}
+
+/* ---------- Typography ---------- */
+body.scifi h1, body.scifi h2, body.scifi .page-title,
+body.scifi .hero h1, body.scifi .head h1 {
+  font-family: 'Orbitron', 'Inter', sans-serif;
+  letter-spacing: -.01em;
+  color: var(--txt);
+}
+body.scifi .grad,
+body.scifi .hero h1 .grad {
+  background: var(--beam);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body.scifi p, body.scifi .page-sub, body.scifi .hero p { color: var(--dim); }
+
+/* ---------- Header ---------- */
+body.scifi .site-header {
+  background: rgba(4,7,13,.6);
+  border-bottom: 1px solid var(--glass-line);
+  backdrop-filter: blur(16px);
+}
+body.scifi .site-header .brand-text strong { color: var(--txt); font-family: 'Orbitron', sans-serif; }
+body.scifi .site-header .brand-text span { color: var(--faint); }
+body.scifi .site-header nav a { color: var(--dim); }
+body.scifi .site-header nav a:hover { background: rgba(255,255,255,.05); color: var(--txt); }
+body.scifi .site-header nav a.active { color: var(--cy); }
+body.scifi .site-header nav a.cta { background: rgba(255,255,255,.05); border-color: var(--glass-line); color: var(--txt); }
+body.scifi .site-header nav a.cta:hover { border-color: var(--cy); color: var(--cy); }
+body.scifi .site-header nav a.account-pin {
+  background: var(--beam); color: #04070d;
+  box-shadow: 0 0 22px rgba(139,92,246,.45);
+}
+body.scifi .site-header .logo-mark { box-shadow: 0 0 0 1px rgba(34,211,238,.35), 0 0 24px rgba(34,211,238,.3); }
+
+/* ---------- Buttons ---------- */
+body.scifi .btn-primary, body.scifi .btn-accent {
+  background: var(--beam); color: #04070d; font-weight: 700;
+  box-shadow: 0 0 26px rgba(139,92,246,.35);
+  position: relative; overflow: hidden;
+}
+body.scifi .btn-primary:hover, body.scifi .btn-accent:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 0 40px rgba(139,92,246,.55);
+  transform: translateY(-2px);
+}
+body.scifi .btn-outline, body.scifi .btn-ghost {
+  background: rgba(255,255,255,.04); color: var(--txt); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(10px);
+}
+body.scifi .btn-outline:hover, body.scifi .btn-ghost:hover {
+  border-color: var(--cy); color: var(--cy); box-shadow: 0 0 22px rgba(34,211,238,.22);
+}
+
+/* ---------- Layered depth: parallax wrapper ---------- */
+body.scifi .depth { will-change: transform; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+
+/* ---------- Scroll reveal ---------- */
+body.scifi .rise { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.2,.8,.2,1), transform .8s cubic-bezier(.2,.8,.2,1); }
+body.scifi .rise.in { opacity: 1; transform: none; }
+
+/* ---------- Hero: floating holographic frame ---------- */
+body.scifi .holo-badge {
+  display: inline-flex; align-items: center; gap: 9px;
+  background: rgba(255,255,255,.04); border: 1px solid var(--glass-line);
+  color: var(--dim); font-size: .74rem; font-weight: 600; letter-spacing: .18em;
+  text-transform: uppercase; padding: 9px 18px; border-radius: 999px;
+  backdrop-filter: blur(10px);
+}
+body.scifi .holo-badge .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--cy);
+  box-shadow: 0 0 10px var(--cy); animation: pulseDot 2s ease-in-out infinite;
+}
+@keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Thin neon rule used as a structural divider */
+body.scifi .beam-rule {
+  height: 1px; border: 0; margin: 0;
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,.5), rgba(139,92,246,.5), transparent);
+}
+
+/* ---------- Footer ---------- */
+body.scifi .site-footer { border-top: 1px solid var(--glass-line); color: var(--faint); }
+body.scifi .site-footer a { color: var(--dim); }
+body.scifi .site-footer a:hover { color: var(--cy); }
+
+/* ---------- Forms on sci-fi pages ---------- */
+body.scifi .field input, body.scifi .field textarea, body.scifi .field select {
+  background: rgba(255,255,255,.04); border: 1px solid var(--glass-line); color: var(--txt);
+  backdrop-filter: blur(8px);
+}
+body.scifi .field input:focus, body.scifi .field textarea:focus {
+  border-color: var(--cy); box-shadow: 0 0 0 3px rgba(34,211,238,.15);
+}
+body.scifi .field label { color: var(--dim); }
+
+/* ---------- Respect reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  body.scifi .card::after, body.scifi .tier-card::after, body.scifi .glass::after { animation: none; display: none; }
+  body.scifi .rise { opacity: 1; transform: none; transition: none; }
+  body.scifi .depth { transition: none; }
+  body.scifi .holo-badge .dot { animation: none; }
+}
+
+/* ============================================================
+   Plans page — its own components, re-skinned for the sci-fi layer.
+   Structure and behaviour are untouched; this is purely surface.
+   ============================================================ */
+body.scifi .launch-note {
+  background: rgba(232,121,249,.08); border: 1px solid rgba(232,121,249,.25); color: var(--mg);
+}
+body.scifi .seg {
+  background: rgba(255,255,255,.04); border: 1px solid var(--glass-line); backdrop-filter: blur(12px);
+}
+body.scifi .seg button { color: var(--dim); }
+body.scifi .seg button.on { background: var(--beam); color: #04070d; box-shadow: 0 0 22px rgba(139,92,246,.4); }
+body.scifi .seg.period button.on { background: var(--beam); color: #04070d; border-color: transparent; }
+body.scifi .audience-hint { color: var(--faint); }
+
+body.scifi .ribbon { background: var(--beam); color: #04070d; box-shadow: 0 0 20px rgba(34,211,238,.45); }
+body.scifi .tier-card.featured { border-color: rgba(34,211,238,.5); box-shadow: 0 0 0 1px rgba(34,211,238,.3), 0 30px 80px rgba(0,0,0,.6), 0 0 50px rgba(34,211,238,.15); }
+body.scifi .plan-name { color: var(--txt); font-family: 'Orbitron', sans-serif; }
+body.scifi .plan-term, body.scifi .price-sub, body.scifi .price-fx { color: var(--faint); }
+body.scifi .price-now {
+  font-family: 'Orbitron', sans-serif;
+  background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body.scifi .feats li { color: var(--dim); }
+body.scifi .feats li::before { border-color: var(--cy); }
+body.scifi .btn-contact { background: rgba(255,255,255,.04); border-color: var(--glass-line); color: var(--dim); }
+body.scifi .btn-contact:hover { border-color: var(--cy); color: var(--cy); }
+
+body.scifi .lifetime {
+  background: linear-gradient(135deg, rgba(34,211,238,.10), rgba(139,92,246,.12));
+  border: 1px solid rgba(139,92,246,.3);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+}
+body.scifi .lt-badge { background: var(--beam); color: #04070d; }
+body.scifi .lt-now { font-family: 'Orbitron', sans-serif; color: #fff; }
+
+body.scifi .compare h2 { font-family: 'Orbitron', sans-serif; color: var(--txt); }
+body.scifi .compare .csub { color: var(--faint); }
+body.scifi .table-scroll { background: rgba(255,255,255,.03); border: 1px solid var(--glass-line); backdrop-filter: blur(14px); }
+body.scifi table.cmp thead th { color: var(--txt); border-bottom-color: var(--glass-line); }
+body.scifi table.cmp thead th.hl { background: rgba(34,211,238,.08); color: var(--cy); }
+body.scifi table.cmp tbody td { color: var(--dim); border-bottom-color: rgba(255,255,255,.05); }
+body.scifi table.cmp tbody td:first-child { color: var(--txt); }
+body.scifi table.cmp td.hl { background: rgba(34,211,238,.05); }
+body.scifi .yes { color: var(--cy); }
+body.scifi .no { color: var(--faint); }
+
+body.scifi .pay-methods { border-top-color: var(--glass-line); }
+body.scifi .pay-methods h2 { font-family: 'Orbitron', sans-serif; color: var(--txt); }
+body.scifi .method-tab { background: rgba(255,255,255,.04); border-color: var(--glass-line); color: var(--dim); }
+body.scifi .method-tab.active { background: var(--beam); color: #04070d; border-color: transparent; }
+body.scifi .instapay-detail { background: rgba(255,255,255,.04); border-color: var(--glass-line); color: var(--dim); }
+body.scifi .instapay-detail span:last-child { color: var(--cy); }
+body.scifi .instapay-detail.price-to-pay { background: rgba(232,121,249,.08); border-color: rgba(232,121,249,.25); }
+body.scifi .instapay-detail.price-to-pay span:last-child { color: var(--mg); }
+body.scifi .pay-method-note { color: var(--faint); }
+
+/* ============================================================
+   Admin Hub — re-skinned for the sci-fi layer.
+   ============================================================ */
+body.scifi .tabs { border-bottom-color: var(--glass-line); }
+body.scifi .tabs button { color: var(--dim); }
+body.scifi .tabs button.on { color: var(--cy); border-bottom-color: var(--cy); }
+body.scifi .stat-card .n { font-family: 'Orbitron', sans-serif; color: var(--txt); }
+body.scifi .stat-card.accent .n { background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; }
+body.scifi .stat-card .l { color: var(--faint); }
+body.scifi h3.sec { font-family: 'Orbitron', sans-serif; color: var(--txt); }
+body.scifi table.data th { color: var(--faint); border-bottom-color: var(--glass-line); }
+body.scifi table.data td { color: var(--dim); border-bottom-color: rgba(255,255,255,.05); }
+body.scifi .empty { color: var(--faint); }
+body.scifi .proof-card img { border-color: var(--glass-line); background: rgba(255,255,255,.03); }
+body.scifi .gate { max-width: 420px; }
+body.scifi .pill-active { background: rgba(34,211,238,.14); color: var(--cy); }
+body.scifi .pill-pending { background: rgba(232,121,249,.12); color: var(--mg); }
+body.scifi .pill-rejected, body.scifi .pill-suspended, body.scifi .pill-banned { background: rgba(244,103,107,.12); color: #ff9a9d; }
+body.scifi .pill-none { background: rgba(255,255,255,.06); color: var(--faint); }
+body.scifi .method-badge.paypal { background: rgba(34,211,238,.14); color: var(--cy); }
+body.scifi .method-badge.instapay { background: rgba(139,92,246,.16); color: #b79dfa; }
+body.scifi .method-badge.upi { background: rgba(232,121,249,.14); color: var(--mg); }
+
+/* ============================================================
+   Plans page — heavy fluid motion.
+   Cards enter in a staggered cascade, the price counts in, and
+   the whole grid settles with a spring. Kept off the learning app
+   entirely; this is the marketing surface, where it earns attention.
+   ============================================================ */
+@keyframes cardFlyIn {
+  0%   { opacity: 0; transform: translateY(50px) scale(.92) rotateX(10deg); filter: blur(8px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
+}
+/* The selected plan lands larger — a separate keyframe, because an animation
+   with fill-mode:both wins over any static transform rule, so the enlarged
+   state has to be the animation's own end state. */
+@keyframes cardFlyInFeatured {
+  0%   { opacity: 0; transform: translateY(50px) scale(.92) rotateX(10deg); filter: blur(8px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1.045) rotateX(0); }
+}
+body.scifi .cards { perspective: 1400px; }
+body.scifi .tier-card {
+  animation: cardFlyIn .85s cubic-bezier(.16,1,.3,1) both;
+}
+body.scifi .tier-card:nth-child(1) { animation-delay: .04s; }
+body.scifi .tier-card:nth-child(2) { animation-delay: .14s; }
+body.scifi .tier-card:nth-child(3) { animation-delay: .24s; }
+
+/* The selected plan physically grows — the fix the user asked for, made tactile */
+body.scifi .tier-card.featured {
+  animation-name: cardFlyInFeatured;
+  z-index: 3;
+}
+body.scifi .tier-card.featured:hover { transform: scale(1.045) translateY(-6px); }
+
+/* Price morphs when the plan/period changes */
+@keyframes priceSnap {
+  0%   { opacity: 0; transform: translateY(14px) scale(.9); filter: blur(6px); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+body.scifi .price-now, body.scifi .price-fx { animation: priceSnap .55s cubic-bezier(.16,1,.3,1) both; }
+body.scifi .price-fx { animation-delay: .06s; }
+
+/* Feature list cascades in behind the price */
+@keyframes featSlide { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+body.scifi .feats li { animation: featSlide .5s cubic-bezier(.16,1,.3,1) both; }
+body.scifi .feats li:nth-child(1) { animation-delay: .10s; }
+body.scifi .feats li:nth-child(2) { animation-delay: .15s; }
+body.scifi .feats li:nth-child(3) { animation-delay: .20s; }
+body.scifi .feats li:nth-child(4) { animation-delay: .25s; }
+body.scifi .feats li:nth-child(5) { animation-delay: .30s; }
+body.scifi .feats li:nth-child(6) { animation-delay: .35s; }
+body.scifi .feats li:nth-child(7) { animation-delay: .40s; }
+body.scifi .feats li:nth-child(8) { animation-delay: .45s; }
+body.scifi .feats li:nth-child(9) { animation-delay: .50s; }
+
+/* Toggle buttons get a springy press */
+body.scifi .seg button { transition: transform .4s cubic-bezier(.16,1,.3,1), background .3s, color .3s, box-shadow .3s; }
+body.scifi .seg button:active { transform: scale(.94); }
+body.scifi .seg button.on { transform: scale(1.04); }
+
+/* Comparison table rows fade up on reveal */
+@keyframes rowIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+body.scifi table.cmp tbody tr { animation: rowIn .5s cubic-bezier(.16,1,.3,1) both; }
+body.scifi table.cmp tbody tr:nth-child(1) { animation-delay: .02s; }
+body.scifi table.cmp tbody tr:nth-child(2) { animation-delay: .05s; }
+body.scifi table.cmp tbody tr:nth-child(3) { animation-delay: .08s; }
+body.scifi table.cmp tbody tr:nth-child(4) { animation-delay: .11s; }
+body.scifi table.cmp tbody tr:nth-child(5) { animation-delay: .14s; }
+body.scifi table.cmp tbody tr:nth-child(6) { animation-delay: .17s; }
+body.scifi table.cmp tbody tr:nth-child(n+7) { animation-delay: .20s; }
+
+/* Payment panel slides open */
+@keyframes panelDrop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+body.scifi .method-panel.active { animation: panelDrop .45s cubic-bezier(.16,1,.3,1) both; }
+
+/* ============================================================
+   Account & Login pages — sci-fi surfaces.
+   ============================================================ */
+body.scifi .kv { border-bottom-color: rgba(255,255,255,.06); }
+body.scifi .kv .k { color: var(--faint); }
+body.scifi .kv .v { color: var(--txt); }
+body.scifi .plan-hero .tier { font-family: 'Orbitron', sans-serif; background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; }
+body.scifi .plan-hero .exp { color: var(--faint); }
+body.scifi .countdown { font-family: 'Orbitron', sans-serif; color: var(--txt); }
+body.scifi .proof-row { border-bottom-color: rgba(255,255,255,.06); }
+body.scifi .tab-row button { background: rgba(255,255,255,.04); border-color: var(--glass-line); color: var(--dim); }
+body.scifi .tab-row button.active { background: var(--beam); color: #04070d; border-color: transparent; }
+body.scifi .forgot a { color: var(--cy); }
+body.scifi .alert-error { background: rgba(244,103,107,.1); color: #ffb4b6; border-color: rgba(244,103,107,.3); }
+body.scifi .alert-success { background: rgba(34,211,238,.08); color: #7fe6d8; border-color: rgba(34,211,238,.28); }
+body.scifi .alert-info { background: rgba(139,92,246,.08); color: #b79dfa; border-color: rgba(139,92,246,.28); }
+body.scifi .modal { background: rgba(8,13,22,.96); border-color: var(--glass-line); backdrop-filter: blur(24px); }
+body.scifi .modal h2 { font-family: 'Orbitron', sans-serif; color: var(--txt); }
+body.scifi .modal .modal-x { background: rgba(255,255,255,.05); border-color: var(--glass-line); color: var(--dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  body.scifi .tier-card, body.scifi .price-now, body.scifi .price-fx,
+  body.scifi .feats li, body.scifi table.cmp tbody tr, body.scifi .method-panel.active,
+  body.scifi .bar-fill { animation: none !important; }
+  body.scifi .tier-card.featured { transform: scale(1.03); }
+}
+
+/* ============================================================
+   3D scroll reveal — landing-page text phrases
+   Each phrase is wrapped in .r3d; the wrapper rotates in 3D while the
+   inner .depth element keeps its cursor parallax (scifi.js rewrites
+   .depth's transform every mousemove, so the two must not share an
+   element). Perspective lives on the section, so the rotation reads as
+   real depth rather than a flat squash.
+   ============================================================ */
+.hero, .features, .stats { perspective: 1100px; perspective-origin: 50% 35%; }
+
+.r3d {
+  display: block;
+  opacity: 0;
+  /* pushed back on Z and pitched away from the viewer, hinged at its base */
+  transform: translate3d(0, 46px, -180px) rotateX(-64deg) scale(.94);
+  transform-origin: 50% 100%;
+  backface-visibility: hidden;
+  transition:
+    opacity .8s cubic-bezier(.16, 1, .3, 1),
+    transform 1.15s cubic-bezier(.16, 1, .3, 1);
+  transition-delay: calc(var(--d, 0) * 110ms);
+}
+.r3d.in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+}
+/* Promote to its own layer only while it still has work to do — once .in
+   lands, will-change drops and the compositor reclaims the layer. */
+.r3d:not(.in) { will-change: transform, opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  .r3d { opacity: 1; transform: none; transition: none; }
+}

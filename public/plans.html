@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plans & Pricing — Tabib Talk</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<link rel="stylesheet" href="/css/scifi.css">
+<style>
+  .head { text-align: center; max-width: 640px; margin: 0 auto 20px; }
+  .head h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(2rem, 5vw, 2.8rem); color: var(--text); margin: 0 0 12px; letter-spacing:-.02em; }
+  .launch-note { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font-size: .82rem; font-weight: 600; color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(245,181,68,.25); padding: 8px 15px; border-radius: 999px; }
+  .launch-note::before { content: "\25C6"; font-size: .7rem; }
+
+  .toggles { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 30px 0 36px; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 5px; gap: 4px; }
+  .seg button { border: none; background: transparent; font: inherit; font-weight: 600; color: var(--muted); padding: 10px 22px; border-radius: 999px; cursor: pointer; transition: all .18s var(--ease); white-space: nowrap; }
+  .seg button.on { background: var(--accent-grad); color: #04110d; }
+  .seg.period button.on { background: var(--accent-grad); color: #04110d; border:1px solid transparent; font-weight: 800; box-shadow: 0 4px 14px var(--accent-glow); }
+  .audience-hint { font-size: .86rem; color: var(--muted); }
+
+  .cards { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1000px) { .cards { grid-template-columns: repeat(3, 1fr); align-items: start; } }
+
+  .tier-card { background: linear-gradient(180deg,var(--surface),var(--bg-2)); border: 1px solid var(--border); border-radius: 20px; padding: 26px 24px; box-shadow: var(--shadow); position: relative; display: flex; flex-direction: column; }
+  .tier-card.featured { border: 1px solid var(--accent); box-shadow: 0 20px 48px var(--accent-glow); }
+  .ribbon { position: absolute; top: -12px; left: 24px; background: var(--accent-grad); color: #04110d; font-size: .66rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; }
+  .plan-name { font-family:var(--font-display); font-weight: 600; font-size: 1.12rem; color: var(--text); }
+  .plan-term { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+  .price-row { margin: 18px 0 6px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .price-now { font-family: var(--font-display); font-weight: 700; font-size: 2.4rem; color: var(--text); line-height: 1; }
+  .price-was { color: var(--muted); text-decoration: line-through; font-size: 1.02rem; }
+  .offer-badge { display: inline-block; font-size: .66rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(245,181,68,.25); padding: 5px 10px; border-radius: 8px; margin-top: 4px; }
+  .price-fx { color: var(--muted); font-size: .82rem; margin-top: 4px; }
+  .price-sub { color: var(--muted); font-size: .82rem; margin-top: 10px; min-height: 18px; }
+  .feats { list-style: none; padding: 0; margin: 18px 0 22px; flex: 1; }
+  .feats li { position: relative; padding: 7px 0 7px 26px; font-size: .89rem; color: var(--text-dim); }
+  .feats li::before { content: ""; position: absolute; left: 0; top: 11px; width: 13px; height: 7px; border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); }
+
+  .btn-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+  .btn-contact { background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 13px; width: 50px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; transition: all .15s var(--ease); text-decoration: none; }
+  .btn-contact:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+  .btn-contact svg { width: 19px; height: 19px; }
+  .tier-card .btn-primary, .tier-card .btn-accent { width: 100%; }
+
+  .lifetime { margin-top: 22px; background: linear-gradient(135deg, #10202b, #0c1a16); color: var(--text); border: 1px solid var(--border); border-radius: 22px; padding: 30px 32px; display: grid; gap: 22px; grid-template-columns: 1fr; align-items: center; box-shadow: var(--shadow); position:relative; overflow:hidden; }
+  .lifetime::after { content:""; position:absolute; top:-40%; right:-10%; width:300px; height:300px; background:radial-gradient(circle,var(--accent-glow),transparent 70%); pointer-events:none; }
+  @media (min-width: 820px) { .lifetime { grid-template-columns: 1fr auto; } }
+  .lifetime h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; margin: 12px 0 6px; }
+  .lifetime p { margin: 0; color: var(--muted); font-size: .95rem; max-width: 460px; }
+  .lt-price { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; }
+  .lt-now { font-family: var(--font-display); font-size: 2.2rem; font-weight: 700; color:#fff; }
+  .lt-was { text-decoration: line-through; color: var(--muted); font-size: 1.02rem; }
+  .lt-badge { background: var(--accent-grad); color: #04110d; font-weight: 800; font-size: .66rem; letter-spacing: .04em; text-transform: uppercase; padding: 5px 10px; border-radius: 8px; }
+  .lifetime .btn-row { min-width: 250px; }
+  .lifetime .btn-primary { width: 100%; }
+
+  .compare { margin-top: 60px; }
+  .compare h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; color: var(--text); text-align: center; margin: 0 0 6px; }
+  .compare .csub { text-align: center; color: var(--muted); margin: 0 0 26px; font-size: .95rem; }
+  .table-scroll { overflow-x: auto; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); }
+  table.cmp { width: 100%; border-collapse: collapse; min-width: 560px; }
+  table.cmp thead th { text-align: center; padding: 18px 16px; font-size: .92rem; color: var(--text); font-weight: 700; border-bottom: 1px solid var(--border); }
+  table.cmp thead th:first-child { text-align: left; font-family: var(--font-display); font-weight: 600; }
+  table.cmp thead th.hl { background: rgba(45,212,191,.08); color: var(--accent); }
+  table.cmp thead th.hl .tag { display: block; font-size: .6rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 800; margin-top: 2px; }
+  table.cmp tbody td { text-align: center; padding: 14px 16px; border-bottom: 1px solid var(--border-soft); font-size: .89rem; color:var(--text-dim); }
+  table.cmp tbody td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+  table.cmp tbody tr:last-child td { border-bottom: none; }
+  table.cmp td.hl { background: rgba(45,212,191,.05); }
+  .yes { color: var(--accent); font-weight: 800; } .no { color: var(--faint); }
+
+  .pay-methods { margin-top: 50px; padding-top: 36px; border-top: 1px solid var(--border); scroll-margin-top: 20px; }
+  .pay-methods h2 { font-family:var(--font-display); font-weight:600; }
+  .method-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .method-tab { padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-weight: 650; cursor: pointer; color: var(--muted); font-size: .9rem; }
+  .method-tab.active { background: var(--accent-grad); color: #04110d; border-color: transparent; }
+  .method-panel { display: none; } .method-panel.active { display: block; }
+  .instapay-box { display: flex; flex-direction: column; gap: 12px; }
+  .instapay-detail { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--bg-2); border:1px solid var(--border); border-radius: 12px; font-weight: 600; color:var(--text-dim); }
+  .pay-method-note { color: var(--muted); font-size: .88rem; margin-bottom: 10px; font-style: italic; }
+  .whatsapp-cta { text-align: center; margin-top: 50px; padding-top: 30px; border-top: 1px solid var(--border);
+    display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .social-btn { display: inline-flex; align-items: center; gap: 10px; color: #fff; font-weight: 700;
+    padding: 13px 24px; border-radius: 999px; transition: all .16s var(--ease); text-decoration: none; }
+  .social-btn.wa { background: #25D366; }
+  .social-btn.wa:hover { background: #1ebe57; transform: translateY(-2px); box-shadow: 0 10px 24px rgba(37,211,102,.3); }
+  .social-btn.ig { background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); }
+  .social-btn.ig:hover { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(220,39,67,.3); }
+  .instapay-detail.price-to-pay { background: var(--gold-dim); border-color: rgba(245,181,68,.3); }
+  .instapay-detail.price-to-pay span:last-child { color: var(--gold); font-weight: 800; font-size: 1.05rem; }
+  .instapay-detail span:last-child { color: var(--accent); }
+  .proof-status { margin-top: 16px; }
+</style>
+</head>
+<body class="scifi">
+<div class="nebula"></div>
+<canvas id="scifi-field"></canvas>
+
+<header class="site-header" id="site-header"></header>
+
+<div class="wrap">
+  <header class="head">
+    <h1>Plans &amp; Pricing</h1>
+    <p class="page-sub" style="margin:0 auto">Trilingual medical Arabic for students and practising clinicians. Every plan includes the full learning app.</p>
+    <div class="launch-note">Launch offer — introductory pricing for early members</div>
+  </header>
+
+  <div id="alert-box"></div>
+
+  <div class="toggles">
+    <div class="seg audience" role="tablist" aria-label="Choose audience">
+      <button class="on" data-aud="student" role="tab" aria-selected="true">Student</button>
+      <button data-aud="professional" role="tab" aria-selected="false">Professional</button>
+    </div>
+    <div class="seg period" role="tablist" aria-label="Choose billing period">
+      <button class="on" data-period="monthly">Monthly</button>
+      <button data-period="six">6-Month</button>
+      <button data-period="year">12-Month</button>
+    </div>
+    <div class="audience-hint" id="audience-hint">Recommended for 1st, 2nd &amp; 3rd-year students.</div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <!-- Lifetime -->
+  <section class="lifetime">
+    <div>
+      <span class="lt-badge">Best value · one payment</span>
+      <h3>Lifetime access</h3>
+      <p>Pay once, keep everything forever — all future lessons, specialties and features included, with no recurring charge.</p>
+      <div class="lt-price" id="lt-price-block"><span class="lt-now">$99</span></div>
+      <div class="price-fx" id="lt-price-fx" style="color:rgba(255,255,255,.65)"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="choosePaid('lifetime','Lifetime')">Get Lifetime Access</button>
+      <a class="btn-contact" href="mailto:thetabibtalk@gmail.com?subject=Question%20about%20the%20Lifetime%20plan&body=Hi%20Tabib%20Talk%20team%2C%0A%0A" aria-label="Contact us about the Lifetime plan" title="Contact us">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <!-- Comparison table -->
+  <section class="compare">
+    <h2>What's included</h2>
+    <p class="csub">Compare what you unlock at each tier, so you can pick with confidence.</p>
+    <div class="table-scroll">
+      <table class="cmp">
+        <thead><tr>
+          <th>Feature</th><th>Explorer</th><th>Student</th><th class="hl">Professional<span class="tag">Recommended</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Navigate the whole app</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Franco, Communication &amp; Ethics, History</td><td>Only as Course</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Course study paths</td><td>Few</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>All specialties &amp; IM systems — fully unlocked</td><td class="no">—</td><td>Few</td><td class="hl yes">✓</td></tr>
+          <tr><td>QBank (exam-style questions)</td><td class="no">—</td><td class="no">—</td><td class="hl yes">✓</td></tr>
+          <tr><td>Flashcards &amp; Quiz Hub</td><td>Few</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>AI Patient</td><td class="no">—</td><td>Limited (2 scenarios)</td><td class="hl">Fully unlocked</td></tr>
+          <tr><td>Bookmark</td><td class="no">—</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Conversations</td><td class="no">—</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Detailed analysis</td><td class="no">—</td><td>Flashcards &amp; Quiz Hub</td><td class="hl">Quiz Hub, Flashcards &amp; QBank</td></tr>
+          <tr><td>Translate, Search &amp; Streak</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Bedside history-taking reference</td><td class="no">—</td><td class="no">—</td><td class="hl yes">✓</td></tr>
+          <tr><td>Eye Comfort mode</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Dark / light background switch</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
+          <tr><td>Voice on every available phrase</td><td>On free content</td><td>On Student content</td><td class="hl">On everything</td></tr>
+          <tr><td>Patient replies</td><td>On free content</td><td>On Student content</td><td class="hl">On everything</td></tr>
+          <tr><td>Dictionary</td><td class="no">—</td><td>Course only</td><td class="hl">Course + fully unlocked</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Payment methods (revealed after a plan is chosen) -->
+  <div class="pay-methods" id="pay-methods" style="display:none">
+    <h2 style="color:var(--primary);">Pay for <span id="chosen-plan-name"></span></h2>
+    <p style="color:var(--muted);font-size:.88rem;margin:-6px 0 18px">By paying you agree to our <a href="#" onclick="openTerms();return false;" style="color:var(--accent);font-weight:600">Terms &amp; Conditions</a> — no refunds, no auto-renewal, and no account or device sharing.</p>
+    <div class="method-tabs">
+      <button class="method-tab active" data-method="paypal">PayPal (International)</button>
+      <button class="method-tab" data-method="instapay">InstaPay (Egypt)</button>
+      <button class="method-tab" data-method="upi">UPI (India)</button>
+    </div>
+
+    <div class="method-panel active" id="panel-paypal">
+      <p style="color:var(--muted)">Send the plan amount via PayPal to the details below, then upload a screenshot of your payment confirmation. We'll confirm and activate your plan — usually within a few hours.</p>
+      <div class="instapay-box" id="paypal-details"></div>
+      <form class="proof-form" data-method="paypal" style="margin-top:18px">
+        <div class="field"><label>Payment Screenshot</label><input type="file" class="screenshot-input" accept="image/png,image/jpeg,image/webp" required></div>
+        <div class="field"><label>PayPal Transaction ID / Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the PayPal transaction ID, or the email you paid from"></div>
+        <button type="submit" class="btn btn-accent btn-block">Submit Payment Proof</button>
+      </form>
+      <div class="proof-status"></div>
+    </div>
+
+    <div class="method-panel" id="panel-instapay">
+      <p style="color:var(--muted)">Send the plan amount via InstaPay to the details below, then upload a screenshot of your payment. We'll confirm and activate your plan — usually within a few hours.</p>
+      <div class="instapay-box" id="instapay-details"></div>
+      <form class="proof-form" data-method="instapay" style="margin-top:18px">
+        <div class="field"><label>Payment Screenshot</label><input type="file" class="screenshot-input" accept="image/png,image/jpeg,image/webp" required></div>
+        <div class="field"><label>Transaction Reference / Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. IPA transfer ref, or the phone number you paid from"></div>
+        <button type="submit" class="btn btn-accent btn-block">Submit Payment Proof</button>
+      </form>
+      <div class="proof-status"></div>
+    </div>
+
+    <div class="method-panel" id="panel-upi">
+      <p style="color:var(--muted)">Send the plan amount via any UPI app (Google Pay, PhonePe, Paytm, etc.) to the ID below, then upload a screenshot of your payment. We'll confirm and activate your plan — usually within a few hours.</p>
+      <div class="instapay-box" id="upi-details"></div>
+      <form class="proof-form" data-method="upi" style="margin-top:18px">
+        <div class="field"><label>Payment Screenshot</label><input type="file" class="screenshot-input" accept="image/png,image/jpeg,image/webp" required></div>
+        <div class="field"><label>UPI Transaction ID / Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the UPI reference number, or the app you paid from"></div>
+        <button type="submit" class="btn btn-accent btn-block">Submit Payment Proof</button>
+      </form>
+      <div class="proof-status"></div>
+    </div>
+  </div>
+
+  <div class="whatsapp-cta">
+    <a class="social-btn wa" href="https://chat.whatsapp.com/DRdhj1aLapX5qgMJ0SGbPM" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.48 1.32 4.99L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21h.005c5.46 0 9.91-4.45 9.91-9.91C21.94 6.45 17.5 2 12.04 2zm0 18.15h-.004c-1.48 0-2.94-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.42a8.19 8.19 0 0 1 2.41 5.83c0 4.55-3.7 8.24-8.24 8.24zm4.52-6.17c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.48-1.39-1.73-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.36-.77-1.86-.2-.48-.41-.42-.56-.43-.14-.01-.31-.01-.48-.01s-.43.06-.66.31c-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.57.12.17 1.75 2.67 4.24 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.11-.23-.17-.48-.29z"/></svg>
+      <span>Join our WhatsApp Community</span>
+    </a>
+    <a class="social-btn ig" href="https://www.instagram.com/thetabibtalk?igsh=eGRzZm1zMDd2c3hx&utm_source=qr" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.22.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.05.41 2.22.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.22-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.05.36-2.22.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.22-.41-.56-.21-.96-.47-1.38-.89-.42-.42-.68-.82-.89-1.38-.17-.42-.36-1.05-.41-2.22-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.22.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.05-.36 2.22-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07c-1.28.06-2.15.26-2.91.56-.79.31-1.46.72-2.13 1.39-.67.67-1.08 1.34-1.39 2.13-.3.76-.5 1.63-.56 2.91C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.28.26 2.15.56 2.91.31.79.72 1.46 1.39 2.13.67.67 1.34 1.08 2.13 1.39.76.3 1.63.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.28-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.39.67-.67 1.08-1.34 1.39-2.13.3-.76.5-1.63.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.28-.26-2.15-.56-2.91-.31-.79-.72-1.46-1.39-2.13-.67-.67-1.34-1.08-2.13-1.39-.76-.3-1.63-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4zm6.41-10.4a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>
+      <span>Follow us on Instagram</span>
+    </a>
+  </div>
+</div>
+
+<footer class="site-footer">Tabib Talk &mdash; Egyptian Medical Arabic for Medical Students</footer>
+
+<script src="/js/header.js"></script>
+<script src="/js/scifi.js"></script>
+<script>
+let currentUser = null;
+let selectedPlanId = null;
+const CONTACT = 'thetabibtalk@gmail.com';
+
+function showAlert(msg, type = 'error') { document.getElementById('alert-box').innerHTML = `<div class="alert alert-${type}">${msg}</div>`; }
+
+function contactHref(planLabel) {
+  const subject = encodeURIComponent(`Question about the ${planLabel} plan`);
+  const body = encodeURIComponent(`Hi Tabib Talk team,\n\nI have a question about the ${planLabel} plan before subscribing:\n\n`);
+  return `mailto:${CONTACT}?subject=${subject}&body=${body}`;
+}
+
+// Maps the two toggles to the real backend plan ids
+const PLAN_MAP = {
+  student:      { monthly: 'student-monthly', six: 'student-6m', year: 'student-12m' },
+  professional: { monthly: 'professional-monthly', six: 'professional-6m', year: 'professional-yearly' },
+};
+
+const FEATURES = {
+  student: ['Full access to the learning app', 'Franco, Communication & Ethics, History', 'Course study paths with subtests', 'Flashcards & Quiz Hub', 'AI Patient (2 scenarios)', 'Bookmark & Conversations', 'Detailed analysis (Flashcards & Quiz Hub)', 'Translate, Search & Streak', 'Streaks and analytics'],
+  professional: ['Everything in Student, plus:', 'All specialties & Internal-Medicine systems — fully unlocked', 'Full QBank (exam-style questions)', 'Detailed analysis (Quiz Hub, Flashcards & QBank)', 'Bedside history-taking reference', 'Priority access to new content', 'Streaks and analytics'],
+};
+const HINTS = { student: 'Recommended for 1st, 2nd & 3rd-year students.', professional: 'For highly-motivated 1st–2nd years, 3rd–5th-year students, interns, GPs & residents — especially doctors practising in Gulf countries.' };
+
+let audience = 'student';
+let period = 'monthly';
+let ALL_PLANS = {};
+
+function planTermLabel(period){
+  if(period==='1 month') return '';
+  if(period==='6 months') return 'Six-month, one-time payment';
+  if(period==='12 months') return 'Twelve-month, one-time payment';
+  return period;
+}
+
+function render() {
+  document.getElementById('audience-hint').textContent = HINTS[audience];
+  const periods = [
+    { key: 'monthly', featured: period === 'monthly' },
+    { key: 'six', featured: period === 'six' },
+    { key: 'year', featured: period === 'year' },
+  ];
+  document.getElementById('cards').innerHTML = periods.map(({ key, featured }) => {
+    const planId = PLAN_MAP[audience][key];
+    const p = ALL_PLANS[planId];
+    if (!p) return '';
+    const planLabel = `${p.name} · ${p.period}`;
+    const active = key === period ? ' style="outline:3px solid var(--teal-tint);outline-offset:3px"' : '';
+    return `
+      <div class="tier-card${featured ? ' featured' : ''}"${active}>
+        ${featured ? '<span class="ribbon">Best value</span>' : ''}
+        <div class="plan-name">${p.name}</div>
+        <div class="plan-term">${planTermLabel(p.period)}</div>
+        <div class="price-row"><span class="price-now">$${p.priceNow}</span></div>
+        <div class="price-fx">&#8776; \u20B9${(p.inr||0).toLocaleString('en-IN')} INR &middot; E\u00A3${(p.egp||0).toLocaleString()} EGP</div>
+        <div class="price-sub">${p.offerNote}</div>
+        <ul class="feats">${FEATURES[audience].map(f => `<li>${f}</li>`).join('')}</ul>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="choosePaid('${planId}','${p.name} (${p.period})')">Choose this plan</button>
+          <a class="btn-contact" href="${contactHref(planLabel)}" aria-label="Contact us about the ${planLabel} plan" title="Contact us">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          </a>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function choosePaid(planId, planName) {
+  if (!currentUser) {
+    window.location.href = `/login.html?next=${encodeURIComponent('/plans.html?plan=' + planId)}`;
+    return;
+  }
+  selectedPlanId = planId;
+  document.getElementById('chosen-plan-name').textContent = planName;
+  document.getElementById('pay-methods').style.display = 'block';
+  document.getElementById('pay-methods').scrollIntoView({ behavior: 'smooth' });
+  updatePayAmounts();
+}
+window.choosePaid = choosePaid;
+
+document.querySelectorAll('.seg.audience button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg.audience button').forEach(x => { x.classList.remove('on'); x.setAttribute('aria-selected','false'); });
+  b.classList.add('on'); b.setAttribute('aria-selected','true'); audience = b.dataset.aud; render();
+}));
+document.querySelectorAll('.seg.period button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg.period button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); period = b.dataset.period; render();
+}));
+document.querySelectorAll('.method-tab').forEach(tab => tab.addEventListener('click', () => {
+  document.querySelectorAll('.method-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.method-panel').forEach(p => p.classList.remove('active'));
+  tab.classList.add('active'); document.getElementById(`panel-${tab.dataset.method}`).classList.add('active');
+}));
+
+async function loadPaymentDetails() {
+  const paypal = await api('/api/paypal/details');
+  document.getElementById('paypal-details').innerHTML = `
+    ${paypal.label ? `<div class="pay-method-note">${paypal.label}</div>` : ''}
+    <div class="instapay-detail"><span>PayPal Email</span><span>${paypal.email || 'not configured yet'}</span></div>
+    ${paypal.paypalMeLink ? `<div class="instapay-detail"><span>PayPal.me Link</span><span><a href="${paypal.paypalMeLink}" target="_blank" style="color:var(--primary)">${paypal.paypalMeLink}</a></span></div>` : ''}
+    <div class="instapay-detail price-to-pay"><span>Amount to pay</span><span id="pay-amount-paypal">Choose a plan above</span></div>`;
+  const instapay = await api('/api/instapay/details');
+  document.getElementById('instapay-details').innerHTML = `
+    ${instapay.label ? `<div class="pay-method-note">${instapay.label}</div>` : ''}
+    <div class="instapay-detail"><span>Instant Payment Address (IPA)</span><span>${instapay.ipa || 'not configured yet'}</span></div>
+    <div class="instapay-detail"><span>Registered Phone</span><span>${instapay.phone || 'not configured yet'}</span></div>
+    <div class="instapay-detail price-to-pay"><span>Amount to pay</span><span id="pay-amount-instapay">Choose a plan above</span></div>`;
+  const upi = await api('/api/upi/details');
+  document.getElementById('upi-details').innerHTML = `
+    ${upi.label ? `<div class="pay-method-note">${upi.label}</div>` : ''}
+    <div class="instapay-detail"><span>UPI ID</span><span>${upi.upiId || 'not configured yet'}</span></div>
+    <div class="instapay-detail"><span>Payee Name</span><span>${upi.payeeName || 'not configured yet'}</span></div>
+    <div class="instapay-detail price-to-pay"><span>Amount to pay</span><span id="pay-amount-upi">Choose a plan above</span></div>`;
+}
+
+// Item 5: show the price in the currency relevant to each payment method,
+// based on whichever plan is currently selected.
+function updatePayAmounts() {
+  const plan = ALL_PLANS[selectedPlanId];
+  const paypalEl = document.getElementById('pay-amount-paypal');
+  const instapayEl = document.getElementById('pay-amount-instapay');
+  const upiEl = document.getElementById('pay-amount-upi');
+  if (!plan) return;
+  if (paypalEl) paypalEl.textContent = `$${plan.priceNow} USD`;
+  if (instapayEl) instapayEl.textContent = `E£${(plan.egp||0).toLocaleString()} EGP`;
+  if (upiEl) upiEl.textContent = `₹${(plan.inr||0).toLocaleString('en-IN')} INR`;
+}
+
+document.querySelectorAll('.proof-form').forEach(form => form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!selectedPlanId) { showAlert('Please choose a plan above first.'); return; }
+  const method = form.dataset.method;
+  const statusEl = form.nextElementSibling;
+  const fd = new FormData();
+  fd.append('planId', selectedPlanId);
+  fd.append('screenshot', form.querySelector('.screenshot-input').files[0]);
+  fd.append('referenceNote', form.querySelector('.reference-input').value);
+  try {
+    await api(`/api/${method}/submit-proof`, { method: 'POST', body: fd, headers: {} });
+    statusEl.innerHTML = '<div class="alert alert-success">Thanks! Your payment proof was submitted and is pending review. We\'ll activate your plan as soon as it\'s confirmed.</div>';
+    form.reset();
+  } catch (err) { statusEl.innerHTML = `<div class="alert alert-error">${err.message}</div>`; }
+}));
+
+// If the user picked a plan inside the app, they arrive here as
+// /plans.html?plan=<planId> — this syncs the toggles to match and opens
+// the payment section directly, so the handoff feels seamless.
+function preselectFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const planId = params.get('plan');
+  if (!planId || !ALL_PLANS[planId]) return;
+
+  if (planId === 'lifetime') {
+    showAlert('Complete payment below to activate the Lifetime plan you chose in the app.', 'success');
+    choosePaid('lifetime', 'Lifetime');
+    return;
+  }
+
+  for (const aud of Object.keys(PLAN_MAP)) {
+    for (const per of Object.keys(PLAN_MAP[aud])) {
+      if (PLAN_MAP[aud][per] === planId) {
+        audience = aud; period = per;
+        document.querySelectorAll('.seg.audience button').forEach(b => {
+          b.classList.toggle('on', b.dataset.aud === aud);
+          b.setAttribute('aria-selected', b.dataset.aud === aud ? 'true' : 'false');
+        });
+        document.querySelectorAll('.seg.period button').forEach(b => b.classList.toggle('on', b.dataset.period === per));
+        render();
+        const p = ALL_PLANS[planId];
+        showAlert(`Complete payment below to activate the ${p.name} (${p.period}) plan you chose in the app.`, 'success');
+        choosePaid(planId, `${p.name} (${p.period})`);
+        return;
+      }
+    }
+  }
+}
+
+(async () => {
+  renderHeader('plans');
+  // The top-right nav link stays "Land up page" here — it must remain intact,
+  // visible and functional in the same position as on the landing page, so we
+  // deliberately do NOT swap it for a "← Back" button.
+  currentUser = await getCurrentUser();
+  const { plans } = await api('/api/plans/config');
+  ALL_PLANS = plans;
+  if (ALL_PLANS.lifetime) {
+    const lt = ALL_PLANS.lifetime;
+    document.getElementById('lt-price-block').innerHTML = `<span class="lt-now">$${lt.priceNow}</span>`;
+    document.getElementById('lt-price-fx').textContent = `≈ ₹${(lt.inr||0).toLocaleString('en-IN')} INR · E£${(lt.egp||0).toLocaleString()} EGP`;
+  }
+  render();
+  await loadPaymentDetails();
+  preselectFromQuery();
+  enableCopyProtection();
+  enableBlurOnBlur();
+})();
+</script>
+</body>
+</html>

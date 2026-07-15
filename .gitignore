@@ -1,0 +1,16 @@
+# Never commit real secrets (admin key, payment details) to git.
+.env
+
+# Dependencies (reinstalled via `npm install`, shouldn't be committed)
+node_modules/
+
+# Local JSON "database" — contains real user data once the app is used
+server/data/db.json
+
+# Uploaded payment-proof screenshots — contains user-submitted images
+public/uploads/*
+!public/uploads/.gitkeep
+
+# OS/editor noise
+.DS_Store
+*.log

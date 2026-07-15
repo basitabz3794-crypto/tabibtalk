@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabib Talk — Egyptian Medical Arabic</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<link rel="stylesheet" href="/css/scifi.css">
+<style>
+  .hero { text-align: center; padding: 96px 22px 40px; max-width: 900px; margin: 0 auto; }
+  .hero h1 { font-size: clamp(2.5rem, 7vw, 4.4rem); font-weight: 700; letter-spacing: -.02em;
+    margin: 28px 0 18px; line-height: 1.04; }
+  .hero p { font-size: 1.14rem; max-width: 600px; margin: 0 auto 34px; }
+  .hero .actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  /* Holographic console — the floating frame under the hero */
+  .console { max-width: 880px; margin: 76px auto 0; padding: 30px; }
+  .console-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 22px; }
+  .console-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.14); display: block; }
+  .console-bar i:first-child { background: var(--cy); box-shadow: 0 0 10px var(--cy); }
+  .console-bar span { margin-left: 8px; font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); font-family: 'Orbitron', sans-serif; }
+
+  /* The trilingual line, presented as a live readout — the subject's own artifact */
+  .readout { display: grid; gap: 14px; text-align: left; }
+  /* 3rd column holds the play button (see .say below) */
+  .readout .line { display: grid; grid-template-columns: 62px 1fr auto; gap: 16px; align-items: center; }
+
+  /* Read-aloud buttons — available to any visitor, no account required */
+  .readout .say {
+    flex: none; width: 36px; height: 36px; border-radius: 11px; cursor: pointer;
+    display: grid; place-items: center;
+    background: rgba(34, 211, 238, .13);
+    border: 1px solid rgba(34, 211, 238, .40);
+    color: var(--cy);
+    transition: transform .18s var(--ease, ease), background .18s ease, box-shadow .18s ease;
+  }
+  .readout .say:hover { background: rgba(34, 211, 238, .28); transform: scale(1.09); box-shadow: 0 0 16px rgba(34,211,238,.35); }
+  .readout .say:focus-visible { outline: 2px solid var(--cy); outline-offset: 2px; }
+  .readout .say.on { background: var(--cy); color: #04070d; box-shadow: 0 0 22px rgba(34,211,238,.6); }
+  .readout .say[disabled] { opacity: .4; cursor: not-allowed; }
+  @media (prefers-reduced-motion: reduce) { .readout .say { transition: none; } }
+  .readout .tag { font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); font-family: 'Orbitron', sans-serif; padding-top: 4px; }
+  .readout .en { font-size: 1.2rem; font-weight: 600; color: var(--txt); }
+  .readout .ar { font-size: 1.55rem; font-weight: 700; direction: rtl; text-align: right;
+    background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .readout .fr { font-size: 1rem; font-style: italic; color: var(--dim); }
+
+  .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 44px; margin: 72px auto 0; max-width: 780px; }
+  .stat { text-align: center; }
+  .stat .n { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 700;
+    background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat .l { color: var(--faint); font-size: .84rem; margin-top: 4px; letter-spacing: .04em; }
+
+  .features { display: grid; grid-template-columns: 1fr; gap: 20px; margin: 90px auto 0; max-width: 1000px; }
+  @media (min-width: 780px) { .features { grid-template-columns: repeat(3, 1fr); } }
+  .feat { padding: 28px; }
+  .feat .ic { width: 46px; height: 46px; border-radius: 13px; background: rgba(255,255,255,.05);
+    border: 1px solid var(--glass-line); display: grid; place-items: center; font-size: 1.35rem; margin-bottom: 16px; }
+  .feat h3 { font-family: 'Orbitron', sans-serif; font-weight: 600; font-size: 1.02rem; margin: 0 0 8px; color: var(--txt); }
+  .feat p { font-size: .93rem; margin: 0; }
+
+  /* Side menu — unchanged behaviour, sci-fi surface */
+  .menu-btn { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,.05);
+    border: 1px solid var(--glass-line); color: var(--txt); cursor: pointer; display: grid; place-items: center; font-size: 1.1rem; }
+  .menu-btn:hover { border-color: var(--cy); color: var(--cy); }
+  .drawer-ov { position: fixed; inset: 0; background: rgba(2,4,8,.7); backdrop-filter: blur(5px); z-index: 200; display: none; }
+  .drawer-ov.open { display: block; }
+  .drawer { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: rgba(8,13,22,.92);
+    border-right: 1px solid var(--glass-line); backdrop-filter: blur(20px);
+    z-index: 201; transform: translateX(-100%); transition: transform .3s cubic-bezier(.2,.8,.2,1); padding: 22px; overflow-y: auto; }
+  .drawer.open { transform: none; }
+  .drawer .d-logo { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.05rem; margin-bottom: 22px;
+    background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .drawer a, .drawer button.d-link { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+    padding: 12px 14px; border-radius: 11px; color: var(--dim); font-weight: 550; font-size: .95rem;
+    background: none; border: none; cursor: pointer; font-family: inherit; transition: all .15s ease; text-decoration: none; }
+  .drawer a:hover, .drawer button.d-link:hover { background: rgba(255,255,255,.05); color: var(--cy); }
+  .drawer .d-group { font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; color: var(--faint);
+    margin: 18px 0 6px 14px; font-family: 'Orbitron', sans-serif; }
+</style>
+</head>
+<body class="scifi">
+<div class="nebula"></div>
+<canvas id="scifi-field"></canvas>
+
+<header class="site-header" id="site-header"></header>
+
+<div class="drawer-ov" id="drawer-ov" onclick="closeMenu()"></div>
+<aside class="drawer" id="drawer">
+  <div class="d-logo">Tabib Talk</div>
+  <div class="d-group">Navigate</div>
+  <a href="/index.html">&#127968;&nbsp; Home</a>
+  <a href="/app.html">&#128218;&nbsp; Open the Website</a>
+  <div class="d-group">Account</div>
+  <a href="/account.html">&#128100;&nbsp; My Account</a>
+  <a href="/plans.html">&#128179;&nbsp; Plans</a>
+  <button class="d-link" onclick="openTerms()">&#128220;&nbsp; Terms &amp; Conditions</button>
+  <a href="https://chat.whatsapp.com/DRdhj1aLapX5qgMJ0SGbPM" target="_blank" rel="noopener">&#128172;&nbsp; WhatsApp Community</a>
+  <a href="https://www.instagram.com/thetabibtalk?igsh=eGRzZm1zMDd2c3hx&utm_source=qr" target="_blank" rel="noopener">&#128247;&nbsp; Instagram</a>
+</aside>
+
+<!-- Each phrase sits in its own .r3d wrapper: the wrapper does the 3D reveal
+     while the inner .depth element keeps its cursor parallax. They have to be
+     separate elements — scifi.js rewrites .depth's transform on every mouse
+     move, which would wipe out any transform the reveal set. --d staggers them. -->
+<section class="hero">
+  <div class="r3d" style="--d:0"><span class="holo-badge depth" data-depth="8"><span class="dot"></span> Trilingual &middot; English &middot; Arabic &middot; Franco</span></div>
+  <div class="r3d" style="--d:1"><h1 class="depth" data-depth="16">Speak your Egyptian patient's <span class="grad">language.</span></h1></div>
+  <div class="r3d" style="--d:2"><p class="depth" data-depth="10">A premium, dialect-first toolkit for medical students &mdash; from a first &ldquo;Ezzayak?&rdquo; to a full bedside history, in the words patients actually use.</p></div>
+  <div class="r3d" style="--d:3">
+  <div class="actions">
+    <a href="/app.html" class="btn btn-primary">Open the Website &rarr;</a>
+    <a href="/plans.html" class="btn btn-outline">View Plans</a>
+  </div>
+  </div>
+
+  <!-- Signature: the trilingual phrase itself, presented as a live console readout -->
+  <div class="card console rise depth" data-depth="6">
+    <div class="console-bar"><i></i><i></i><i></i><span>Bedside readout</span></div>
+    <!-- Each line reads itself aloud. Open to any visitor — no account needed.
+         Franco is Egyptian Arabic written in Latin letters, so its button
+         speaks the Arabic (same convention the app's Franco lessons use). -->
+    <div class="readout">
+      <div class="line"><span class="tag">EN</span><span class="en">&ldquo;Where does it hurt?&rdquo;</span>
+        <button class="say" type="button" data-say="Where does it hurt?" data-lang="en-US" aria-label="Play in English" title="Play in English">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        </button>
+      </div>
+      <hr class="beam-rule">
+      <div class="line"><span class="tag">AR</span><span class="ar">بيوجعك فين؟</span>
+        <button class="say" type="button" data-say="بيوجعك فين؟" data-lang="ar-EG" aria-label="Play in Egyptian Arabic" title="Play in Egyptian Arabic">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        </button>
+      </div>
+      <hr class="beam-rule">
+      <div class="line"><span class="tag">Franco</span><span class="fr">Beyewga3ak fein?</span>
+        <button class="say" type="button" data-say="بيوجعك فين؟" data-lang="ar-EG" aria-label="Play the Franco line in Egyptian Arabic" title="Hear how this Franco line sounds">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats rise">
+    <div class="stat"><div class="r3d" style="--d:0"><div class="n">17+</div><div class="l">Medical subjects</div></div></div>
+    <div class="stat"><div class="r3d" style="--d:1"><div class="n">3</div><div class="l">Languages, side by side</div></div></div>
+    <div class="stat"><div class="r3d" style="--d:2"><div class="n">1</div><div class="l">Goal &mdash; be understood</div></div></div>
+  </div>
+</section>
+
+<div class="wrap" style="padding-top:0">
+  <div class="features">
+    <div class="card feat rise"><div class="ic">&#127908;</div><div class="r3d" style="--d:0"><h3>Hear every phrase</h3><p>Native-style Egyptian Arabic and English audio on every line, so you learn how it actually sounds.</p></div></div>
+    <div class="card feat rise"><div class="ic">&#129658;</div><div class="r3d" style="--d:1"><h3>Practice like the ward</h3><p>AI patients, question banks and conversations that mirror real bedside encounters.</p></div></div>
+    <div class="card feat rise"><div class="ic">&#128221;</div><div class="r3d" style="--d:2"><h3>Franco, made simple</h3><p>Read and write Arabizi with a lesson built around the numbers that map to Arabic letters.</p></div></div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  Tabib Talk &mdash; Egyptian Medical Arabic for Medical Students &nbsp;&middot;&nbsp;
+  <a href="#" onclick="openTerms();return false;">Terms &amp; Conditions</a>
+</footer>
+
+<script src="/js/header.js"></script>
+<script src="/js/scifi.js"></script>
+<script>
+  function openMenu(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawer-ov').classList.add('open'); }
+  function closeMenu(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawer-ov').classList.remove('open'); }
+  renderHeader('home');
+  // add a menu button into the header (left of brand)
+  (function(){
+    var h = document.getElementById('site-header');
+    var btn = document.createElement('button'); btn.className='menu-btn'; btn.setAttribute('aria-label','Menu');
+    btn.innerHTML='&#9776;'; btn.onclick=openMenu;
+    h.insertBefore(btn, h.firstChild);
+  })();
+  enableCopyProtection();
+  enableBlurOnBlur();
+
+  /* ---------- Read-aloud for the trilingual readout ----------
+     Uses the browser's built-in speech synthesis, so it works for any visitor
+     with no account and no network round-trip. Each button speaks its own line
+     in the right language; the Franco button speaks the Arabic, since Franco is
+     Egyptian Arabic written in Latin letters. */
+  (function () {
+    var buttons = [].slice.call(document.querySelectorAll('.readout .say'));
+    if (!buttons.length) return;
+
+    var synth = window.speechSynthesis;
+    if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
+      // No speech support: hide rather than offer a button that does nothing.
+      buttons.forEach(function (b) { b.style.display = 'none'; });
+      return;
+    }
+
+    // Voice lists load asynchronously in most browsers — the first call is
+    // often empty, so re-read them when the engine signals they're ready.
+    var voices = [];
+    function loadVoices() { try { voices = synth.getVoices() || []; } catch (e) { voices = []; } }
+    loadVoices();
+    if (typeof synth.onvoiceschanged !== 'undefined') synth.onvoiceschanged = loadVoices;
+
+    function pickVoice(lang) {
+      if (!voices.length) loadVoices();
+      var want = lang.toLowerCase();
+      var base = want.split('-')[0];
+      // exact locale first (ar-EG), then any voice of that language (ar-*)
+      return voices.filter(function (v) { return (v.lang || '').toLowerCase() === want; })[0]
+          || voices.filter(function (v) { return (v.lang || '').toLowerCase().indexOf(base) === 0; })[0]
+          || null;
+    }
+
+    var active = null;
+    function stop() {
+      try { synth.cancel(); } catch (e) {}
+      if (active) { active.classList.remove('on'); active = null; }
+    }
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        // Second tap on the same button stops playback.
+        if (active === btn) { stop(); return; }
+        stop();
+        var u = new SpeechSynthesisUtterance(btn.getAttribute('data-say'));
+        var lang = btn.getAttribute('data-lang') || 'en-US';
+        u.lang = lang;
+        u.rate = 0.9;
+        var v = pickVoice(lang);
+        if (v) u.voice = v;
+        active = btn;
+        btn.classList.add('on');
+        u.onend = u.onerror = function () { if (active === btn) { btn.classList.remove('on'); active = null; } };
+        try { synth.speak(u); } catch (e) { btn.classList.remove('on'); active = null; }
+      });
+    });
+
+    // Don't leave speech running after the visitor navigates away.
+    window.addEventListener('pagehide', stop);
+  })();
+</script>
+</body>
+</html>
