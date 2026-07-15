@@ -33,7 +33,7 @@ This site now includes a full subscription platform on a premium dark UI
 **Admin hub** (`/admin.html`, unlocked with your `ADMIN_KEY`) — an analytics
 dashboard with 8 live stat cards and tabs for:
 - **Subscriptions**: pending (with approve/reject), active, suspended, and
-  rejected — each with the payment screenshot, method, plan, and user.
+  rejected — each with the payment transaction id, method, plan, and user.
 - **Users**: everyone who signed up, their details, tier, subscription state,
   device count, and status, with **suspend / ban / unban** actions.
 - **Password resets**: historical requests only. Firebase now emails reset
@@ -60,8 +60,11 @@ business registration or KYC of any kind to set up.
 
 ```
 tabib-talk-web/
+  api/
+    index.js              Vercel serverless entry — exports the Express app
+  vercel.json             routes /api/* to that function; public/ is served by the CDN
   server/
-    index.js              Express server entrypoint
+    index.js              Express app (only listens when run directly, for local dev)
     routes/auth.js         signup / login / logout / current-user
     routes/plans.js         serves the plan list/prices to the frontend
     routes/manual-payments.js   generic manual-payment router (shared by PayPal + InstaPay + UPI)
@@ -69,7 +72,9 @@ tabib-talk-web/
     routes/instapay.js        InstaPay-specific config on top of manual-payments.js
     routes/upi.js              UPI-specific config on top of manual-payments.js
     routes/admin.js            combined "all pending proofs, any method" listing for admin.html
-    data/store.js          tiny JSON-file database (users, manual payment proofs)
+    data/store.js          the database — Firebase Realtime Database (users, payment proofs, devices…)
+    data/firebase.js       Firebase Admin SDK: token verification + database handle
+    data/session-store.js  express-session store backed by Firebase (survives serverless)
     data/plans.js          single source of truth for plan names and prices
   public/
     index.html              homepage
@@ -80,6 +85,7 @@ tabib-talk-web/
     app.html                  the actual Tabib Talk learning app, with a tier-sync script added
     css/main.css              shared styles, matching the app's existing look
     js/header.js              shared header + small fetch() helper
+    js/firebase-auth.js       Firebase Auth: signup, login, verification, password reset
   .env.example              copy to .env and fill in real values
 ```
 
@@ -94,16 +100,19 @@ npm start
 
 Visit http://localhost:3000
 
-Everything works immediately with placeholder values — signup/login and
-all three manual-payment flows (PayPal, InstaPay, UPI) work out of the box,
-since none of them need external API keys. Just fill in your real payment
-details (step 2 below) before going live so users see correct information.
+You must complete the Firebase setup (step 4) first: Firebase is both the
+database and the sign-in provider, so without credentials the server starts but
+sign-in returns a 503. Once configured, signup/login and all three
+manual-payment flows (PayPal, InstaPay, UPI) work out of the box — none of them
+need external API keys. Fill in your real payment details (step 2) before going
+live so users see correct information.
 
 ## 2. Set up your payment details (no business registration needed)
 
 All three payment methods work the same way: you show the user where to
-send money, they upload a screenshot of the payment, and you approve it
-from `/admin.html`, which instantly activates their plan. None of this
+send money, they submit the transaction id from their payment app, and you
+check it against your statement and approve it from `/admin.html`, which
+instantly activates their plan. None of this
 requires a company, GST number, or business bank account — just your
 personal PayPal, InstaPay, and UPI details.
 
@@ -209,40 +218,65 @@ email address, so the plan, tier and progress are preserved — and because
 Firebase requires the email to be verified first, only the mailbox owner can do
 this.
 
-## 5. Deploy
+## 5. Deploy to Vercel
 
-Recommended: [Render](https://render.com) or [Railway](https://railway.app) —
-both deploy directly from a GitHub repo with almost no configuration, and
-have an always-on free/cheap tier.
+The app is built for Vercel: `api/index.js` runs the Express app as a
+serverless function, `vercel.json` points every `/api/*` request at it, and
+everything in `public/` is served straight from Vercel's CDN.
 
-Steps are the same on either:
-1. Push this project to a GitHub repo.
-2. Create a new Web Service pointing at that repo.
-3. Set the same environment variables from `.env` in their dashboard's
-   "Environment" section (never commit your real `.env` to git).
-4. Set the start command to `npm start`.
-5. Once deployed, update `APP_URL` in your environment variables to your
-   real domain.
+Three things had to change for this to work, because Vercel gives a function no
+disk and no memory between requests:
+
+- **The database is Firebase**, not a JSON file. `server/data/store.js` talks to
+  the Realtime Database. Vercel's filesystem is read-only, so the old
+  `db.json` writes would have failed on every signup and approval.
+- **Sessions are stored in Firebase** (`server/data/session-store.js`).
+  express-session's default keeps them in memory, which a serverless instance
+  loses between requests — users would appear randomly logged out.
+- **Payment proof is a transaction ID**, not a screenshot upload. There is
+  nowhere on Vercel to write an uploaded file. The admin matches the id against
+  the real InstaPay/UPI/PayPal statement.
+
+Steps:
+1. Push this repo to GitHub.
+2. On [vercel.com](https://vercel.com), import the repo. Leave the build
+   settings alone — `vercel.json` covers it.
+3. Add every variable from your `.env` under **Settings → Environment
+   Variables**. `FIREBASE_SERVICE_ACCOUNT_JSON` must be the whole JSON on one
+   line (no surrounding quotes needed in Vercel's UI). Never commit the real
+   `.env`.
+4. Deploy, then set `APP_URL` to the real deployed URL and redeploy.
+5. **Add your Vercel domain to Firebase** → Authentication → Settings →
+   **Authorized domains**. Miss this and the verification/reset emails fail with
+   `auth/unauthorized-continue-uri`, because the link back to your site is
+   rejected as an unknown domain. Add both `your-app.vercel.app` and any custom
+   domain.
+
+Render and Railway also still work (`npm start`), and don't need step 5's
+caveat about the filesystem — but the app no longer depends on a disk either
+way.
 
 ## Important honesty notes
 
-- **This uses a JSON file as a database** (`server/data/db.json`), which is
-  fine for getting started and testing, but isn't safe for concurrent
-  production traffic at scale. Before real launch with meaningful volume,
-  migrate `server/data/store.js` to a real database (Postgres is a solid,
-  common choice) — the rest of the code calls only the functions exported
-  from that file, so the migration is contained to one file.
+- **The database is the Firebase Realtime Database.** `server/data/db.json` is
+  no longer read or written — it's kept only as a backup of the pre-Firebase
+  data. Everything still goes through `server/data/store.js`, so swapping to
+  Postgres later would again be a one-file change.
+- **Some list endpoints read a whole collection and filter in memory** (e.g.
+  "all devices" to count each user's). That's fine at hundreds of users and
+  keeps the admin hub to a couple of queries instead of one per row, but it is
+  not how you'd query at tens of thousands. Add `.indexOn` rules (see below)
+  and paginate before that becomes a problem.
+- **Add these database rules for cheap lookups** — logging in queries users by
+  email and Firebase uid, which without an index downloads the whole table:
+  `"users": { ".indexOn": ["emailLower", "firebaseUid"] }`
 - **Manual payment approval means a delay for the user** between paying and
   getting access — usually fine for a student-run app, but worth checking
   `/admin.html` regularly (daily, ideally) so people aren't left waiting.
-- **I could not run `npm install` or start this server in my sandbox**
-  (no internet access there), so while every file is syntax-checked and the
-  core business logic (user creation, tier upgrades, and each payment
-  method's approve/reject flow) was verified with direct logic tests, I
-  have not seen it running end-to-end with the real Express packages or a
-  real browser session. Please run `npm install && npm start` yourself and
-  try the flows — if anything breaks, send me the exact error and I'll fix
-  it immediately.
+- **Payment proof is now a transaction ID rather than a screenshot**, so
+  approving a payment means checking that id against your real InstaPay / UPI /
+  PayPal statement. You lose the at-a-glance visual confirmation the screenshot
+  gave you; the id is shown in the admin hub next to each pending payment.
 - **The admin panel's shared-secret key is a starting point, not a permanent
   security model.** For anything beyond early testing, replace it with a
   real admin login (a boolean `isAdmin` flag on a real logged-in user).

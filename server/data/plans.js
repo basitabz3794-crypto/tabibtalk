@@ -20,10 +20,10 @@ const REF_RATES = { usdToInr: USD_TO_INR, usdToEgp: USD_TO_EGP };
 // Resolves the effective rates: admin-configured values win, but only when they
 // are real positive numbers — a blank or junk value falls back to the reference
 // rate rather than silently pricing everything at 0.
-function getFxRates() {
+async function getFxRates() {
   const store = require('./store');
   let cfg = {};
-  try { cfg = store.getFxConfig() || {}; } catch (e) { cfg = {}; }
+  try { cfg = (await store.getFxConfig()) || {}; } catch (e) { cfg = {}; }
   const inr = Number(cfg.usdToInr);
   const egp = Number(cfg.usdToEgp);
   return {
@@ -42,10 +42,11 @@ function roundUpNice(n) {
   return Math.ceil(n / step) * step;
 }
 
-// `rates` is optional: pass a pre-resolved getFxRates() result when converting
-// many amounts in a loop, so the JSON store is read once instead of per item.
+// `rates` is REQUIRED when calling this outside an async context (e.g. the PLANS
+// table below): getFxRates() now hits the network, so there is no synchronous
+// fallback. Pass a pre-resolved getFxRates() result when converting in a loop.
 function convert(usd, rates) {
-  const fx = rates || getFxRates();
+  const fx = rates || REF_RATES;
   return {
     usd,
     inr: roundUpNice(usd * fx.usdToInr),
@@ -124,9 +125,9 @@ const PLAN_DURATION_DAYS = {
 
 // Compute an ISO expiry date from an activation date + plan id (null = never expires).
 // Respects any admin override set in the Developer section (overridden days win).
-function computeExpiry(planId, activatedAtISO) {
+async function computeExpiry(planId, activatedAtISO) {
   const store = require('./store');
-  const overrides = store.getPlanOverrides();
+  const overrides = await store.getPlanOverrides();
   const ov = overrides[planId];
   const days = (ov && ov.days != null) ? ov.days : PLAN_DURATION_DAYS[planId];
   if (days == null) return null; // lifetime / explorer: no expiry
@@ -143,10 +144,10 @@ function isExpired(expiresAtISO) {
 // Merges the base PLANS with any live admin overrides (Developer section):
 // price and/or duration can be changed without a deploy. Used by both the
 // public /api/plans/config endpoint and the admin Developer panel itself.
-function getEffectivePlans() {
+async function getEffectivePlans() {
   const store = require('./store');
-  const overrides = store.getPlanOverrides();
-  const fx = getFxRates(); // resolved once, reused for every plan below
+  const overrides = await store.getPlanOverrides();
+  const fx = await getFxRates(); // resolved once, reused for every plan below
   const plans = {};
   const durationsDays = {};
   Object.keys(PLANS).forEach((id) => {

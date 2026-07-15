@@ -15,18 +15,29 @@ const sharesRoutes = require('./routes/shares');
 const interestsRoutes = require('./routes/interests');
 const adminRoutes = require('./routes/admin');
 
+const FirebaseSessionStore = require('./data/session-store')(session);
+
 const app = express();
+
+// Vercel terminates TLS at its edge and forwards over http. Without this,
+// express-session sees an insecure connection and refuses to set the `secure`
+// cookie, so nobody can stay logged in.
+app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+  // Sessions live in Firebase, not process memory, so they survive the
+  // stateless serverless instances Vercel runs this on.
+  store: new FirebaseSessionStore(),
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   },
 }));
@@ -64,7 +75,13 @@ app.get('/api/config/firebase', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Tabib Talk web server running on http://localhost:${PORT}`);
-});
+// On Vercel this module is imported by api/index.js and the platform handles
+// listening, so only start a server when run directly (`npm start` locally).
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Tabib Talk web server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

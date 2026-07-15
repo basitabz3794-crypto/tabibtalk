@@ -1,303 +1,262 @@
-// A minimal JSON-file "database". Good enough to run today with zero setup;
-// swap this module out for Postgres/Mongo later without touching route logic much,
-// since everything else only calls the functions exported here.
+// The app's database, backed by the Firebase Realtime Database.
+//
+// This replaced a local JSON file (server/data/db.json). That worked fine on a
+// normal server with a disk, but Vercel's filesystem is read-only and
+// per-invocation, so every write failed there. Firebase gives us a real shared
+// store that any number of serverless instances can use.
+//
+// Everything else calls only the functions exported here, so this is the one
+// file that knows where data lives. The names and semantics match the old JSON
+// version — the difference is that every function is now async, since a network
+// round-trip is involved.
+//
+// Layout (collections are keyed by record id, not arrays — RTDB has no arrays):
+//   users/{id}, manualProofs/{id}, resetRequests/{id}, recommendations/{id},
+//   devices/{id}, notifications/{id}, shares/{id}, interests/{id}
+//   planOverrides, paymentConfig, fxConfig, adConfig   (single config objects)
+//   progress/{userId}                                  (per-user app state)
+//   sessions/{sid}                                     (login sessions)
 
-const fs = require('fs');
-const path = require('path');
+const firebase = require('./firebase');
 
-const DB_PATH = path.join(__dirname, 'db.json');
-
-function load() {
-  if (!fs.existsSync(DB_PATH)) {
-    const initial = { users: [], manualProofs: [], resetRequests: [], recommendations: [], devices: [], notifications: [], shares: [], planOverrides: {}, paymentConfig: {}, fxConfig: {}, interests: [], adConfig: {} };
-    fs.writeFileSync(DB_PATH, JSON.stringify(initial, null, 2));
-    return initial;
+function db() {
+  if (!firebase.isEnabled()) {
+    throw new Error('Firebase is not configured: ' + (firebase.whyDisabled() || 'unknown reason'));
   }
-  const data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-  // Backward-compatible migrations for older databases
-  if (!data.manualProofs) {
-    data.manualProofs = (data.instapayProofs || []).map(p => ({ ...p, method: p.method || 'instapay' }));
-  }
-  if (!data.resetRequests) data.resetRequests = [];
-  if (!data.recommendations) data.recommendations = [];
-  if (!data.devices) data.devices = [];
-  if (!data.notifications) data.notifications = [];
-  if (!data.shares) data.shares = [];
-  if (!data.planOverrides) data.planOverrides = {};
-  if (!data.paymentConfig) data.paymentConfig = {};
-  if (!data.fxConfig) data.fxConfig = {};
-  if (!data.interests) data.interests = [];
-  if (!data.adConfig) data.adConfig = {};
-  return data;
+  return firebase.database();
 }
 
-function save(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+// RTDB rejects `undefined`. For updates, undefined means "remove this field",
+// which RTDB spells as null; for new records we just drop empty fields.
+function forUpdate(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) out[k] = (v === undefined ? null : v);
+  return out;
+}
+function forCreate(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) if (v !== undefined) out[k] = v;
+  return out;
+}
+
+// ---------- Generic collection helpers ----------
+async function getAll(path) {
+  const snap = await db().ref(path).once('value');
+  const val = snap.val() || {};
+  return Object.values(val);
+}
+async function getOne(path, id) {
+  if (!id) return undefined;
+  const snap = await db().ref(`${path}/${id}`).once('value');
+  return snap.val() || undefined;
+}
+async function putOne(path, id, record) {
+  await db().ref(`${path}/${id}`).set(forCreate(record));
+  return record;
+}
+async function patchOne(path, id, patch) {
+  const ref = db().ref(`${path}/${id}`);
+  const existing = (await ref.once('value')).val();
+  if (!existing) return null;
+  await ref.update(forUpdate(patch));
+  return (await ref.once('value')).val();
+}
+
+// The JSON store returned newest-first by reversing insertion order. RTDB has
+// no insertion order to rely on, so sort on each record's own timestamp.
+function newestFirst(list, ...fields) {
+  return list.slice().sort((a, b) => {
+    const ta = fields.map(f => a[f]).find(Boolean) || '';
+    const tb = fields.map(f => b[f]).find(Boolean) || '';
+    return String(tb).localeCompare(String(ta));
+  });
 }
 
 // ---------- Users ----------
-function findUserByEmail(email) {
-  const db = load();
-  return db.users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+// Queries use orderByChild, which works without an index but warns and filters
+// server-side-less. Add this to your database rules to make them cheap:
+//   "users": { ".indexOn": ["emailLower", "firebaseUid"] }
+async function findUserByEmail(email) {
+  if (!email) return undefined;
+  const snap = await db().ref('users').orderByChild('emailLower').equalTo(String(email).toLowerCase().trim()).once('value');
+  const val = snap.val() || {};
+  return Object.values(val)[0];
 }
 
-function findUserById(id) {
-  const db = load();
-  return db.users.find(u => u.id === id);
+async function findUserById(id) {
+  return getOne('users', id);
 }
 
 // Firebase Auth is the source of truth for identity; this maps a Firebase uid
 // back to the local record that holds tier/plan/device state.
-function findUserByFirebaseUid(uid) {
+async function findUserByFirebaseUid(uid) {
   if (!uid) return undefined;
-  const db = load();
-  return db.users.find(u => u.firebaseUid === uid);
+  const snap = await db().ref('users').orderByChild('firebaseUid').equalTo(uid).once('value');
+  const val = snap.val() || {};
+  return Object.values(val)[0];
 }
 
-function createUser(user) {
-  const db = load();
-  db.users.push(user);
-  save(db);
-  return user;
+async function createUser(user) {
+  // emailLower exists purely so lookups can be case-insensitive: RTDB queries
+  // are exact-match, unlike the old JSON store's toLowerCase() comparison.
+  const record = { ...user, emailLower: String(user.email || '').toLowerCase().trim() };
+  await putOne('users', user.id, record);
+  return record;
 }
 
-function updateUser(id, patch) {
-  const db = load();
-  const idx = db.users.findIndex(u => u.id === id);
-  if (idx === -1) return null;
-  db.users[idx] = { ...db.users[idx], ...patch };
-  save(db);
-  return db.users[idx];
+async function updateUser(id, patch) {
+  const p = { ...patch };
+  if (p.email) p.emailLower = String(p.email).toLowerCase().trim();
+  return patchOne('users', id, p);
 }
 
-function listAllUsers() {
-  const db = load();
-  return db.users.slice().reverse();
+async function listAllUsers() {
+  return newestFirst(await getAll('users'), 'createdAt');
 }
 
 // ---------- Manual payment proofs (InstaPay, UPI, PayPal, any future method) ----------
-function createManualProof(proof) {
-  const db = load();
-  db.manualProofs = db.manualProofs || [];
-  db.manualProofs.push(proof);
-  save(db);
-  return proof;
+async function createManualProof(proof) {
+  return putOne('manualProofs', proof.id, proof);
 }
-
-function listPendingManualProofs(method) {
-  const db = load();
-  const all = db.manualProofs || [];
-  return method ? all.filter(p => p.status === 'pending' && p.method === method) : all.filter(p => p.status === 'pending');
+async function listPendingManualProofs(method) {
+  const all = (await getAll('manualProofs')).filter(p => p.status === 'pending');
+  return newestFirst(method ? all.filter(p => p.method === method) : all, 'submittedAt');
 }
-
-function listAllManualProofs(method) {
-  const db = load();
-  const all = (db.manualProofs || []).slice().reverse();
-  return method ? all.filter(p => p.method === method) : all;
+async function listAllManualProofs(method) {
+  const all = await getAll('manualProofs');
+  return newestFirst(method ? all.filter(p => p.method === method) : all, 'submittedAt');
 }
-
-function findManualProof(id) {
-  const db = load();
-  return (db.manualProofs || []).find(p => p.id === id);
+async function findManualProof(id) {
+  return getOne('manualProofs', id);
 }
-
-function updateManualProof(id, patch) {
-  const db = load();
-  db.manualProofs = db.manualProofs || [];
-  const idx = db.manualProofs.findIndex(p => p.id === id);
-  if (idx === -1) return null;
-  db.manualProofs[idx] = { ...db.manualProofs[idx], ...patch };
-  save(db);
-  return db.manualProofs[idx];
+async function updateManualProof(id, patch) {
+  return patchOne('manualProofs', id, patch);
 }
 
 // ---------- Password reset requests ----------
-function createResetRequest(reqObj) {
-  const db = load();
-  db.resetRequests.push(reqObj);
-  save(db);
-  return reqObj;
+// Kept for the admin hub's history. Firebase Auth sends reset emails itself
+// now, so nothing new is written here.
+async function createResetRequest(reqObj) {
+  return putOne('resetRequests', reqObj.id, reqObj);
 }
-function listResetRequests(status) {
-  const db = load();
-  const all = db.resetRequests.slice().reverse();
+async function listResetRequests(status) {
+  const all = newestFirst(await getAll('resetRequests'), 'requestedAt');
   return status ? all.filter(r => r.status === status) : all;
 }
-function findResetRequest(id) {
-  const db = load();
-  return db.resetRequests.find(r => r.id === id);
+async function findResetRequest(id) {
+  return getOne('resetRequests', id);
 }
-function findResetRequestByToken(token) {
-  const db = load();
-  return db.resetRequests.find(r => r.token === token);
+async function findResetRequestByToken(token) {
+  return (await getAll('resetRequests')).find(r => r.token === token);
 }
-function updateResetRequest(id, patch) {
-  const db = load();
-  const idx = db.resetRequests.findIndex(r => r.id === id);
-  if (idx === -1) return null;
-  db.resetRequests[idx] = { ...db.resetRequests[idx], ...patch };
-  save(db);
-  return db.resetRequests[idx];
+async function updateResetRequest(id, patch) {
+  return patchOne('resetRequests', id, patch);
 }
 
 // ---------- Recommendations / feedback ----------
-function createRecommendation(rec) {
-  const db = load();
-  db.recommendations.push(rec);
-  save(db);
-  return rec;
+async function createRecommendation(rec) {
+  return putOne('recommendations', rec.id, rec);
 }
-function listRecommendations() {
-  const db = load();
-  return db.recommendations.slice().reverse();
+async function listRecommendations() {
+  return newestFirst(await getAll('recommendations'), 'submittedAt');
 }
 
 // ---------- Device tracking (max-2-devices enforcement + history) ----------
-function listDevicesForUser(userId) {
-  const db = load();
-  return db.devices.filter(d => d.userId === userId);
+async function listDevicesForUser(userId) {
+  return (await getAll('devices')).filter(d => d.userId === userId);
 }
-function findDevice(userId, deviceId) {
-  const db = load();
-  return db.devices.find(d => d.userId === userId && d.deviceId === deviceId);
+async function findDevice(userId, deviceId) {
+  return (await getAll('devices')).find(d => d.userId === userId && d.deviceId === deviceId);
 }
-function createDevice(dev) {
-  const db = load();
-  db.devices.push(dev);
-  save(db);
-  return dev;
+async function createDevice(dev) {
+  return putOne('devices', dev.id, dev);
 }
-function updateDevice(userId, deviceId, patch) {
-  const db = load();
-  const idx = db.devices.findIndex(d => d.userId === userId && d.deviceId === deviceId);
-  if (idx === -1) return null;
-  db.devices[idx] = { ...db.devices[idx], ...patch };
-  save(db);
-  return db.devices[idx];
+async function updateDevice(userId, deviceId, patch) {
+  const dev = await findDevice(userId, deviceId);
+  if (!dev) return null;
+  return patchOne('devices', dev.id, patch);
 }
-function listAllDevices() {
-  const db = load();
-  return db.devices.slice().reverse();
+async function listAllDevices() {
+  return newestFirst(await getAll('devices'), 'firstSeen');
 }
 
 // ---------- Deprecated InstaPay-only aliases (kept for compatibility) ----------
-function createInstapayProof(proof) { return createManualProof({ ...proof, method: proof.method || 'instapay' }); }
-function listPendingInstapayProofs() { return listPendingManualProofs('instapay'); }
-function listAllInstapayProofs() { return listAllManualProofs('instapay'); }
-function findInstapayProof(id) { return findManualProof(id); }
-function updateInstapayProof(id, patch) { return updateManualProof(id, patch); }
+async function createInstapayProof(proof) { return createManualProof({ ...proof, method: proof.method || 'instapay' }); }
+async function listPendingInstapayProofs() { return listPendingManualProofs('instapay'); }
+async function listAllInstapayProofs() { return listAllManualProofs('instapay'); }
+async function findInstapayProof(id) { return findManualProof(id); }
+async function updateInstapayProof(id, patch) { return updateManualProof(id, patch); }
 
-// ---------- Per-user app state (streak, time spent, course progress, bookmarks, saved
-// questions — everything the app stores client-side under its 'tt_' key prefix) ----------
-function getAppState(userId) {
-  const user = findUserById(userId);
-  return (user && user.appState) || {};
+// ---------- Per-user app state (streak, time spent, course progress, bookmarks,
+// saved questions, test scores — everything the app stores client-side under its
+// 'tt_' key prefix) ----------
+async function getAppState(userId) {
+  return firebase.getProgress(userId);
 }
-function mergeAppState(userId, patch) {
-  const user = findUserById(userId);
-  if (!user) return null;
-  const merged = { ...(user.appState || {}), ...patch };
-  return updateUser(userId, { appState: merged });
+async function mergeAppState(userId, patch) {
+  return firebase.mergeProgress(userId, patch);
 }
 
 // ---------- Broadcast notifications (admin -> every user) ----------
-function createNotification(notif) {
-  const db = load();
-  db.notifications.push(notif);
-  save(db);
-  return notif;
+async function createNotification(notif) {
+  return putOne('notifications', notif.id, notif);
 }
-function listNotifications() {
-  const db = load();
-  return db.notifications.slice().reverse();
+async function listNotifications() {
+  return newestFirst(await getAll('notifications'), 'createdAt');
 }
 
 // ---------- Phrase shares (rate-limited per tier, logged for admin) ----------
-function createShare(share) {
-  const db = load();
-  db.shares = db.shares || [];
-  db.shares.push(share);
-  save(db);
-  return share;
+async function createShare(share) {
+  return putOne('shares', share.id, share);
 }
-function countSharesForUser(userId) {
-  const db = load();
-  return (db.shares || []).filter(s => s.userId === userId).length;
+async function countSharesForUser(userId) {
+  return (await getAll('shares')).filter(s => s.userId === userId).length;
 }
-function listShares() {
-  const db = load();
-  return (db.shares || []).slice().reverse();
+async function listShares() {
+  return newestFirst(await getAll('shares'), 'createdAt');
 }
 
-// ---------- Plan config overrides (admin "Developer" section: live price/duration edits) ----------
-function getPlanOverrides() {
-  const db = load();
-  return db.planOverrides || {};
+// ---------- Single config objects ----------
+async function getConfig(path) {
+  const snap = await db().ref(path).once('value');
+  return snap.val() || {};
 }
-function setPlanOverride(planId, patch) {
-  const db = load();
-  db.planOverrides = db.planOverrides || {};
-  db.planOverrides[planId] = { ...(db.planOverrides[planId] || {}), ...patch };
-  save(db);
-  return db.planOverrides[planId];
+async function patchConfig(path, patch) {
+  await db().ref(path).update(forUpdate(patch));
+  return getConfig(path);
 }
 
-// ---------- Payment gateway config (admin "Developer" section: live PayPal/InstaPay/UPI edits) ----------
-function getPaymentConfig() {
-  const db = load();
-  return db.paymentConfig || {};
+// Plan config overrides (admin "Developer" section: live price/duration edits)
+async function getPlanOverrides() { return getConfig('planOverrides'); }
+async function setPlanOverride(planId, patch) {
+  await db().ref(`planOverrides/${planId}`).update(forUpdate(patch));
+  return getConfig(`planOverrides/${planId}`);
 }
-function setPaymentConfig(patch) {
-  const db = load();
-  db.paymentConfig = { ...(db.paymentConfig || {}), ...patch };
-  save(db);
-  return db.paymentConfig;
-}
+
+// Payment gateway config (admin "Developer" section: live PayPal/InstaPay/UPI edits)
+async function getPaymentConfig() { return getConfig('paymentConfig'); }
+async function setPaymentConfig(patch) { return patchConfig('paymentConfig', patch); }
+
+// FX config: admin-editable USD->INR / USD->EGP rates. Empty by default, in
+// which case plans.js falls back to its built-in reference rates.
+async function getFxConfig() { return getConfig('fxConfig'); }
+async function setFxConfig(patch) { return patchConfig('fxConfig', patch); }
+
+// Advertisement box config (admin-editable)
+async function getAdConfig() { return getConfig('adConfig'); }
+async function setAdConfig(patch) { return patchConfig('adConfig', patch); }
 
 // ---------- Advertisement interests ----------
-// Every "I'm interested" tap on the in-app promo box. Captured with the user's
-// contact details at the moment they responded, so the admin has something
-// actionable even if the person later edits their profile.
-function createInterest(rec) {
-  const db = load();
-  db.interests = db.interests || [];
-  db.interests.push(rec);
-  save(db);
-  return rec;
+// Every "I'm interested" tap on the in-app promo box, captured with the user's
+// contact details at the moment they responded.
+async function createInterest(rec) {
+  return putOne('interests', rec.id, rec);
 }
-function listInterests() {
-  const db = load();
-  return (db.interests || []).slice().reverse();
+async function listInterests() {
+  return newestFirst(await getAll('interests'), 'respondedAt', 'createdAt');
 }
-function findInterest(userId, adId) {
-  const db = load();
-  return (db.interests || []).find(i => i.userId === userId && i.adId === adId);
-}
-
-// ---------- Advertisement box config (admin-editable) ----------
-function getAdConfig() {
-  const db = load();
-  return db.adConfig || {};
-}
-function setAdConfig(patch) {
-  const db = load();
-  db.adConfig = { ...(db.adConfig || {}), ...patch };
-  save(db);
-  return db.adConfig;
-}
-
-// ---------- FX config ----------
-// Admin-editable USD->INR / USD->EGP conversion rates. Empty by default, in
-// which case plans.js falls back to its built-in reference rates.
-function getFxConfig() {
-  const db = load();
-  return db.fxConfig || {};
-}
-function setFxConfig(patch) {
-  const db = load();
-  db.fxConfig = { ...(db.fxConfig || {}), ...patch };
-  save(db);
-  return db.fxConfig;
+async function findInterest(userId, adId) {
+  return (await getAll('interests')).find(i => i.userId === userId && i.adId === adId);
 }
 
 module.exports = {

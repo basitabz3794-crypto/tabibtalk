@@ -1,5 +1,5 @@
 const express = require('express');
-const store = require('../data/store');
+
 const firebase = require('../data/firebase');
 
 const router = express.Router();
@@ -24,27 +24,14 @@ function cleanPatch(patch) {
   return clean;
 }
 
-// Read a user's progress from Firebase, falling back to the local JSON store
-// when Firebase isn't configured (e.g. local dev without credentials).
-//
-// The first Firebase read for an account that predates Firebase copies its
-// existing local progress up, so nobody loses their streak in the migration.
+// Progress lives in Firebase. There's no local fallback any more: the whole
+// database moved there when the app went to Vercel, whose filesystem is
+// read-only, so there is nowhere local left to fall back to.
 async function readProgress(userId) {
-  if (!firebase.isEnabled()) return store.getAppState(userId);
-
-  const remote = await firebase.getProgress(userId);
-  if (Object.keys(remote).length) return remote;
-
-  const local = store.getAppState(userId);
-  if (Object.keys(local).length) {
-    await firebase.mergeProgress(userId, cleanPatch(local));
-    return local;
-  }
-  return {};
+  return firebase.getProgress(userId);
 }
 
 async function writeProgress(userId, patch) {
-  if (!firebase.isEnabled()) return store.mergeAppState(userId, patch);
   return firebase.mergeProgress(userId, patch);
 }
 

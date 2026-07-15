@@ -10,11 +10,11 @@ function requireLogin(req, res, next) {
 }
 
 // ---- User submits a recommendation / piece of feedback ----
-router.post('/submit', requireLogin, (req, res) => {
+router.post('/submit', requireLogin, async (req, res) => {
   const { message } = req.body || {};
   if (!message || !message.trim()) return res.status(400).json({ error: 'Please write something before submitting.' });
-  const user = store.findUserById(req.session.userId);
-  const rec = store.createRecommendation({
+  const user = await store.findUserById(req.session.userId);
+  const rec = await store.createRecommendation({
     id: nanoid(),
     userId: user.id,
     userEmail: user.email,

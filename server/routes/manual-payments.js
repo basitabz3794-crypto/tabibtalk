@@ -1,6 +1,4 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const { PLANS, accessTierForPlan, computeExpiry } = require('../data/plans');
@@ -19,18 +17,6 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: path.join(__dirname, '..', '..', 'public', 'uploads'),
-    filename: (req, file, cb) => cb(null, `${nanoid()}${path.extname(file.originalname)}`),
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    const ok = /image\/(png|jpe?g|webp)/.test(file.mimetype);
-    cb(ok ? null : new Error('Please upload a PNG or JPG screenshot.'), ok);
-  },
-});
-
 /**
  * Builds a manual-payment router for a single payment method (InstaPay, UPI, etc).
  * @param {string} method     unique method key, e.g. 'instapay' or 'upi'
@@ -41,23 +27,31 @@ function createManualPaymentRouter(method, getDetails, label) {
   const router = express.Router();
 
   // ---- Payment details users should pay to (shown on the checkout page) ----
-  router.get('/details', (req, res) => {
-    res.json(getDetails());
+  router.get('/details', async (req, res) => {
+    res.json(await getDetails());
   });
 
   // ---- User submits proof of a payment they've made ----
-  router.post('/submit-proof', requireLogin, upload.single('screenshot'), (req, res) => {
-    const { planId, referenceNote } = req.body || {};
+  // Proof is the transaction/reference id from their payment app, which the
+  // admin checks against the real InstaPay/UPI/PayPal statement. (This used to
+  // be a screenshot upload, but Vercel has no writable disk to keep files on.)
+  router.post('/submit-proof', requireLogin, async (req, res) => {
+    const { planId, transactionId, referenceNote } = req.body || {};
     if (!PLANS[planId]) return res.status(400).json({ error: 'Unknown plan.' });
-    if (!req.file) return res.status(400).json({ error: `Please attach a screenshot of your ${label} payment.` });
 
-    const proof = store.createManualProof({
+    const txn = String(transactionId || '').trim();
+    if (!txn) return res.status(400).json({ error: `Please enter the transaction ID from your ${label} payment.` });
+    if (txn.length < 4 || txn.length > 100) {
+      return res.status(400).json({ error: 'That transaction ID doesn\'t look right — please copy it exactly from your payment app.' });
+    }
+
+    const proof = await store.createManualProof({
       id: nanoid(),
       method,
       userId: req.session.userId,
       planId,
-      referenceNote: referenceNote || '',
-      screenshotPath: `/uploads/${req.file.filename}`,
+      transactionId: txn,
+      referenceNote: String(referenceNote || '').slice(0, 500),
       status: 'pending', // pending -> approved | rejected
       submittedAt: new Date().toISOString(),
     });
@@ -66,25 +60,25 @@ function createManualPaymentRouter(method, getDetails, label) {
   });
 
   // ---- User checks the status of their own submitted proofs for this method ----
-  router.get('/my-proofs', requireLogin, (req, res) => {
-    const all = store.listAllManualProofs(method).filter(p => p.userId === req.session.userId);
+  router.get('/my-proofs', requireLogin, async (req, res) => {
+    const all = (await store.listAllManualProofs(method)).filter(p => p.userId === req.session.userId);
     res.json({ proofs: all });
   });
 
   // ---- ADMIN: list pending proofs to review for this method ----
-  router.get('/admin/pending', requireAdmin, (req, res) => {
-    res.json({ proofs: store.listPendingManualProofs(method) });
+  router.get('/admin/pending', requireAdmin, async (req, res) => {
+    res.json({ proofs: await store.listPendingManualProofs(method) });
   });
 
   // ---- ADMIN: approve a proof -> upgrades the user's tier ----
-  router.post('/admin/approve/:id', requireAdmin, (req, res) => {
-    const proof = store.findManualProof(req.params.id);
+  router.post('/admin/approve/:id', requireAdmin, async (req, res) => {
+    const proof = await store.findManualProof(req.params.id);
     if (!proof || proof.method !== method) return res.status(404).json({ error: 'Proof not found.' });
 
     const activatedAt = new Date().toISOString();
-    const expiresAt = computeExpiry(proof.planId, activatedAt); // null for lifetime
-    store.updateManualProof(proof.id, { status: 'approved', reviewedAt: activatedAt });
-    store.updateUser(proof.userId, {
+    const expiresAt = await computeExpiry(proof.planId, activatedAt); // null for lifetime
+    await store.updateManualProof(proof.id, { status: 'approved', reviewedAt: activatedAt });
+    await store.updateUser(proof.userId, {
       tier: accessTierForPlan(proof.planId),
       planId: proof.planId,
       planActivatedAt: activatedAt,
@@ -96,14 +90,14 @@ function createManualPaymentRouter(method, getDetails, label) {
   });
 
   // ---- ADMIN: reject a proof ----
-  router.post('/admin/reject/:id', requireAdmin, (req, res) => {
-    const proof = store.findManualProof(req.params.id);
+  router.post('/admin/reject/:id', requireAdmin, async (req, res) => {
+    const proof = await store.findManualProof(req.params.id);
     if (!proof || proof.method !== method) return res.status(404).json({ error: 'Proof not found.' });
 
-    store.updateManualProof(proof.id, {
+    await store.updateManualProof(proof.id, {
       status: 'rejected',
       reviewedAt: new Date().toISOString(),
-      rejectionReason: (req.body && req.body.reason) || '',
+      rejectionReason: String((req.body && req.body.reason) || '').slice(0, 500),
     });
 
     res.json({ ok: true });

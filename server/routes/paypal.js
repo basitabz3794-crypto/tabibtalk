@@ -3,8 +3,8 @@ const store = require('../data/store');
 
 const router = createManualPaymentRouter(
   'paypal',
-  () => {
-    const cfg = store.getPaymentConfig();
+  async () => {
+    const cfg = await store.getPaymentConfig();
     return {
       label: cfg.paypalLabel || '',
       email: cfg.paypalEmail || process.env.PAYPAL_EMAIL,

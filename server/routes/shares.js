@@ -17,13 +17,13 @@ const SHARE_LIMITS = {
   lifetime: 5,
 };
 
-router.post('/record', requireLogin, (req, res) => {
+router.post('/record', requireLogin, async (req, res) => {
   const { phraseEn, phraseAr, phraseFr } = req.body || {};
   if (!phraseEn && !phraseAr) return res.status(400).json({ error: 'Nothing to share.' });
 
-  const user = store.findUserById(req.session.userId);
+  const user = await store.findUserById(req.session.userId);
   const limit = SHARE_LIMITS[user.tier] != null ? SHARE_LIMITS[user.tier] : 0;
-  const used = store.countSharesForUser(user.id);
+  const used = await store.countSharesForUser(user.id);
 
   if (used >= limit) {
     return res.status(403).json({
@@ -33,7 +33,7 @@ router.post('/record', requireLogin, (req, res) => {
     });
   }
 
-  const share = store.createShare({
+  const share = await store.createShare({
     id: nanoid(),
     userId: user.id,
     userEmail: user.email,
@@ -49,10 +49,10 @@ router.post('/record', requireLogin, (req, res) => {
 });
 
 // Lets the frontend show "X of Y shares used" without needing to attempt a share first.
-router.get('/status', requireLogin, (req, res) => {
-  const user = store.findUserById(req.session.userId);
+router.get('/status', requireLogin, async (req, res) => {
+  const user = await store.findUserById(req.session.userId);
   const limit = SHARE_LIMITS[user.tier] != null ? SHARE_LIMITS[user.tier] : 0;
-  const used = store.countSharesForUser(user.id);
+  const used = await store.countSharesForUser(user.id);
   res.json({ limit, used, remaining: Math.max(0, limit - used) });
 });
 

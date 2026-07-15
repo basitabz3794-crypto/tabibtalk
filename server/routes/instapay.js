@@ -3,8 +3,8 @@ const store = require('../data/store');
 
 const router = createManualPaymentRouter(
   'instapay',
-  () => {
-    const cfg = store.getPaymentConfig();
+  async () => {
+    const cfg = await store.getPaymentConfig();
     return {
       label: cfg.instapayLabel || '',
       ipa: cfg.instapayAddress || process.env.INSTAPAY_IPA,

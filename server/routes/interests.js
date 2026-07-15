@@ -26,8 +26,8 @@ const AD_DEFAULTS = {
   confirmText: '✅ You’re on the list — we’ll email you when Medical German launches!',
 };
 
-function effectiveAd() {
-  const cfg = store.getAdConfig() || {};
+async function effectiveAd() {
+  const cfg = (await store.getAdConfig()) || {};
   const out = { ...AD_DEFAULTS };
   Object.keys(AD_DEFAULTS).forEach(k => {
     const v = cfg[k];
@@ -40,23 +40,23 @@ function effectiveAd() {
 }
 
 // ---- Public: the box the app renders ----
-router.get('/ad', (req, res) => {
-  res.json({ ad: effectiveAd() });
+router.get('/ad', async (req, res) => {
+  res.json({ ad: await effectiveAd() });
 });
 
 // ---- Record an interest response ----
 // Requires a signed-in user: the whole point is capturing name/email/phone.
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const userId = req.session && req.session.userId;
   if (!userId) return res.status(401).json({ error: 'Please sign in first.' });
-  const user = store.findUserById(userId);
+  const user = await store.findUserById(userId);
   if (!user) return res.status(401).json({ error: 'Please sign in first.' });
 
-  const ad = effectiveAd();
+  const ad = await effectiveAd();
   const adId = (req.body && req.body.adId) || ad.adId;
 
   // One response per person per campaign — tapping twice shouldn't duplicate the lead.
-  const existing = store.findInterest(userId, adId);
+  const existing = await store.findInterest(userId, adId);
   if (existing) return res.json({ ok: true, already: true });
 
   const rec = {
@@ -72,16 +72,16 @@ router.post('/', (req, res) => {
     tier: user.tier || 'explorer',
     createdAt: new Date().toISOString(),
   };
-  store.createInterest(rec);
+  await store.createInterest(rec);
   res.json({ ok: true });
 });
 
 // ---- Has the signed-in user already responded to this campaign? ----
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   const userId = req.session && req.session.userId;
   if (!userId) return res.json({ responded: false });
-  const adId = req.query.adId || effectiveAd().adId;
-  res.json({ responded: !!store.findInterest(userId, adId) });
+  const adId = req.query.adId || (await effectiveAd()).adId;
+  res.json({ responded: !!(await store.findInterest(userId, adId)) });
 });
 
 module.exports = router;

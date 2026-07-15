@@ -7,21 +7,30 @@ const { isExpired, PLANS, accessTierForPlan, computeExpiry } = require('../data/
 const router = express.Router();
 
 // ---- Existing: all pending proofs across every method ----
-router.get('/pending', requireAdmin, (req, res) => {
-  res.json({ proofs: store.listPendingManualProofs() });
+router.get('/pending', requireAdmin, async (req, res) => {
+  res.json({ proofs: await store.listPendingManualProofs() });
 });
 
 // ---- Analytics overview: the numbers the admin hub shows at the top ----
-router.get('/overview', requireAdmin, (req, res) => {
-  const users = store.listAllUsers();
-  const proofs = store.listAllManualProofs();
+router.get('/overview', requireAdmin, async (req, res) => {
+  // Each collection is fetched once and joined in memory. Looking users up one
+  // at a time inside the loop below would be a separate network round-trip per
+  // proof now that the store is remote.
+  const [users, proofs, recommendations, pendingResets, devices] = await Promise.all([
+    store.listAllUsers(),
+    store.listAllManualProofs(),
+    store.listRecommendations(),
+    store.listResetRequests('pending'),
+    store.listAllDevices(),
+  ]);
+  const usersById = new Map(users.map(u => [u.id, u]));
 
   // A subscription is "active" if approved AND not expired.
   const approved = proofs.filter(p => p.status === 'approved');
   const activeSubs = [];
   const suspendedSubs = []; // approved but plan duration elapsed
   approved.forEach(p => {
-    const user = store.findUserById(p.userId);
+    const user = usersById.get(p.userId);
     const expiresAt = user && user.planExpiresAt;
     // Match the proof's plan to the user's current plan to avoid double-counting old proofs
     const isCurrent = user && user.planId === p.planId;
@@ -44,9 +53,9 @@ router.get('/overview', requireAdmin, (req, res) => {
       rejected: proofs.filter(p => p.status === 'rejected').length,
       active: activeSubs.length,
       suspended: suspendedSubs.length,
-      recommendations: store.listRecommendations().length,
-      resetRequests: store.listResetRequests('pending').length,
-      flaggedDevices: store.listAllDevices().filter(d => d.flagged).length,
+      recommendations: recommendations.length,
+      resetRequests: pendingResets.length,
+      flaggedDevices: devices.filter(d => d.flagged).length,
     },
     tierCounts,
     planCounts,
@@ -54,8 +63,9 @@ router.get('/overview', requireAdmin, (req, res) => {
 });
 
 // ---- All users, enriched with their subscription state ----
-router.get('/users', requireAdmin, (req, res) => {
-  const users = store.listAllUsers().map(u => {
+router.get('/users', requireAdmin, async (req, res) => {
+  const [allUsers, allDevices] = await Promise.all([store.listAllUsers(), store.listAllDevices()]);
+  const users = allUsers.map(u => {
     const expired = u.planExpiresAt && isExpired(u.planExpiresAt);
     return {
       id: u.id, name: u.name || '', email: u.email,
@@ -65,7 +75,7 @@ router.get('/users', requireAdmin, (req, res) => {
       planActivatedAt: u.planActivatedAt || null, planExpiresAt: u.planExpiresAt || null,
       status: u.status || 'active',
       subState: !u.planId ? 'none' : (expired ? 'suspended' : 'active'),
-      deviceCount: store.listDevicesForUser(u.id).filter(d => !d.blocked).length,
+      deviceCount: allDevices.filter(d => d.userId === u.id && !d.blocked).length,
       createdAt: u.createdAt,
     };
   });
@@ -73,22 +83,24 @@ router.get('/users', requireAdmin, (req, res) => {
 });
 
 // ---- All proofs grouped by state, each with screenshot + plan + user info ----
-router.get('/subscriptions', requireAdmin, (req, res) => {
+router.get('/subscriptions', requireAdmin, async (req, res) => {
+  const [proofs, users] = await Promise.all([store.listAllManualProofs(), store.listAllUsers()]);
+  const usersById = new Map(users.map(u => [u.id, u]));
   const enrich = (p) => {
-    const user = store.findUserById(p.userId) || {};
+    const user = usersById.get(p.userId) || {};
     const plan = PLANS[p.planId] || {};
     const expired = user.planExpiresAt && isExpired(user.planExpiresAt) && user.planId === p.planId;
     return {
       id: p.id, method: p.method, planId: p.planId,
       planName: plan.name ? `${plan.name}${plan.period ? ' · ' + plan.period : ''}` : p.planId,
-      status: p.status, screenshotPath: p.screenshotPath, referenceNote: p.referenceNote || '',
+      status: p.status, transactionId: p.transactionId || '', referenceNote: p.referenceNote || '',
       submittedAt: p.submittedAt, reviewedAt: p.reviewedAt || null,
       userEmail: user.email || '(deleted user)', userName: user.name || '',
       planExpiresAt: user.planExpiresAt || null,
       expired: !!expired,
     };
   };
-  const all = store.listAllManualProofs().map(enrich);
+  const all = proofs.map(enrich);
   res.json({
     active: all.filter(p => p.status === 'approved' && !p.expired),
     suspended: all.filter(p => p.status === 'approved' && p.expired),
@@ -99,8 +111,8 @@ router.get('/subscriptions', requireAdmin, (req, res) => {
 });
 
 // ---- Password reset requests to action ----
-router.get('/reset-requests', requireAdmin, (req, res) => {
-  const reqs = store.listResetRequests().map(r => ({
+router.get('/reset-requests', requireAdmin, async (req, res) => {
+  const reqs = (await store.listResetRequests()).map(r => ({
     id: r.id, email: r.email, status: r.status,
     requestedAt: r.requestedAt, token: r.token,
   }));
@@ -108,33 +120,37 @@ router.get('/reset-requests', requireAdmin, (req, res) => {
 });
 
 // ---- Admin marks a reset request as "link sent" and gets the reset link to send ----
-router.post('/reset-requests/:id/send-link', requireAdmin, (req, res) => {
-  const r = store.findResetRequest(req.params.id);
+router.post('/reset-requests/:id/send-link', requireAdmin, async (req, res) => {
+  const r = await store.findResetRequest(req.params.id);
   if (!r) return res.status(404).json({ error: 'Reset request not found.' });
-  store.updateResetRequest(r.id, { status: 'link_sent', linkSentAt: new Date().toISOString() });
+  await store.updateResetRequest(r.id, { status: 'link_sent', linkSentAt: new Date().toISOString() });
   const base = process.env.APP_URL || '';
   res.json({ ok: true, resetLink: `${base}/reset-password.html?token=${r.token}`, email: r.email });
 });
 
 // ---- Recommendations / feedback ----
-router.get('/recommendations', requireAdmin, (req, res) => {
-  res.json({ recommendations: store.listRecommendations() });
+router.get('/recommendations', requireAdmin, async (req, res) => {
+  res.json({ recommendations: await store.listRecommendations() });
 });
 
 // ---- Device history (all, or per user) ----
-router.get('/devices', requireAdmin, (req, res) => {
+router.get('/devices', requireAdmin, async (req, res) => {
   const userId = req.query.userId;
-  const devices = userId ? store.listDevicesForUser(userId) : store.listAllDevices();
+  const [devices, users] = await Promise.all([
+    userId ? store.listDevicesForUser(userId) : store.listAllDevices(),
+    store.listAllUsers(),
+  ]);
+  const usersById = new Map(users.map(u => [u.id, u]));
   const enriched = devices.map(d => {
-    const u = store.findUserById(d.userId) || {};
+    const u = usersById.get(d.userId) || {};
     return { ...d, userEmail: u.email || '(deleted)', userName: u.name || '' };
   });
   res.json({ devices: enriched });
 });
 
 // ---- Flag a device as a violation ----
-router.post('/devices/:userId/:deviceId/flag', requireAdmin, (req, res) => {
-  const updated = store.updateDevice(req.params.userId, req.params.deviceId, {
+router.post('/devices/:userId/:deviceId/flag', requireAdmin, async (req, res) => {
+  const updated = await store.updateDevice(req.params.userId, req.params.deviceId, {
     flagged: true, flagReason: (req.body && req.body.reason) || 'Flagged by admin', flaggedAt: new Date().toISOString(),
   });
   if (!updated) return res.status(404).json({ error: 'Device not found.' });
@@ -144,37 +160,37 @@ router.post('/devices/:userId/:deviceId/flag', requireAdmin, (req, res) => {
 // ---- Full admin subscription + account controls (items 12 & 15) ----
 // Every action writes the complete plan state so My Account / dashboard / access
 // all reflect it immediately on the next /api/auth/me (no manual refresh needed).
-router.post('/users/:id/action', requireAdmin, (req, res) => {
+router.post('/users/:id/action', requireAdmin, async (req, res) => {
   const { action, planId, days } = req.body || {};
-  const user = store.findUserById(req.params.id);
+  const user = await store.findUserById(req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
   const now = new Date().toISOString();
 
-  function setPlan(newPlanId, activatedAt) {
+  async function setPlan(newPlanId, activatedAt) {
     const start = activatedAt || now;
-    store.updateUser(user.id, {
+    await store.updateUser(user.id, {
       tier: accessTierForPlan(newPlanId),
       planId: newPlanId,
       planActivatedAt: start,
-      planExpiresAt: computeExpiry(newPlanId, start),
+      planExpiresAt: await computeExpiry(newPlanId, start),
       subStatus: 'active',
       status: user.status === 'banned' ? 'banned' : user.status,
     });
   }
 
-  function shiftExpiry(deltaDays) {
+  async function shiftExpiry(deltaDays) {
     const cur = user.planExpiresAt ? new Date(user.planExpiresAt).getTime() : Date.now();
     const next = new Date(cur + deltaDays * 86400000).toISOString();
-    store.updateUser(user.id, { planExpiresAt: next, subStatus: 'active' });
+    await store.updateUser(user.id, { planExpiresAt: next, subStatus: 'active' });
   }
 
   switch (action) {
     case 'suspend': // stop access now, but remember the plan so it can be reactivated
-      store.updateUser(user.id, { tier: 'explorer', subStatus: 'suspended', suspendedAt: now });
+      await store.updateUser(user.id, { tier: 'explorer', subStatus: 'suspended', suspendedAt: now });
       break;
     case 'reactivate': // restore access to the plan on file (if any)
-      if (user.planId) store.updateUser(user.id, { tier: accessTierForPlan(user.planId), subStatus: 'active', suspendedAt: null });
+      if (user.planId) await store.updateUser(user.id, { tier: accessTierForPlan(user.planId), subStatus: 'active', suspendedAt: null });
       else return res.status(400).json({ error: 'This user has no plan to reactivate.' });
       break;
     case 'activate': // manually turn on a specific plan
@@ -182,57 +198,57 @@ router.post('/users/:id/action', requireAdmin, (req, res) => {
     case 'downgrade':
     case 'change': // upgrade/downgrade/change all mean "set this plan"
       if (!planId || !PLANS[planId]) return res.status(400).json({ error: 'A valid planId is required.' });
-      setPlan(planId, user.planActivatedAt && action === 'change' ? user.planActivatedAt : now);
+      await setPlan(planId, user.planActivatedAt && action === 'change' ? user.planActivatedAt : now);
       break;
     case 'extend':
-      shiftExpiry(Math.abs(Number(days) || 0));
+      await shiftExpiry(Math.abs(Number(days) || 0));
       break;
     case 'reduce':
-      shiftExpiry(-Math.abs(Number(days) || 0));
+      await shiftExpiry(-Math.abs(Number(days) || 0));
       break;
     case 'expire': // force the plan to end right now -> revert to explorer
-      store.updateUser(user.id, { tier: 'explorer', subStatus: 'expired', planExpiresAt: now });
+      await store.updateUser(user.id, { tier: 'explorer', subStatus: 'expired', planExpiresAt: now });
       break;
     case 'ban':
-      store.updateUser(user.id, { status: 'banned', bannedAt: now });
+      await store.updateUser(user.id, { status: 'banned', bannedAt: now });
       break;
     case 'unban':
-      store.updateUser(user.id, { status: 'active', bannedAt: null });
+      await store.updateUser(user.id, { status: 'active', bannedAt: null });
       break;
     default:
       return res.status(400).json({ error: 'Unknown action.' });
   }
-  res.json({ ok: true, user: store.findUserById(user.id) });
+  res.json({ ok: true, user: await store.findUserById(user.id) });
 });
 
 // ---- Send a broadcast notification to every user (shows up in their notification bell) ----
-router.post('/notifications/send', requireAdmin, (req, res) => {
+router.post('/notifications/send', requireAdmin, async (req, res) => {
   const { message } = req.body || {};
   if (!message || !message.trim()) return res.status(400).json({ error: 'Please write a message before sending.' });
   const { nanoid } = require('nanoid');
-  const notif = store.createNotification({
+  const notif = await store.createNotification({
     id: nanoid(), message: message.trim().slice(0, 2000), createdAt: new Date().toISOString(),
   });
   res.json({ ok: true, notification: notif });
 });
 
 // ---- History of everything the admin has broadcast ----
-router.get('/notifications', requireAdmin, (req, res) => {
-  res.json({ notifications: store.listNotifications() });
+router.get('/notifications', requireAdmin, async (req, res) => {
+  res.json({ notifications: await store.listNotifications() });
 });
 
 // ---- Log of every phrase share (item 4: Admin Logging) ----
-router.get('/shares', requireAdmin, (req, res) => {
-  res.json({ shares: store.listShares() });
+router.get('/shares', requireAdmin, async (req, res) => {
+  res.json({ shares: await store.listShares() });
 });
 
 // ---- Developer section: read/edit live plan pricing & duration ----
-router.get('/plan-config', requireAdmin, (req, res) => {
+router.get('/plan-config', requireAdmin, async (req, res) => {
   const { getEffectivePlans } = require('../data/plans');
-  res.json(getEffectivePlans());
+  res.json(await getEffectivePlans());
 });
 
-router.post('/plan-config/:planId', requireAdmin, (req, res) => {
+router.post('/plan-config/:planId', requireAdmin, async (req, res) => {
   const { planId } = req.params;
   const { priceNow, days, label } = req.body || {};
   if (!PLANS[planId]) return res.status(404).json({ error: 'Unknown plan.' });
@@ -250,17 +266,16 @@ router.post('/plan-config/:planId', requireAdmin, (req, res) => {
   if (label !== undefined) {
     patch.label = String(label).slice(0, 200);
   }
-  store.setPlanOverride(planId, patch);
+  await store.setPlanOverride(planId, patch);
   res.json({ ok: true });
 });
 
 // ---- Developer section: global currency conversion rates ----
 // These drive the INR/EGP figures shown for every plan on the public pricing
 // page and at checkout. Blank values fall back to the reference rates in plans.js.
-router.get('/fx-config', requireAdmin, (req, res) => {
+router.get('/fx-config', requireAdmin, async (req, res) => {
   const { getFxRates, USD_TO_INR, USD_TO_EGP } = require('../data/plans');
-  const cfg = store.getFxConfig();
-  const effective = getFxRates();
+  const [cfg, effective] = await Promise.all([store.getFxConfig(), getFxRates()]);
   res.json({
     // what the admin explicitly saved ('' = not set, using the default)
     usdToInr: cfg.usdToInr != null && cfg.usdToInr !== '' ? cfg.usdToInr : '',
@@ -271,7 +286,7 @@ router.get('/fx-config', requireAdmin, (req, res) => {
   });
 });
 
-router.post('/fx-config', requireAdmin, (req, res) => {
+router.post('/fx-config', requireAdmin, async (req, res) => {
   const { usdToInr, usdToEgp } = req.body || {};
   const patch = {};
   // A blank value intentionally clears the override and restores the default.
@@ -290,18 +305,20 @@ router.post('/fx-config', requireAdmin, (req, res) => {
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
-  store.setFxConfig(patch);
+  await store.setFxConfig(patch);
   const { getFxRates } = require('../data/plans');
-  res.json({ ok: true, effective: getFxRates() });
+  res.json({ ok: true, effective: await getFxRates() });
 });
 
 // ---- Interests: who responded to the in-app advertisement box ----
 // Each row is a contactable lead: name, email and phone as captured at the
 // moment the person tapped the box's call-to-action.
-router.get('/interests', requireAdmin, (req, res) => {
-  const interests = store.listInterests().map(i => {
+router.get('/interests', requireAdmin, async (req, res) => {
+  const [allInterests, users] = await Promise.all([store.listInterests(), store.listAllUsers()]);
+  const usersById = new Map(users.map(u => [u.id, u]));
+  const interests = allInterests.map(i => {
     // Fall back to the live account if an older record predates a field.
-    const u = store.findUserById(i.userId) || {};
+    const u = usersById.get(i.userId) || {};
     return {
       id: i.id,
       name: i.name || u.name || '',
@@ -320,12 +337,13 @@ router.get('/interests', requireAdmin, (req, res) => {
 });
 
 // ---- Developer section: the advertisement box itself ----
-router.get('/ad-config', requireAdmin, (req, res) => {
+router.get('/ad-config', requireAdmin, async (req, res) => {
   const { effectiveAd, AD_DEFAULTS } = require('./interests');
-  res.json({ ad: effectiveAd(), defaults: AD_DEFAULTS, saved: store.getAdConfig() });
+  const [ad, saved] = await Promise.all([effectiveAd(), store.getAdConfig()]);
+  res.json({ ad, defaults: AD_DEFAULTS, saved });
 });
 
-router.post('/ad-config', requireAdmin, (req, res) => {
+router.post('/ad-config', requireAdmin, async (req, res) => {
   const { AD_DEFAULTS } = require('./interests');
   const body = req.body || {};
   const patch = {};
@@ -340,14 +358,14 @@ router.post('/ad-config', requireAdmin, (req, res) => {
     if (!clean) return res.status(400).json({ error: 'Campaign id must contain at least one letter or number.' });
     patch.adId = clean;
   }
-  store.setAdConfig(patch);
+  await store.setAdConfig(patch);
   const { effectiveAd } = require('./interests');
-  res.json({ ok: true, ad: effectiveAd() });
+  res.json({ ok: true, ad: await effectiveAd() });
 });
 
 // ---- Developer section: read/edit payment gateway display fields ----
-router.get('/payment-config', requireAdmin, (req, res) => {
-  const cfg = store.getPaymentConfig();
+router.get('/payment-config', requireAdmin, async (req, res) => {
+  const cfg = await store.getPaymentConfig();
   res.json({
     paypalLabel: cfg.paypalLabel || '',
     paypalEmail: cfg.paypalEmail || process.env.PAYPAL_EMAIL || '',
@@ -360,27 +378,32 @@ router.get('/payment-config', requireAdmin, (req, res) => {
   });
 });
 
-router.post('/payment-config', requireAdmin, (req, res) => {
+router.post('/payment-config', requireAdmin, async (req, res) => {
   const allowed = ['paypalLabel', 'paypalEmail', 'instapayLabel', 'instapayAddress', 'instapayPhone', 'upiLabel', 'upiId', 'upiPayeeName'];
   const patch = {};
   allowed.forEach((k) => {
     if (req.body && req.body[k] !== undefined) patch[k] = String(req.body[k]).slice(0, 300);
   });
-  store.setPaymentConfig(patch);
+  await store.setPaymentConfig(patch);
   res.json({ ok: true });
 });
 
 // ---- Accounts: every approved payment, with earnings analysis ----
 // Each approved proof becomes a recorded transaction: who paid, when, which
-// plan, how much (shown in all three currencies), and the payment screenshot.
-router.get('/accounts', requireAdmin, (req, res) => {
+// plan, how much (shown in all three currencies), and the payment transaction id.
+router.get('/accounts', requireAdmin, async (req, res) => {
   const { getEffectivePlans, convert } = require('../data/plans');
-  const { plans, fx } = getEffectivePlans();
+  const [{ plans, fx }, allProofs, users] = await Promise.all([
+    getEffectivePlans(),
+    store.listAllManualProofs(),
+    store.listAllUsers(),
+  ]);
+  const usersById = new Map(users.map(u => [u.id, u]));
 
-  const approved = store.listAllManualProofs().filter(p => p.status === 'approved');
+  const approved = allProofs.filter(p => p.status === 'approved');
 
   const records = approved.map(p => {
-    const user = store.findUserById(p.userId) || {};
+    const user = usersById.get(p.userId) || {};
     const plan = plans[p.planId] || {};
     const usd = plan.priceNow != null ? plan.priceNow : 0;
     const money = convert(usd, fx); // {usd, inr, egp} — already rounded to clean numbers
@@ -392,7 +415,7 @@ router.get('/accounts', requireAdmin, (req, res) => {
       userName: user.name || '',
       userEmail: user.email || '(deleted user)',
       paidAt: p.reviewedAt || p.submittedAt, // approval time = when the money was confirmed
-      screenshotPath: p.screenshotPath || '',
+      transactionId: p.transactionId || '',
       usd: money.usd, inr: money.inr, egp: money.egp,
     };
   }).sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt));

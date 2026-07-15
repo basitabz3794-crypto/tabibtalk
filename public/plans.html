@@ -185,33 +185,33 @@
     </div>
 
     <div class="method-panel active" id="panel-paypal">
-      <p style="color:var(--muted)">Send the plan amount via PayPal to the details below, then upload a screenshot of your payment confirmation. We'll confirm and activate your plan — usually within a few hours.</p>
+      <p style="color:var(--muted)">Send the plan amount via PayPal to the details below, then enter your PayPal transaction ID. We'll check it against our account and activate your plan — usually within a few hours.</p>
       <div class="instapay-box" id="paypal-details"></div>
       <form class="proof-form" data-method="paypal" style="margin-top:18px">
-        <div class="field"><label>Payment Screenshot</label><input type="file" class="screenshot-input" accept="image/png,image/jpeg,image/webp" required></div>
-        <div class="field"><label>PayPal Transaction ID / Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the PayPal transaction ID, or the email you paid from"></div>
+        <div class="field"><label>PayPal Transaction ID</label><input type="text" class="txn-input" required placeholder="e.g. 8XY12345AB678901C"><div class="hint">Find this in your PayPal receipt or activity list.</div></div>
+        <div class="field"><label>Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the email address you paid from"></div>
         <button type="submit" class="btn btn-accent btn-block">Submit Payment Proof</button>
       </form>
       <div class="proof-status"></div>
     </div>
 
     <div class="method-panel" id="panel-instapay">
-      <p style="color:var(--muted)">Send the plan amount via InstaPay to the details below, then upload a screenshot of your payment. We'll confirm and activate your plan — usually within a few hours.</p>
+      <p style="color:var(--muted)">Send the plan amount via InstaPay to the details below, then enter your transaction reference. We'll check it against our account and activate your plan — usually within a few hours.</p>
       <div class="instapay-box" id="instapay-details"></div>
       <form class="proof-form" data-method="instapay" style="margin-top:18px">
-        <div class="field"><label>Payment Screenshot</label><input type="file" class="screenshot-input" accept="image/png,image/jpeg,image/webp" required></div>
-        <div class="field"><label>Transaction Reference / Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. IPA transfer ref, or the phone number you paid from"></div>
+        <div class="field"><label>InstaPay Transaction Reference</label><input type="text" class="txn-input" required placeholder="e.g. the transfer reference from your InstaPay receipt"><div class="hint">Shown on the transfer confirmation in your banking app.</div></div>
+        <div class="field"><label>Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the phone number you paid from"></div>
         <button type="submit" class="btn btn-accent btn-block">Submit Payment Proof</button>
       </form>
       <div class="proof-status"></div>
     </div>
 
     <div class="method-panel" id="panel-upi">
-      <p style="color:var(--muted)">Send the plan amount via any UPI app (Google Pay, PhonePe, Paytm, etc.) to the ID below, then upload a screenshot of your payment. We'll confirm and activate your plan — usually within a few hours.</p>
+      <p style="color:var(--muted)">Send the plan amount via any UPI app (Google Pay, PhonePe, Paytm, etc.) to the ID below, then enter your UPI transaction ID. We'll check it against our account and activate your plan — usually within a few hours.</p>
       <div class="instapay-box" id="upi-details"></div>
       <form class="proof-form" data-method="upi" style="margin-top:18px">
-        <div class="field"><label>Payment Screenshot</label><input type="file" class="screenshot-input" accept="image/png,image/jpeg,image/webp" required></div>
-        <div class="field"><label>UPI Transaction ID / Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the UPI reference number, or the app you paid from"></div>
+        <div class="field"><label>UPI Transaction ID</label><input type="text" class="txn-input" required placeholder="e.g. 412345678901"><div class="hint">The 12-digit UPI reference number from your payment app.</div></div>
+        <div class="field"><label>Note (optional)</label><input type="text" class="reference-input" placeholder="e.g. the app you paid from"></div>
         <button type="submit" class="btn btn-accent btn-block">Submit Payment Proof</button>
       </form>
       <div class="proof-status"></div>
@@ -368,15 +368,22 @@ document.querySelectorAll('.proof-form').forEach(form => form.addEventListener('
   if (!selectedPlanId) { showAlert('Please choose a plan above first.'); return; }
   const method = form.dataset.method;
   const statusEl = form.nextElementSibling;
-  const fd = new FormData();
-  fd.append('planId', selectedPlanId);
-  fd.append('screenshot', form.querySelector('.screenshot-input').files[0]);
-  fd.append('referenceNote', form.querySelector('.reference-input').value);
+  // Plain JSON now that proof is a transaction id rather than an uploaded file.
+  const transactionId = form.querySelector('.txn-input').value.trim();
+  if (!transactionId) { statusEl.innerHTML = '<div class="alert alert-error">Please enter your transaction ID.</div>'; return; }
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true;
   try {
-    await api(`/api/${method}/submit-proof`, { method: 'POST', body: fd, headers: {} });
-    statusEl.innerHTML = '<div class="alert alert-success">Thanks! Your payment proof was submitted and is pending review. We\'ll activate your plan as soon as it\'s confirmed.</div>';
+    await api(`/api/${method}/submit-proof`, { method: 'POST', body: {
+      planId: selectedPlanId,
+      transactionId,
+      referenceNote: form.querySelector('.reference-input').value,
+    }});
+    statusEl.innerHTML = '<div class="alert alert-success">Thanks! Your transaction ID was submitted and is pending review. We\'ll activate your plan as soon as we\'ve matched it against our account.</div>';
     form.reset();
-  } catch (err) { statusEl.innerHTML = `<div class="alert alert-error">${err.message}</div>`; }
+  } catch (err) {
+    statusEl.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+  } finally { btn.disabled = false; }
 }));
 
 // If the user picked a plan inside the app, they arrive here as

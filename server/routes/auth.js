@@ -21,11 +21,11 @@ function publicUser(user) {
 }
 
 // Re-evaluate a user's effective state: expire subscriptions whose time is up.
-function reconcileUser(user) {
+async function reconcileUser(user) {
   if (!user) return user;
   // Lifetime and explorer never expire. Paid tiers expire to 'explorer'.
   if (user.planExpiresAt && isExpired(user.planExpiresAt) && user.tier !== 'explorer' && user.tier !== 'lifetime') {
-    const updated = store.updateUser(user.id, { tier: 'explorer', subStatus: 'expired' });
+    const updated = await store.updateUser(user.id, { tier: 'explorer', subStatus: 'expired' });
     return updated;
   }
   return user;
@@ -33,27 +33,27 @@ function reconcileUser(user) {
 
 // Register (or re-touch) the calling device; enforce the max-2-devices rule.
 // Returns { ok } or { blocked, reason }.
-function registerDevice(user, req) {
+async function registerDevice(user, req) {
   const deviceId = req.headers['x-device-id'];
   if (!deviceId) return { ok: true }; // no fingerprint sent (e.g. API client) — don't block
-  const existing = store.findDevice(user.id, deviceId);
+  const existing = await store.findDevice(user.id, deviceId);
   const now = new Date().toISOString();
   if (existing) {
-    store.updateDevice(user.id, deviceId, { lastSeen: now, count: (existing.count || 1) + 1 });
+    await store.updateDevice(user.id, deviceId, { lastSeen: now, count: (existing.count || 1) + 1 });
     return { ok: true };
   }
-  const devices = store.listDevicesForUser(user.id);
+  const devices = await store.listDevicesForUser(user.id);
   const activeDevices = devices.filter(d => !d.blocked);
   if (activeDevices.length >= MAX_DEVICES) {
     // Record the over-limit attempt as a flagged device for the admin to see.
-    store.createDevice({
+    await store.createDevice({
       id: nanoid(), userId: user.id, deviceId, firstSeen: now, lastSeen: now, count: 1,
       userAgent: req.headers['user-agent'] || '', blocked: true, flagged: true,
       flagReason: 'Exceeded 2-device limit',
     });
     return { blocked: true, reason: `This account is already active on ${MAX_DEVICES} devices. Using more devices isn't allowed and has been flagged.` };
   }
-  store.createDevice({
+  await store.createDevice({
     id: nanoid(), userId: user.id, deviceId, firstSeen: now, lastSeen: now, count: 1,
     userAgent: req.headers['user-agent'] || '', blocked: false, flagged: false,
   });
@@ -91,7 +91,7 @@ router.post('/firebase-session', async (req, res) => {
 
   // Link by firebaseUid first, then by email so accounts created before the
   // Firebase migration attach to their existing record (and keep their plan).
-  let user = store.findUserByFirebaseUid(decoded.uid) || store.findUserByEmail(email);
+  let user = (await store.findUserByFirebaseUid(decoded.uid)) || (await store.findUserByEmail(email));
 
   if (!user) {
     // A Firebase account with no record here means a signup that never
@@ -110,7 +110,7 @@ router.post('/firebase-session', async (req, res) => {
     for (const [field, label] of Object.entries(required)) {
       if (!p[field] || !String(p[field]).trim()) return res.status(400).json({ error: `Please enter ${label}.` });
     }
-    user = store.createUser({
+    user = await store.createUser({
       id: nanoid(),
       firebaseUid: decoded.uid,
       email,
@@ -127,7 +127,7 @@ router.post('/firebase-session', async (req, res) => {
   } else if (user.firebaseUid !== decoded.uid) {
     // Existing pre-Firebase account signing in through Firebase for the first
     // time: link the records and drop the now-unused bcrypt hash.
-    user = store.updateUser(user.id, { firebaseUid: decoded.uid, passwordHash: undefined, email });
+    user = await store.updateUser(user.id, { firebaseUid: decoded.uid, passwordHash: undefined, email });
   }
 
   // Gate on email verification. Done AFTER the record exists so a user who
@@ -139,10 +139,10 @@ router.post('/firebase-session', async (req, res) => {
   if (user.status === 'banned') return res.status(403).json({ error: 'This account has been banned. Please contact support.' });
 
   // Enforce device limit before establishing the session.
-  const dev = registerDevice(user, req);
+  const dev = await registerDevice(user, req);
   if (dev.blocked) return res.status(403).json({ error: dev.reason });
 
-  user = reconcileUser(user);
+  user = await reconcileUser(user);
   req.session.userId = user.id;
   res.json(publicUser(user));
 });
@@ -152,7 +152,7 @@ router.post('/firebase-session', async (req, res) => {
 // leave a usable Firebase session behind in the browser (app.html logs out
 // without loading the Firebase SDK, so this has to happen server-side).
 router.post('/logout', async (req, res) => {
-  const user = req.session.userId ? store.findUserById(req.session.userId) : null;
+  const user = req.session.userId ? await store.findUserById(req.session.userId) : null;
   if (user && user.firebaseUid && firebase.isEnabled()) {
     try { await firebase.revokeTokens(user.firebaseUid); }
     catch (err) { console.error('[auth] token revoke failed:', err.message); }
@@ -161,12 +161,12 @@ router.post('/logout', async (req, res) => {
 });
 
 // ---- Current user ----
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   if (!req.session.userId) return res.json({ user: null });
-  let user = store.findUserById(req.session.userId);
+  let user = await store.findUserById(req.session.userId);
   if (!user) return res.json({ user: null });
   if (user.status === 'banned') { req.session.destroy(() => {}); return res.json({ user: null, banned: true }); }
-  user = reconcileUser(user);
+  user = await reconcileUser(user);
   res.json({ user: publicUser(user) });
 });
 

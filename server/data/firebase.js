@@ -86,6 +86,13 @@ async function getAuthUserByEmail(email) {
   }
 }
 
+// The Realtime Database handle. store.js builds the rest of the app's
+// collections on top of this.
+function database() {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  return getDatabase(init());
+}
+
 // ---- Per-user progress (Realtime Database) ----
 // Stored at progress/{userId} as a flat map of the app's own 'tt_' keys, which
 // is exactly the shape the local JSON store used — so route code is unchanged.
@@ -109,7 +116,7 @@ async function mergeProgress(userId, patch) {
 }
 
 module.exports = {
-  isEnabled, whyDisabled,
+  isEnabled, whyDisabled, database,
   verifyIdToken, getAuthUserByEmail, revokeTokens,
   getProgress, mergeProgress,
 };
