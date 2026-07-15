@@ -6,9 +6,12 @@ This site now includes a full subscription platform on a premium dark UI
 **Accounts & access**
 - Signup collects name, nationality, email, and college year/grade.
 - Signing up grants the free **Explorer** tier — required before buying any plan.
-- Login, plus a **forgot-password** flow: users request a reset; the admin
-  actions it from the hub and gets a secure reset link to send; the link
-  lands on `reset-password.html` where the user sets a new password.
+- **Firebase Auth owns sign-in.** Signing up sends a verification email
+  automatically, and users can't log in until they've clicked it.
+- **Forgot-password is fully automated**: Firebase emails a reset link straight
+  away — no admin step. (See "Firebase setup" below.)
+- QBank is **Professional/Lifetime only**; Explorer and Student get the
+  upgrade prompt.
 - **Max 2 devices per account.** A stable device id is sent on every request;
   a 3rd device is blocked and recorded as a flagged violation.
 - **Copy protection** across the site (disables selection, right-click, and
@@ -33,7 +36,8 @@ dashboard with 8 live stat cards and tabs for:
   rejected — each with the payment screenshot, method, plan, and user.
 - **Users**: everyone who signed up, their details, tier, subscription state,
   device count, and status, with **suspend / ban / unban** actions.
-- **Password resets**: pending requests with a "get reset link" action.
+- **Password resets**: historical requests only. Firebase now emails reset
+  links directly, so nothing new lands here and no admin action is needed.
 - **Recommendations**: everything users submitted.
 - **Devices & violations**: full per-device history with a **flag** action.
 
@@ -160,7 +164,52 @@ replace `public/app.html` with your latest version of
 and re-adding that same block (or asking me to do it) is all that's needed.
 
 
-## 4. Deploy
+## 4. Firebase setup (sign-in, email verification, password reset, progress)
+
+Firebase Auth stores passwords and sends the verification / password-reset
+emails, so there is no manual admin step for either. The browser signs in
+against Firebase and posts the resulting ID token to
+`/api/auth/firebase-session`; the server verifies it with the Admin SDK and
+establishes its own session, so plans, payments, devices and admin are
+unchanged. Per-user progress lives in the Realtime Database, written
+**server-side** so users can't forge their own streak or scores.
+
+In the [Firebase console](https://console.firebase.google.com), for the
+project in your `.env`:
+
+1. **Authentication → Sign-in method →** enable **Email/Password**.
+2. **Realtime Database →** create a database.
+3. **Realtime Database → Rules →** paste this and publish. Only the server
+   touches progress, and the Admin SDK bypasses rules, so the browser is
+   denied outright:
+
+   ```json
+   { "rules": { ".read": false, ".write": false } }
+   ```
+
+4. **Project settings → Service accounts → Generate new private key.** Put the
+   whole downloaded JSON on one line in `.env` as
+   `FIREBASE_SERVICE_ACCOUNT_JSON='{...}'` (single quotes). **This is a real
+   secret** — it grants full admin access to the project. Never commit it.
+5. Fill in the `FIREBASE_*` client values from **Project settings → Your apps**.
+   Unlike the service account, these are safe to expose publicly — a web API
+   key only identifies the project.
+
+Without `FIREBASE_SERVICE_ACCOUNT_JSON` the server still boots, but sign-in
+returns a 503 and progress falls back to the local JSON store.
+
+**Optional — keep reset/verify links on your own domain:** by default the email
+links land on Firebase's hosted page. To use `reset-password.html` instead (it
+already handles both link types), set the custom action URL to
+`https://yourdomain/reset-password.html` under **Authentication → Templates**.
+
+**Migrating an account created before Firebase:** sign up again with the same
+email. The server links the new Firebase account to the existing record by
+email address, so the plan, tier and progress are preserved — and because
+Firebase requires the email to be verified first, only the mailbox owner can do
+this.
+
+## 5. Deploy
 
 Recommended: [Render](https://render.com) or [Railway](https://railway.app) —
 both deploy directly from a GitHub repo with almost no configuration, and
