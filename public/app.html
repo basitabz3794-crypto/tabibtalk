@@ -1075,7 +1075,7 @@
   // Synchronous XHR: deliberately blocking so this finishes before the
   // rest of the page's scripts run and read localStorage for first paint.
   // Progress/analytics keys the app tracks per account.
-  var PROGRESS_KEYS = ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q'];
+  var PROGRESS_KEYS = ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores'];
   window.__ttProgressKeys = PROGRESS_KEYS; // exposed so the signup flow can reset these at account creation
 
   try {
@@ -6476,6 +6476,66 @@ function fmtMin(sec){ return Math.round((sec||0)/60); }
 function totalPhrases(){ var n=0; SUBJECTS.forEach(function(s){ if(s.k!=='franco-alpha') n+=getItems(s.k).length; }); return n; }
 function totalSolved(){ var s=_lj('tt_solved',{}); var n=0; Object.keys(s).forEach(function(k){ n+=s[k]; }); return n; }
 
+/* ---------- Test scores (per subject, with history) ----------
+   Stored under the 'tt_' prefix so the per-account sync block at the top of the
+   page mirrors it into the user's account (and from there into Firebase) with
+   no extra endpoint. Each subject keeps a capped list of attempts, oldest first. */
+var SCORE_HISTORY_MAX = 20;
+function allScores(){ var a=_lj('tt_scores',{}); return (a && typeof a==='object' && !Array.isArray(a)) ? a : {}; }
+function scoresFor(key){ var a=allScores()[key]; return Array.isArray(a) ? a : []; }
+function lastAttempt(key){ var l=scoresFor(key); return l.length ? l[l.length-1] : null; }
+function bestPct(key){ var l=scoresFor(key); return l.length ? Math.max.apply(null, l.map(function(e){ return e.pct; })) : 0; }
+function subjectLabel(key){ var s=SUBJECTS.filter(function(x){ return x.k===key; })[0]; return s ? s.label : key; }
+
+/* Records one finished test. Returns { entry, prev }, where prev is the previous
+   attempt of the SAME mode — comparing a 10-question subtest against a full
+   QBank run would be meaningless. */
+function recordScore(key, mode, score, total){
+  if(!key || !total) return null;
+  var all=allScores(), list=scoresFor(key), prev=null;
+  for(var i=list.length-1; i>=0; i--){ if(list[i].mode===mode){ prev=list[i]; break; } }
+  var entry={ score:score, total:total, pct:Math.round(score/total*100), at:Date.now(), mode:mode };
+  list.push(entry);
+  if(list.length>SCORE_HISTORY_MAX) list=list.slice(-SCORE_HISTORY_MAX);
+  all[key]=list;
+  _sj('tt_scores', all);
+  return { entry:entry, prev:prev };
+}
+window.recordScore=recordScore;
+
+/* The "78% — up from 71% last time" line shown on the results screen. */
+function scoreCompareHTML(rec){
+  if(!rec) return '';
+  var e=rec.entry, p=rec.prev;
+  if(!p) return '<div class="fc-count" style="margin-top:10px">First attempt at this — your baseline is '+e.pct+'%.</div>';
+  var d=e.pct-p.pct;
+  if(d>0) return '<div class="fc-count" style="margin-top:10px;color:var(--accent);font-weight:600">▲ Up '+d+' point'+(d===1?'':'s')+' from '+p.pct+'% last time.</div>';
+  if(d<0) return '<div class="fc-count" style="margin-top:10px">▼ Down '+Math.abs(d)+' point'+(Math.abs(d)===1?'':'s')+' from '+p.pct+'% last time.</div>';
+  return '<div class="fc-count" style="margin-top:10px">Same as last time ('+p.pct+'%).</div>';
+}
+
+function fmtScoreDate(ms){
+  try { return new Date(ms).toLocaleDateString(undefined,{ year:'numeric', month:'short', day:'numeric' }); }
+  catch(e){ return ''; }
+}
+
+function testScoresHTML(){
+  var all=allScores();
+  var keys=Object.keys(all).filter(function(k){ return scoresFor(k).length; });
+  var h='<h3 class="mini-h">Test scores</h3>';
+  if(!keys.length){
+    return h+'<div class="fc-count">No tests finished yet — complete a quiz or a study-path subtest and your scores will appear here.</div>';
+  }
+  keys.sort(function(a,b){ return (lastAttempt(b).at||0)-(lastAttempt(a).at||0); });
+  keys.forEach(function(k){
+    var list=scoresFor(k), last=list[list.length-1], best=bestPct(k);
+    h+='<div class="qa-analysis"><div class="qa-analysis-top"><span>'+subjectLabel(k)+'</span><span class="d-c">'+last.score+' / '+last.total+' ('+last.pct+'%)</span></div>'
+      +'<div class="prog"><div class="prog-bar" style="width:'+last.pct+'%"></div></div>'
+      +'<div class="fc-count" style="margin-top:6px">Best '+best+'% · '+list.length+' attempt'+(list.length===1?'':'s')+' · Last attempted '+fmtScoreDate(last.at)+'</div></div>';
+  });
+  return h;
+}
+
 function renderStreak(){
   var body=document.getElementById('streak-body'); if(!body) return;
   var streak=(typeof computeStreak==='function')?computeStreak():1;
@@ -6498,8 +6558,9 @@ function renderStreak(){
   h+='<h3 class="mini-h">QBank progress</h3><div class="stat-card" style="cursor:pointer" onclick="navigate(\'page-qanalysis\')"><div class="lbl">Questions Used (tap for analysis)</div><div class="val a2">'+used+' <span style="font-size:1rem;color:var(--muted)">of '+tot+'</span></div><div class="prog" style="margin-top:10px"><div class="prog-bar" style="width:'+Math.min(100,Math.round(used/Math.max(1,tot)*100))+'%"></div></div></div>';
   var correct=_lj('tt_correct',{qbank:0,course:0});
   h+='<h3 class="mini-h">Correct answers</h3><div class="stat-grid">'
-    +'<div class="stat-card"><div class="lbl">QBank \\u2014 Correct</div><div class="val a2">'+(correct.qbank||0)+'</div></div>'
-    +'<div class="stat-card"><div class="lbl">Course Quizzes \\u2014 Correct</div><div class="val a3">'+(correct.course||0)+'</div></div></div>';
+    +'<div class="stat-card"><div class="lbl">QBank — Correct</div><div class="val a2">'+(correct.qbank||0)+'</div></div>'
+    +'<div class="stat-card"><div class="lbl">Course Quizzes — Correct</div><div class="val a3">'+(correct.course||0)+'</div></div></div>';
+  h+=testScoresHTML();
   h+='<h3 class="mini-h">This month</h3>'+calendarHTML();
   body.innerHTML=h;
 }
@@ -7008,6 +7069,20 @@ function showResults(){
   document.getElementById('next-btn').style.display='none';
   document.getElementById('quiz-progress').innerText='Done';
   var analysis = quizAnalysisHTML();
+
+  /* Bank the score before rendering, so the results screen can compare this
+     attempt with the last one for the same subject and test type. */
+  var _rec=null;
+  try {
+    var _total=QZ.data ? QZ.data.length : 0;
+    if(_total){
+      var _key = QZ.pathMode ? QZ.pathMode.key : QZ.type;
+      var _mode = QZ.pathMode ? (QZ.pathMode.cat==='final' ? 'final' : 'subtest') : (QZ.qbank ? 'qbank' : 'quiz');
+      _rec = recordScore(_key, _mode, QZ.score, _total);
+    }
+  } catch(e){}
+  var cmp = scoreCompareHTML(_rec);
+
   if(QZ.pathMode){
     var pass=pct>=70; var pm=QZ.pathMode;
     document.getElementById('quiz-phrase-label').innerText='SUBTEST RESULT';
@@ -7015,9 +7090,9 @@ function showResults(){
     sd.style.display='block';
     if(pass){
       markPassed(pm.key, pm.cat);
-      sd.innerHTML='You scored '+QZ.score+' / '+QZ.data.length+' ('+pct+'%).<br><span style="font-weight:600;color:var(--muted)">'+(pm.cat==='final'?'Subject complete \u2014 well done!':'Next section unlocked.')+'</span><br><button class="btn-primary" style="margin-top:14px" onclick="openPath(\''+pm.key+'\')">Continue &rarr;</button>'+analysis;
+      sd.innerHTML='You scored '+QZ.score+' / '+QZ.data.length+' ('+pct+'%).<br><span style="font-weight:600;color:var(--muted)">'+(pm.cat==='final'?'Subject complete \u2014 well done!':'Next section unlocked.')+'</span>'+cmp+'<button class="btn-primary" style="margin-top:14px" onclick="openPath(\''+pm.key+'\')">Continue &rarr;</button>'+analysis;
     } else {
-      sd.innerHTML='You scored '+QZ.score+' / '+QZ.data.length+' ('+pct+'%).<br><span style="font-weight:600;color:var(--muted)">You need at least 70% to move on. Review and try again.</span><br><button class="btn-primary" style="margin-top:14px" onclick="startSubtest('+(pm.cat==='final'?'\'final\'':pm.cat)+')">Retry Subtest</button> <button class="pill outline" style="margin-top:14px" onclick="openPath(\''+pm.key+'\')">Back To Path</button>'+analysis;
+      sd.innerHTML='You scored '+QZ.score+' / '+QZ.data.length+' ('+pct+'%).<br><span style="font-weight:600;color:var(--muted)">You need at least 70% to move on. Review and try again.</span>'+cmp+'<button class="btn-primary" style="margin-top:14px" onclick="startSubtest('+(pm.cat==='final'?'\'final\'':pm.cat)+')">Retry Subtest</button> <button class="pill outline" style="margin-top:14px" onclick="openPath(\''+pm.key+'\')">Back To Path</button>'+analysis;
     }
     return;
   }
@@ -7025,7 +7100,7 @@ function showResults(){
   document.getElementById('quiz-doctor-phrase').innerText='Quiz complete! \uD83C\uDF89';
   var msg = pct>=80 ? "Excellent \u2014 you're bedside-ready!" : (pct>=50 ? "Good effort \u2014 keep practicing." : "Keep going \u2014 review and retry.");
   sd.style.display='block';
-  sd.innerHTML='You scored '+QZ.score+' / '+QZ.data.length+' ('+pct+'%)<br><span style="font-weight:600;color:var(--muted)">'+msg+'</span><br>'
+  sd.innerHTML='You scored '+QZ.score+' / '+QZ.data.length+' ('+pct+'%)<br><span style="font-weight:600;color:var(--muted)">'+msg+'</span>'+cmp
     +'<button class="btn-primary" style="margin-top:16px" onclick="startQuiz(\''+QZ.type+'\',\''+(QZ.ret||'page-quiz-hub')+'\')">Try again</button> '
     +'<button class="pill outline" style="margin-top:16px" onclick="navigate(\'page-quiz-hub\')">All quizzes</button>'+analysis;
 }
@@ -8543,7 +8618,7 @@ function ttLogout(){
   function finish(){
     try{
       ['tt_tier','tt_pro','tt_streak','tt_days','tt_time','tt_path','tt_solved',
-       'tt_bm','tt_qb_saved','tt_course_q']
+       'tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores']
         .forEach(function(k){ localStorage.removeItem(k); });
       // Ad state is keyed per campaign (tt_ad_seen_<id> / tt_ad_notified_<id>),
       // so sweep by prefix rather than listing ids that change over time.
