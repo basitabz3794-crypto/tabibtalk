@@ -1,4 +1,10 @@
 require('dotenv').config();
+// Must be required BEFORE any routes are defined. Patches Express 4 so a
+// rejected promise from an async route handler is forwarded to the error
+// middleware below, instead of becoming an unhandled rejection that crashes
+// the whole serverless function. This is what made every /api/* endpoint on
+// Vercel return FUNCTION_INVOCATION_FAILED when a single async handler threw.
+require('express-async-errors');
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
@@ -59,7 +65,14 @@ app.use('/api/shares', sharesRoutes);
 app.use('/api/interests', interestsRoutes);
 app.use('/api/admin', adminRoutes);
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', (req, res) => {
+  const firebase = require('./data/firebase');
+  res.json({
+    ok: true,
+    firebase: firebase.isEnabled() ? 'ok' : 'disabled: ' + (firebase.whyDisabled() || 'unknown'),
+    node: process.version,
+  });
+});
 
 // Firebase client config, served from env so it lives in one place.
 // These values are safe to expose publicly — a Firebase web API key identifies
@@ -73,6 +86,20 @@ app.get('/api/config/firebase', (req, res) => {
     projectId: process.env.FIREBASE_PROJECT_ID || '',
     appId: process.env.FIREBASE_APP_ID || '',
   });
+});
+
+// Global error handler. Must be declared AFTER all routes and must have four
+// arguments — Express recognises error middleware by arity. Any error (thrown
+// synchronously, or from an awaited promise thanks to express-async-errors)
+// lands here instead of crashing the process. In production we hide the
+// stack trace from the response; the full detail is still logged for Vercel.
+app.use((err, req, res, next) => {
+  console.error('[server]', req.method, req.url, '-', err && (err.stack || err.message || err));
+  if (res.headersSent) return next(err);
+  const detail = process.env.NODE_ENV === 'production'
+    ? 'Something went wrong. Please try again shortly.'
+    : (err && err.message) || 'Server error';
+  res.status(500).json({ error: detail });
 });
 
 // On Vercel this module is imported by api/index.js and the platform handles

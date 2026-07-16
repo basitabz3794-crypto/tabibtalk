@@ -24,23 +24,42 @@ module.exports = function (session) {
       this.ttlMs = options.ttlMs || 30 * 24 * 60 * 60 * 1000; // matches the cookie's 30 days
     }
 
+    // firebase.database() throws SYNCHRONOUSLY when Firebase isn't configured,
+    // so this helper must not be followed by a Promise chain — otherwise the
+    // throw escapes the `.catch()` and crashes the whole serverless function.
     ref(sid) {
       return firebase.database().ref(`${this.path}/${encodeKey(sid)}`);
     }
 
+    safeRef(sid, cb, then) {
+      let ref;
+      try { ref = this.ref(sid); }
+      catch (err) {
+        // Log once per cold start so Vercel's logs surface the reason, but do
+        // not fail the request: falling back to no-session-persistence is
+        // better than a 500 on every page.
+        if (!FirebaseSessionStore._warned) {
+          console.error('[session-store] Firebase unavailable, sessions will not persist:', err.message);
+          FirebaseSessionStore._warned = true;
+        }
+        return cb && cb(null);
+      }
+      return then(ref);
+    }
+
     get(sid, cb) {
-      this.ref(sid).once('value')
+      this.safeRef(sid, cb, ref => ref.once('value')
         .then(snap => {
           const row = snap.val();
           if (!row) return cb(null, null);
           if (row.expiresAt && row.expiresAt < Date.now()) {
-            return this.ref(sid).remove().then(() => cb(null, null)).catch(() => cb(null, null));
+            return ref.remove().then(() => cb(null, null)).catch(() => cb(null, null));
           }
           let data;
           try { data = JSON.parse(row.json); } catch (e) { return cb(null, null); }
           cb(null, data);
         })
-        .catch(err => cb(err));
+        .catch(err => cb(err)));
     }
 
     set(sid, sess, cb) {
@@ -51,18 +70,19 @@ module.exports = function (session) {
         expiresAt: expiryOf(sess, this.ttlMs),
         updatedAt: Date.now(),
       };
-      this.ref(sid).set(row).then(() => cb && cb(null)).catch(err => cb && cb(err));
+      this.safeRef(sid, cb, ref => ref.set(row).then(() => cb && cb(null)).catch(err => cb && cb(err)));
     }
 
     destroy(sid, cb) {
-      this.ref(sid).remove().then(() => cb && cb(null)).catch(err => cb && cb(err));
+      this.safeRef(sid, cb, ref => ref.remove().then(() => cb && cb(null)).catch(err => cb && cb(err)));
     }
 
     touch(sid, sess, cb) {
-      // Just push the expiry out; no need to rewrite the payload.
-      this.ref(sid).update({ expiresAt: expiryOf(sess, this.ttlMs) })
+      // Just push the expiry out; no need to rewrite the payload. A failed
+      // touch must not break the request.
+      this.safeRef(sid, () => cb && cb(null), ref => ref.update({ expiresAt: expiryOf(sess, this.ttlMs) })
         .then(() => cb && cb(null))
-        .catch(() => cb && cb(null)); // a failed touch must not break the request
+        .catch(() => cb && cb(null)));
     }
   }
 
