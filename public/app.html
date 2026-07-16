@@ -191,7 +191,48 @@
         /* ---------- Header ---------- */
         .app-header { background: var(--surface); color: var(--text-dark); text-align: left; padding: 0;
             box-shadow: 0 1px 0 var(--border); position: sticky; top: 0; z-index: 200; }
-        .app-header-inner { max-width: 920px; margin: 0 auto; padding: 14px 18px 10px; display: flex; align-items: center; gap: 14px; }
+        .app-header-inner { max-width: 920px; margin: 0 auto; padding: 14px 18px 10px; display: flex; align-items: center; gap: 14px;
+            /* On any screen where the 9 header buttons don't fit on one row,
+               allow horizontal scrolling INSIDE the header rather than pushing
+               the last few buttons off the viewport where a mobile user can't
+               reach them. See the mobile media query below for aggressive
+               size reductions that make everything fit at 375px anyway. */
+            overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .app-header-inner::-webkit-scrollbar { display: none; }
+
+        /* ---------- Mobile header layout ----------
+           The header has 9 items (menu, brand, 4 notif-pills, bookmark, streak,
+           search, account). At default sizes they add up to ~680px, so on a
+           375px iPhone screen the streak and account pills used to be pushed
+           off the right edge. Reduce each piece just enough to fit, keeping
+           every button reachable.
+           !important is used throughout because the base .brand / .notif-pill /
+           .bookmark-pill rules are declared LATER in the stylesheet and would
+           otherwise win by CSS source order at the same specificity. */
+        @media (max-width: 600px) {
+          .app-header-inner { padding: 10px 10px 8px !important; gap: 4px !important; flex-wrap: nowrap; }
+          .menu-toggle { flex: none; font-size: 22px; padding: 4px 6px; }
+          .brand { gap: 8px !important; flex: none; }
+          .brand-logo { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
+          .brand-logo svg { width: 20px !important; height: 20px !important; }
+          .brand-text strong { font-size: 1rem !important; }
+          .brand-text small { display: none !important; } /* subtitle wastes width */
+          .notif-pill, .search-pill { width: 34px !important; height: 34px !important; flex: none; }
+          .notif-pill svg, .search-pill svg { width: 14px !important; height: 14px !important; }
+          .bookmark-pill { padding: 6px 10px !important; font-size: .82rem !important; margin-left: auto !important; flex: none; }
+          .bookmark-pill svg { width: 13px !important; height: 13px !important; }
+          .streak-pill { padding: 6px 9px !important; font-size: .88rem !important; margin-left: 4px !important; flex: none; }
+          /* Hide theme + eye-comfort on every phone width — they're accessible
+             via the drawer's Display section, which frees up ~76px per row so
+             streak/search/account fit even on iPhone 14/15-sized screens. */
+          #theme-btn, #eye-comfort-btn { display: none !important; }
+        }
+        /* Extra-narrow phones (older iPhone SE, folded Samsung). Drop the brand
+           text entirely, keeping just the logo. */
+        @media (max-width: 380px) {
+          .brand-text { display: none !important; }
+        }
+
         .brand { display: flex; align-items: center; gap: 13px; cursor: pointer; }
         .brand-logo { width: 50px; height: 50px; border-radius: 15px; background: var(--primary);
             display: grid; place-items: center; box-shadow: 0 6px 16px rgba(20,52,42,.25); flex: none; }
@@ -5705,7 +5746,7 @@ function renderBookmarks(){
   });
   body.innerHTML=h;
 }
-function toast(msg){ var t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); } t.innerText=msg; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(function(){ t.classList.remove('show'); }, 1600); }
+function toast(msg, ms){ var t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); } t.innerText=msg; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(function(){ t.classList.remove('show'); }, ms || 1600); }
 
 /* Swipe-to-bookmark on chapter table rows (touch + mouse) */
 var SW={row:null, x0:0, dx:0, active:false};
@@ -7416,6 +7457,12 @@ function buildDrawer(){
   var order=['Foundations','Internal Medicine','Specialties','Reference']; var byGrp={};
   SUBJECTS.forEach(function(s){ if(s.k==='franco-alpha') { (byGrp['Foundations']=byGrp['Foundations']||[]).push(s); return;} (byGrp[s.grp]=byGrp[s.grp]||[]).push(s); });
   order.forEach(function(g){ (byGrp[g]||[]).forEach(function(s){ h+='<div class="drawer-link sub" onclick="navigate(\''+s.page+'\')">'+s.label+'</div>'; }); });
+  /* Display toggles \u2014 the header pills for these are hidden on very narrow
+     phones (see the \u2264400px media query), so users need a way to reach them
+     from the drawer regardless of screen width. */
+  h+='<div class="drawer-group">Display</div>';
+  h+='<div class="drawer-link" onclick="closeDrawer();toggleGreenTheme()">\uD83C\uDF3F Toggle green theme</div>';
+  h+='<div class="drawer-link" onclick="closeDrawer();toggleEyeComfort()">\uD83D\uDC41\uFE0F Toggle eye comfort</div>';
   h+='<div class="drawer-group">Account</div>';
   h+='<div class="drawer-link" onclick="ttGoAccount()">\uD83D\uDC64 My Account</div>';
   h+='<div class="drawer-link" onclick="ttGoPlans()">\uD83D\uDCB3 Plans</div>';
@@ -8355,23 +8402,51 @@ window.shareRow = shareRow;
 function shareParts(parts, filename){
   var served = (location.protocol==='http:'||location.protocol==='https:');
   if(!served){ toast('Sharing needs the website version of the app.'); return; }
+  /* Guard against a double-tap while the previous share is still in flight \u2014
+     the button used to feel like it "hangs" on slow connections because the
+     first tap had no visible feedback and the second tap re-fired the flow. */
+  if(window._ttSharing){ return; }
+  window._ttSharing = true;
+  /* Long-lived toast so users on Vercel cold starts (5-8 seconds) see that
+     something is happening. Replaced by a success / error toast below. */
+  toast('Preparing to share\u2026', 15000);
   var dev; try{ dev=localStorage.getItem('tt_device_id'); }catch(e){ dev=''; }
   var first = parts[0] || {};
   fetch('/api/shares/record', {
     method:'POST', credentials:'same-origin',
     headers:{ 'Content-Type':'application/json', 'x-device-id': dev||'' },
     body: JSON.stringify({ phraseEn:first.en, phraseAr:first.ar, phraseFr:first.fr }),
-  }).then(function(r){ return r.json().then(function(data){ return { ok:r.ok, data:data }; }); })
+  }).then(function(r){ return r.json().then(function(data){ return { ok:r.ok, status:r.status, data:data }; }); })
     .then(function(res){
-      if(!res.ok){ toast(res.data.error || 'Could not share right now.'); return; }
+      if(!res.ok){
+        /* Gating errors from the server ("please log in", "not on your plan",
+           "limit reached") need a longer toast on mobile \u2014 the default 1.6s is
+           easy to miss when the user's already scrolling the page. */
+        window._ttSharing = false;
+        if(res.status === 401){
+          toast('Please log in to share phrases.', 4000);
+        } else if(res.status === 403){
+          toast(res.data.error || 'Sharing needs a paid plan.', 5000);
+        } else {
+          toast(res.data.error || 'Could not share right now.', 4000);
+        }
+        return;
+      }
       generateShareImage(parts, filename);
     })
-    .catch(function(){ toast('Could not share right now \u2014 check your connection.'); });
+    .catch(function(){
+      window._ttSharing = false;
+      toast('Could not reach the server \u2014 check your connection.', 4000);
+    });
 }
 window.shareParts = shareParts;
 
 function generateShareImage(parts, filename){
-  if(typeof html2canvas === 'undefined'){ toast('Image tool failed to load \u2014 check your connection and try again.'); return; }
+  if(typeof html2canvas === 'undefined'){
+    window._ttSharing = false;
+    toast('Image tool failed to load \u2014 check your connection and try again.', 4000);
+    return;
+  }
   var blocksHtml = parts.map(function(part){
     var label = part.label ? '<div style="font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.75;margin-bottom:8px">'+part.label+'</div>' : '';
     return '<div style="background:rgba(255,255,255,.14);border-radius:16px;padding:22px;margin-bottom:14px">'
@@ -8397,30 +8472,58 @@ function generateShareImage(parts, filename){
     }, 'image/png');
   }).catch(function(){
     if(wrap.parentNode) document.body.removeChild(wrap);
-    toast('Could not generate the image.');
+    window._ttSharing = false;
+    toast('Could not generate the image.', 4000);
   });
 }
 window.generateShareImage = generateShareImage;
 
 /* Tries the native share sheet first (WhatsApp, Telegram, Instagram Stories,
    etc, wherever the device/browser supports sharing files) and falls back
-   to a plain download when that's not available. */
+   to a plain download when the share sheet is unavailable OR when it errors
+   out for a reason other than the user simply cancelling.
+
+   The old version swallowed EVERY navigator.share() rejection silently,
+   including real failures, which is why the share button appeared to do
+   nothing on some phones \u2014 no share sheet, no download, no message. */
 function shareOrDownloadBlob(blob, filename){
+  var supportsFileShare = false;
+  var file;
   try{
-    var file = new File([blob], filename, { type:'image/png' });
-    if(navigator.canShare && navigator.canShare({ files:[file] })){
-      navigator.share({ files:[file], title:'Tabib Talk', text:'From Tabib Talk \u2014 Egyptian Medical Arabic' }).catch(function(){});
-      return;
-    }
-  }catch(e){}
+    file = new File([blob], filename, { type:'image/png' });
+    supportsFileShare = !!(navigator.canShare && navigator.canShare({ files:[file] }));
+  }catch(e){ supportsFileShare = false; }
+
+  if(supportsFileShare){
+    navigator.share({ files:[file], title:'Tabib Talk', text:'From Tabib Talk \u2014 Egyptian Medical Arabic' })
+      .then(function(){
+        window._ttSharing = false;
+        toast('Shared!', 2500);
+      })
+      .catch(function(err){
+        window._ttSharing = false;
+        /* AbortError = user tapped Cancel on the share sheet. Nothing to do,
+           and we don't want to force a download they didn't ask for. Any
+           other error means the share failed for a technical reason \u2014 fall
+           back to a download so they still get their image. */
+        if(err && (err.name === 'AbortError' || /cancel/i.test(err.message||''))) return;
+        _ttDownloadBlob(blob, filename);
+      });
+    return;
+  }
+  _ttDownloadBlob(blob, filename);
+}
+window.shareOrDownloadBlob = shareOrDownloadBlob;
+
+function _ttDownloadBlob(blob, filename){
   var url = URL.createObjectURL(blob);
   var link=document.createElement('a');
   link.download=filename; link.href=url;
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
-  toast('Image ready \u2014 check your downloads!');
+  window._ttSharing = false;
+  toast('Image saved to your downloads.', 3500);
 }
-window.shareOrDownloadBlob = shareOrDownloadBlob;
 
 /* AI Patient access control:
    - Explorer: the whole page is already locked via SMART_PAGES.
