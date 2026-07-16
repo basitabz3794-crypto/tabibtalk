@@ -211,7 +211,8 @@
            otherwise win by CSS source order at the same specificity. */
         @media (max-width: 600px) {
           .app-header-inner { padding: 10px 10px 8px !important; gap: 4px !important; flex-wrap: nowrap; }
-          .menu-toggle { flex: none; font-size: 22px; padding: 4px 6px; }
+          /* Menu toggle has a fixed 46px in a later block — !important is needed. */
+          .menu-toggle { width: 40px !important; height: 40px !important; font-size: 22px !important; padding: 4px 6px !important; border-radius: 10px !important; flex: none; }
           .brand { gap: 8px !important; flex: none; }
           .brand-logo { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
           .brand-logo svg { width: 20px !important; height: 20px !important; }
@@ -227,9 +228,12 @@
              streak/search/account fit even on iPhone 14/15-sized screens. */
           #theme-btn, #eye-comfort-btn { display: none !important; }
         }
-        /* Extra-narrow phones (older iPhone SE, folded Samsung). Drop the brand
-           text entirely, keeping just the logo. */
-        @media (max-width: 380px) {
+        /* Phones (any width up to and including iPhone 15 Pro Max at ~430px).
+           The brand text costs ~82px of horizontal space, which is what keeps
+           the last three pills from fitting. Users know they're on Tabib Talk;
+           the logo alone is enough branding. Only tablets/desktop show the
+           full "Tabib Talk / EGYPTIAN MEDICAL ARABIC" wordmark. */
+        @media (max-width: 480px) {
           .brand-text { display: none !important; }
         }
 
