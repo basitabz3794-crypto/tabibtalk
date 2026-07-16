@@ -31,6 +31,16 @@ async function reconcileUser(user) {
   return user;
 }
 
+// Batch version — used by the admin overview so the numbers always reflect the
+// current state, without waiting for each user to log in and trigger their own
+// reconcile. Idempotent: users already on the correct tier are untouched.
+async function reconcileAllUsers(users) {
+  if (!users || !users.length) return users || [];
+  const out = [];
+  for (const u of users) out.push(await reconcileUser(u));
+  return out;
+}
+
 // Register (or re-touch) the calling device; enforce the max-2-devices rule.
 // Returns { ok } or { blocked, reason }.
 async function registerDevice(user, req) {
@@ -177,4 +187,4 @@ router.get('/me', async (req, res) => {
 // system to keep in sync. The admin panel's reset-request list stays in place
 // for historical requests, but nothing new is written to it.
 
-module.exports = { router, publicUser, reconcileUser, registerDevice, MAX_DEVICES };
+module.exports = { router, publicUser, reconcileUser, reconcileAllUsers, registerDevice, MAX_DEVICES };

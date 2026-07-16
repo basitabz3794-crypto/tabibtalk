@@ -406,6 +406,28 @@
         .option-btn .opt-fr, .option-franco { font-size: 1rem; color: var(--accent); font-style: italic; text-align: left; }
         .option-btn.correct { border-color: var(--correct); background: #eafaf0; }
         .option-btn.incorrect { border-color: var(--incorrect); background: #fdecea; }
+        /* When an option is picked, .correct / .incorrect turns the whole
+           button dark-green / dark-red via the earlier !important rule. The
+           Arabic and Franco child spans have their OWN colour rules
+           (.option-btn .opt-ar → var(--primary), which is also dark green),
+           and those rules used to beat the parent's white so the correct
+           answer read as dark-green-text on dark-green-background — unreadable,
+           especially on phones. Force every text descendant to white with
+           enough specificity + !important to beat all of them. Applies to both
+           the newer .opt-ar / .opt-fr class names and the legacy
+           .option-arabic / .option-franco ones the quiz engine also emits. */
+        .option-btn.correct, .option-btn.incorrect { color: #fff !important; }
+        .option-btn.correct .opt-ar, .option-btn.correct .opt-fr,
+        .option-btn.correct .option-arabic, .option-btn.correct .option-franco,
+        .option-btn.incorrect .opt-ar, .option-btn.incorrect .opt-fr,
+        .option-btn.incorrect .option-arabic, .option-btn.incorrect .option-franco {
+          color: #ffffff !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,.25); /* extra edge on the small phone-sized text */
+        }
+        /* Darken the correct-answer background a touch so white text pops on
+           low-brightness outdoor phone screens. */
+        .option-btn.correct { background: #16a34a !important; border-color: #15803d !important; }
+        .option-btn.incorrect { background: #dc2626 !important; border-color: #b91c1c !important; }
         .explain-card { border-radius: 18px; padding: 20px 22px; margin-top: 18px; border-left: 6px solid var(--accent);
             background: var(--patient-color); animation: fadeUp .3s ease both; }
         .explain-card.good { border-left-color: var(--correct); background: #eafaf0; }

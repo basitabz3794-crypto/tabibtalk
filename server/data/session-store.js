@@ -84,6 +84,33 @@ module.exports = function (session) {
         .then(() => cb && cb(null))
         .catch(() => cb && cb(null)));
     }
+
+    // Admin action: forcibly evict every session that belongs to one user.
+    // Used when an account is banned, so their existing browser tab loses
+    // its cookie's underlying record and the next request treats them as
+    // unauthenticated (and firebase-session will then refuse them).
+    async destroyByUserId(userId) {
+      if (!userId) return 0;
+      let count = 0;
+      try {
+        const snap = await firebase.database().ref(this.path).once('value');
+        const rows = snap.val() || {};
+        const jobs = [];
+        for (const [key, row] of Object.entries(rows)) {
+          try {
+            const data = JSON.parse(row.json || '{}');
+            if (data.userId === userId) {
+              jobs.push(firebase.database().ref(`${this.path}/${key}`).remove());
+              count++;
+            }
+          } catch (e) { /* skip corrupt rows */ }
+        }
+        await Promise.all(jobs);
+      } catch (e) {
+        console.error('[session-store] destroyByUserId failed:', e.message);
+      }
+      return count;
+    }
   }
 
   return FirebaseSessionStore;

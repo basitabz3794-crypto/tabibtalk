@@ -1,7 +1,9 @@
 const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
+const firebase = require('../data/firebase');
 const { requireAdmin } = require('./manual-payments');
+const { reconcileAllUsers } = require('./auth');
 const { isExpired, PLANS, accessTierForPlan, computeExpiry } = require('../data/plans');
 
 const router = express.Router();
@@ -12,35 +14,98 @@ router.get('/pending', requireAdmin, async (req, res) => {
 });
 
 // ---- Analytics overview: the numbers the admin hub shows at the top ----
+// Every hit refreshes the picture: expired paid tiers are downgraded to
+// explorer in-place before the counts are computed, so the "active
+// subscriptions" tile never lags behind the real state.
 router.get('/overview', requireAdmin, async (req, res) => {
   // Each collection is fetched once and joined in memory. Looking users up one
   // at a time inside the loop below would be a separate network round-trip per
   // proof now that the store is remote.
-  const [users, proofs, recommendations, pendingResets, devices] = await Promise.all([
+  const [rawUsers, proofs, recommendations, pendingResets, devices] = await Promise.all([
     store.listAllUsers(),
     store.listAllManualProofs(),
     store.listRecommendations(),
     store.listResetRequests('pending'),
     store.listAllDevices(),
   ]);
+  // Downgrade expired paid tiers first, so the analytics are always fresh.
+  const users = await reconcileAllUsers(rawUsers);
   const usersById = new Map(users.map(u => [u.id, u]));
 
-  // A subscription is "active" if approved AND not expired.
+  const pending  = proofs.filter(p => p.status === 'pending');
   const approved = proofs.filter(p => p.status === 'approved');
+  const rejected = proofs.filter(p => p.status === 'rejected');
+  const verifiedTotal = approved.length + rejected.length; // "how many transactions did the admin actually review"
+
+  // A subscription is "active" if approved AND not expired AND the user is still
+  // on that same plan (so an old proof from a plan they've since replaced isn't
+  // counted).
   const activeSubs = [];
-  const suspendedSubs = []; // approved but plan duration elapsed
+  const expiredSubs = [];
   approved.forEach(p => {
     const user = usersById.get(p.userId);
-    const expiresAt = user && user.planExpiresAt;
-    // Match the proof's plan to the user's current plan to avoid double-counting old proofs
-    const isCurrent = user && user.planId === p.planId;
+    if (!user) return;
+    const isCurrent = user.planId === p.planId;
     if (!isCurrent) return;
-    if (expiresAt && isExpired(expiresAt)) suspendedSubs.push({ proof: p, user });
+    if (user.planExpiresAt && isExpired(user.planExpiresAt)) expiredSubs.push({ proof: p, user });
+    else if (user.status === 'banned') expiredSubs.push({ proof: p, user }); // treat a banned account as inactive
     else activeSubs.push({ proof: p, user });
   });
 
+  // Users signed up + tiers
   const tierCounts = {};
   users.forEach(u => { tierCounts[u.tier] = (tierCounts[u.tier] || 0) + 1; });
+
+  // Active subs broken down by tier + specific plan id (with human duration
+  // labels), so the admin sees "Professional: 12 (monthly 8 / 6-month 3 /
+  // yearly 1)" rather than a bare "12".
+  const PLAN_DURATION_HUMAN = {
+    'student-monthly': 'Monthly', 'student-6m': '6-month', 'student-12m': '12-month',
+    'professional-monthly': 'Monthly', 'professional-6m': '6-month', 'professional-yearly': 'Yearly',
+    'lifetime': 'Lifetime',
+  };
+  const activeByTier = { student: 0, professional: 0, lifetime: 0 };
+  const activeByPlan = {}; // planId -> count
+  activeSubs.forEach(({ user }) => {
+    const t = user.tier;
+    if (activeByTier[t] !== undefined) activeByTier[t]++;
+    if (user.planId) activeByPlan[user.planId] = (activeByPlan[user.planId] || 0) + 1;
+  });
+
+  // Plans expiring in the next 14 days (renewals due soon), and paid accounts
+  // whose plan already expired but haven't logged in since — those are
+  // downgraded above, but we still want the admin to see them as "needs
+  // renewal" so they can nudge the user.
+  const SOON_MS = 14 * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const renewalsDue = [];
+  users.forEach(u => {
+    if (!u.planExpiresAt) return;
+    if (u.tier === 'lifetime' || u.tier === 'explorer') return;
+    const exp = new Date(u.planExpiresAt).getTime();
+    const days = Math.round((exp - nowMs) / 86400000);
+    if (days <= 14) {
+      renewalsDue.push({
+        id: u.id, name: u.name || '', email: u.email, phone: u.phone || '',
+        tier: u.tier, planId: u.planId,
+        planExpiresAt: u.planExpiresAt, daysUntilExpiry: days,
+      });
+    }
+  });
+  // Also flag anyone whose plan just expired (now on explorer with subStatus:'expired')
+  // — reconcile just moved them there, so their tier is 'explorer' but they still
+  // have a planId hinting at what they were on.
+  users.forEach(u => {
+    if (u.subStatus === 'expired' && u.planId) {
+      if (renewalsDue.find(r => r.id === u.id)) return;
+      renewalsDue.push({
+        id: u.id, name: u.name || '', email: u.email, phone: u.phone || '',
+        tier: u.tier, planId: u.planId,
+        planExpiresAt: u.planExpiresAt, daysUntilExpiry: -1,
+      });
+    }
+  });
+  renewalsDue.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
 
   const planCounts = {};
   approved.forEach(p => { planCounts[p.planId] = (planCounts[p.planId] || 0) + 1; });
@@ -48,17 +113,27 @@ router.get('/overview', requireAdmin, async (req, res) => {
   res.json({
     totals: {
       users: users.length,
-      pending: proofs.filter(p => p.status === 'pending').length,
+      pending: pending.length,
       approved: approved.length,
-      rejected: proofs.filter(p => p.status === 'rejected').length,
+      rejected: rejected.length,
+      // Payments submitted = every transaction id ever received (pending + reviewed).
+      submitted: proofs.length,
+      // Payments verified = admin actioned it (approved or rejected).
+      verified: verifiedTotal,
+      // Live subscription state, reconciled just above.
       active: activeSubs.length,
-      suspended: suspendedSubs.length,
+      expired: expiredSubs.length,
       recommendations: recommendations.length,
       resetRequests: pendingResets.length,
       flaggedDevices: devices.filter(d => d.flagged).length,
+      renewalsDue: renewalsDue.length,
     },
     tierCounts,
     planCounts,
+    activeByTier,
+    activeByPlan,
+    planDurationLabels: PLAN_DURATION_HUMAN,
+    renewalsDue,
   });
 });
 
@@ -157,6 +232,21 @@ router.post('/devices/:userId/:deviceId/flag', requireAdmin, async (req, res) =>
   res.json({ ok: true });
 });
 
+// ---- Permit a device: clear both the block AND the flag. Used to grant a
+// legitimate third device (e.g. the user got a new phone and the old two are
+// still on file) or to un-flag a false positive. The 2-device gate is
+// enforced on the NEXT login attempt; clearing `blocked` here lets that
+// device slot count as free again. ----
+router.post('/devices/:userId/:deviceId/permit', requireAdmin, async (req, res) => {
+  const updated = await store.updateDevice(req.params.userId, req.params.deviceId, {
+    blocked: false, flagged: false, flagReason: null,
+    permittedAt: new Date().toISOString(),
+    permittedReason: (req.body && req.body.reason) || 'Permitted by admin',
+  });
+  if (!updated) return res.status(404).json({ error: 'Device not found.' });
+  res.json({ ok: true });
+});
+
 // ---- Full admin subscription + account controls (items 12 & 15) ----
 // Every action writes the complete plan state so My Account / dashboard / access
 // all reflect it immediately on the next /api/auth/me (no manual refresh needed).
@@ -211,6 +301,15 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
       break;
     case 'ban':
       await store.updateUser(user.id, { status: 'banned', bannedAt: now });
+      // A ban must take effect immediately, not on the next login. Kill every
+      // existing express-session that belongs to this user AND revoke all of
+      // their Firebase refresh tokens, so a still-open tab loses access on its
+      // next request and any second-device sign-in is refused.
+      try {
+        const store2 = req.app.locals.sessionStore;
+        if (store2 && store2.destroyByUserId) await store2.destroyByUserId(user.id);
+        if (user.firebaseUid && firebase.isEnabled()) await firebase.revokeTokens(user.firebaseUid);
+      } catch (e) { console.error('[admin] ban cleanup failed:', e.message); }
       break;
     case 'unban':
       await store.updateUser(user.id, { status: 'active', bannedAt: null });

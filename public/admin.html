@@ -8,6 +8,28 @@
 <link rel="stylesheet" href="/css/main.css">
 <link rel="stylesheet" href="/css/scifi.css">
 <style>
+  /* The admin hub uses body.scifi for its dark background, but its inline
+     styles reference var(--text) / var(--text-dim) / var(--border) — tokens
+     defined in main.css's light :root as near-black colours. On the dark
+     scifi background that made body copy (e.g. broadcast history messages,
+     user rows, plan-name cells) dark-on-dark and effectively invisible.
+     Redefine the tokens for the scifi surface here so every inline style
+     that reads them renders as bright text without needing to touch each
+     dynamically-generated cell. */
+  body.scifi {
+    --text: #ffffff;
+    --text-dim: #d5dde8;
+    --muted: #93a2b4;
+    --border: rgba(255,255,255,.14);
+    --border-soft: rgba(255,255,255,.08);
+    --surface: rgba(255,255,255,.03);
+    --bg-2: rgba(255,255,255,.04);
+  }
+  /* Force the same on the tabs' hover state and on the input placeholders so
+     nothing slips through. */
+  body.scifi input, body.scifi textarea, body.scifi select { color: var(--text); }
+  body.scifi input::placeholder, body.scifi textarea::placeholder { color: var(--muted); opacity: 1; }
+
   .stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-bottom:28px; }
   @media (min-width:720px){ .stat-grid { grid-template-columns:repeat(4,1fr); } }
   .stat-card { padding:18px 20px; }
@@ -154,14 +176,73 @@ document.getElementById('refresh-btn').addEventListener('click', async () => {
 });
 
 async function loadStats(){
-  const { totals } = await adminGet('/api/admin/overview');
+  const data = await adminGet('/api/admin/overview');
+  const { totals, activeByTier = {}, activeByPlan = {}, planDurationLabels = {}, renewalsDue = [] } = data;
+  const PLAN_NAMES = { // pretty labels for the plan-breakdown line
+    'student-monthly':'Student · Monthly', 'student-6m':'Student · 6-month', 'student-12m':'Student · 12-month',
+    'professional-monthly':'Professional · Monthly', 'professional-6m':'Professional · 6-month', 'professional-yearly':'Professional · Yearly',
+    'lifetime':'Lifetime',
+  };
   const cards = [
-    ['Total users', totals.users, true], ['Active subscriptions', totals.active, true],
-    ['Pending review', totals.pending, false], ['Suspended (expired)', totals.suspended, false],
-    ['Approved (all-time)', totals.approved, false], ['Rejected', totals.rejected, false],
-    ['Reset requests', totals.resetRequests, false], ['Flagged devices', totals.flaggedDevices, false],
+    ['Total users', totals.users, true],
+    ['Active subscriptions', totals.active, true],
+    ['Payments submitted', totals.submitted, true, 'total transaction ids ever received'],
+    ['Payments verified', totals.verified, true, 'approved + rejected'],
+    ['Pending review', totals.pending, false],
+    ['Expired subs', totals.expired, false, 'plan duration elapsed'],
+    ['Renewals due', totals.renewalsDue, false, 'expiring in the next 14 days or already lapsed'],
+    ['Approved (all-time)', totals.approved, false],
+    ['Rejected', totals.rejected, false],
+    ['Reset requests', totals.resetRequests, false],
+    ['Flagged devices', totals.flaggedDevices, false],
+    ['Recommendations', totals.recommendations, false],
   ];
-  document.getElementById('stats').innerHTML = cards.map(([l,n,a])=>`<div class="card stat-card ${a?'accent':''}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  const active = totals.active;
+  const activeBreakdown = active
+    ? `<div class="card stat-card" style="grid-column: 1 / -1">
+         <div class="l" style="margin-bottom:8px">Active subscriptions by tier</div>
+         <div style="display:flex;flex-wrap:wrap;gap:16px 24px;font-size:.95rem">
+           <div><b style="color:#e8f1f8">Student</b> <span style="color:var(--muted)">·</span> ${activeByTier.student||0}</div>
+           <div><b style="color:#e8f1f8">Professional</b> <span style="color:var(--muted)">·</span> ${activeByTier.professional||0}</div>
+           <div><b style="color:#e8f1f8">Lifetime</b> <span style="color:var(--muted)">·</span> ${activeByTier.lifetime||0}</div>
+         </div>
+         <div style="border-top:1px solid var(--border-soft);margin-top:12px;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;font-size:.85rem;color:var(--text-dim)">
+           ${Object.entries(activeByPlan).sort((a,b)=>b[1]-a[1]).map(([planId,count])=>`
+             <div>${esc(PLAN_NAMES[planId]||planId)} <span style="color:var(--muted)">·</span> ${count}</div>
+           `).join('') || '<div style="color:var(--muted);grid-column:1/-1">No active subscriptions right now.</div>'}
+         </div>
+       </div>`
+    : '';
+  document.getElementById('stats').innerHTML =
+    cards.map(([l,n,a,hint])=>`<div class="card stat-card ${a?'accent':''}"><div class="n">${n}</div><div class="l">${l}${hint?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">${hint}</div>`:''}</div></div>`).join('')
+    + activeBreakdown
+    + renderRenewalsDue(renewalsDue);
+}
+
+function renderRenewalsDue(list){
+  if (!list.length) return '';
+  const rows = list.slice(0, 30).map(u => {
+    const status = u.daysUntilExpiry < 0
+      ? `<span style="color:var(--danger);font-weight:700">Expired ${Math.abs(u.daysUntilExpiry)}d ago</span>`
+      : u.daysUntilExpiry <= 3
+        ? `<span style="color:var(--danger);font-weight:700">In ${u.daysUntilExpiry}d</span>`
+        : `<span style="color:var(--gold);font-weight:600">In ${u.daysUntilExpiry}d</span>`;
+    return `<tr>
+      <td style="color:var(--text)">${esc(u.name||'—')}</td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.phone||'—')}</td>
+      <td>${esc(u.planId||'—')}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="card" style="margin-top:14px;grid-column:1/-1">
+    <h3 class="sec">Renewals due &amp; recently expired <span style="color:var(--muted);font-weight:500">(${list.length} account${list.length===1?'':'s'})</span></h3>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:-6px">Everyone whose plan expires in the next 14 days or has already lapsed. Expired accounts are already downgraded to Explorer automatically — this list is for reaching out.</p>
+    <div class="table-scroll"><table class="data">
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Plan</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
 }
 
 // Everything below renders user-submitted text (names, notes, transaction ids)
@@ -294,22 +375,44 @@ async function loadRecs(){
 
 async function loadDevices(){
   const { devices } = await adminGet('/api/admin/devices');
+  const row = d => {
+    const uid = esc(d.userId), did = esc(d.deviceId);
+    const state = d.flagged ? '<span class="pill pill-suspended">flagged</span>'
+                : d.blocked ? '<span class="pill pill-rejected">blocked</span>'
+                            : '<span class="pill pill-active">ok</span>';
+    // Blocked or flagged? Offer "Permit". Neither? Offer "Flag". Both actions
+    // are always safe to try again if the admin changes their mind.
+    const canPermit = d.blocked || d.flagged;
+    const actions = [];
+    if (canPermit) actions.push(`<button class="btn btn-primary" style="padding:8px 13px;font-size:.83rem" onclick="permitDevice('${uid}','${did}')" title="Allow this device (clears block + flag)">Permit</button>`);
+    if (!d.flagged) actions.push(`<button class="btn btn-danger" style="padding:8px 13px;font-size:.83rem" onclick="flagDevice('${uid}','${did}')">Flag</button>`);
+    return `<tr>
+      <td style="color:var(--text)">${d.userName?esc(d.userName)+'<br>':''}<span style="color:var(--muted);font-size:.8rem">${esc(d.userEmail)}</span></td>
+      <td style="font-family:monospace;font-size:.78rem">${esc((d.deviceId||'').slice(0,16))}…</td>
+      <td>${fmtD(d.firstSeen)}</td><td>${fmtD(d.lastSeen)}</td><td>${d.count||1}</td>
+      <td>${state}${d.flagReason?'<div style="font-size:.72rem;color:var(--muted)">'+esc(d.flagReason)+'</div>':''}${d.permittedAt?'<div style="font-size:.72rem;color:var(--ok)">permitted '+fmtD(d.permittedAt)+'</div>':''}</td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap">${actions.join('') || '—'}</div></td>
+    </tr>`;
+  };
   document.getElementById('panel-devices').innerHTML = `<div class="card"><h3 class="sec">Device history &amp; violations</h3><div class="table-scroll"><table class="data">
     <thead><tr><th>User</th><th>Device</th><th>First seen</th><th>Last seen</th><th>Uses</th><th>State</th><th>Action</th></tr></thead>
-    <tbody>${devices.length? devices.map(d=>`<tr>
-      <td style="color:var(--text)">${d.userName?d.userName+'<br>':''}<span style="color:var(--muted);font-size:.8rem">${d.userEmail}</span></td>
-      <td style="font-family:monospace;font-size:.78rem">${(d.deviceId||'').slice(0,16)}…</td>
-      <td>${fmtD(d.firstSeen)}</td><td>${fmtD(d.lastSeen)}</td><td>${d.count||1}</td>
-      <td>${d.flagged?'<span class="pill pill-suspended">flagged</span>':(d.blocked?'<span class="pill pill-rejected">blocked</span>':'<span class="pill pill-active">ok</span>')}${d.flagReason?'<div style="font-size:.72rem;color:var(--muted)">'+d.flagReason+'</div>':''}</td>
-      <td>${d.flagged?'—':`<button class="btn btn-danger" style="padding:8px 13px;font-size:.83rem" onclick="flagDevice('${d.userId}','${d.deviceId}')">Flag</button>`}</td>
-    </tr>`).join('') : '<tr><td colspan="7" class="empty">No device activity yet.</td></tr>'}</tbody></table></div>
-    <p style="color:var(--muted);font-size:.82rem;margin-top:14px">Flagging a device marks a violation. Use the Users tab to suspend the subscription or ban the account.</p></div>`;
+    <tbody>${devices.length? devices.map(row).join('') : '<tr><td colspan="7" class="empty">No device activity yet.</td></tr>'}</tbody></table></div>
+    <p style="color:var(--muted);font-size:.82rem;margin-top:14px">
+      <b>Flag</b> a device to mark a violation; use the Users tab afterwards to suspend or ban.
+      <b>Permit</b> clears both the block and any flag — use this to grant a legitimate third device (a user with a new phone whose old two are still on file).
+    </p></div>`;
 }
 async function flagDevice(userId, deviceId){
   const reason = prompt('Reason for flagging this device (optional):')||'Manual flag';
   await adminPost(`/api/admin/devices/${userId}/${deviceId}/flag`, { reason }); loadAll();
 }
 window.flagDevice=flagDevice;
+
+async function permitDevice(userId, deviceId){
+  const reason = prompt('Reason for permitting this device (optional, shown in device history):')||'Permitted by admin';
+  await adminPost(`/api/admin/devices/${userId}/${deviceId}/permit`, { reason }); loadAll();
+}
+window.permitDevice=permitDevice;
 
 async function loadNotify(){
   const { notifications } = await adminGet('/api/admin/notifications');
@@ -325,7 +428,7 @@ async function loadNotify(){
       <h3 class="sec">Broadcast history</h3>
       ${notifications.length ? notifications.map(n=>`
         <div style="padding:14px 0;border-bottom:1px solid var(--border-soft)">
-          <div style="color:var(--text)">${n.message.replace(/</g,'&lt;')}</div>
+          <div style="color:#ffffff;font-weight:500;line-height:1.5">${esc(n.message)}</div>
           <div style="color:var(--muted);font-size:.8rem;margin-top:5px">${fmt(n.createdAt)}</div>
         </div>`).join('') : '<div class="empty">No messages sent yet.</div>'}
     </div>`;

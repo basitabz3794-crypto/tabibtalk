@@ -22,8 +22,12 @@ const interestsRoutes = require('./routes/interests');
 const adminRoutes = require('./routes/admin');
 
 const FirebaseSessionStore = require('./data/session-store')(session);
+// Single session store instance, exposed so admin routes can force-evict
+// sessions when banning a user.
+const sessionStore = new FirebaseSessionStore();
 
 const app = express();
+app.locals.sessionStore = sessionStore;
 
 // Vercel terminates TLS at its edge and forwards over http. Without this,
 // express-session sees an insecure connection and refuses to set the `secure`
@@ -37,7 +41,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   // Sessions live in Firebase, not process memory, so they survive the
   // stateless serverless instances Vercel runs this on.
-  store: new FirebaseSessionStore(),
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: {
