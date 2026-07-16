@@ -424,10 +424,12 @@
           color: #ffffff !important;
           text-shadow: 0 1px 2px rgba(0,0,0,.25); /* extra edge on the small phone-sized text */
         }
-        /* Darken the correct-answer background a touch so white text pops on
-           low-brightness outdoor phone screens. */
-        .option-btn.correct { background: #16a34a !important; border-color: #15803d !important; }
-        .option-btn.incorrect { background: #dc2626 !important; border-color: #b91c1c !important; }
+        /* Darken the correct-answer background enough for the small italic
+           Franco text (~1rem) to also clear WCAG AA against white. #166534
+           gives roughly 6.8:1 vs white — solid at any font size on any phone
+           in any lighting. */
+        .option-btn.correct { background: #166534 !important; border-color: #14532d !important; }
+        .option-btn.incorrect { background: #b91c1c !important; border-color: #991b1b !important; }
         .explain-card { border-radius: 18px; padding: 20px 22px; margin-top: 18px; border-left: 6px solid var(--accent);
             background: var(--patient-color); animation: fadeUp .3s ease both; }
         .explain-card.good { border-left-color: var(--correct); background: #eafaf0; }
