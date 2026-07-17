@@ -19,7 +19,7 @@
 <body class="scifi">
 <script>/* Apply the saved display mode BEFORE first paint so minimalist users never
 see a dark flash. header.js (or the app's own module) handles live switching. */
-try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
+try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 <div class="nebula"></div>
 <canvas id="scifi-field"></canvas>
 

@@ -5,7 +5,7 @@ const firebase = require('../data/firebase');
 const { computeExpiry, isExpired, accessTierForPlan } = require('../data/plans');
 
 const router = express.Router();
-const MAX_DEVICES = 2;
+const MAX_DEVICES = 3;
 
 // Build the safe public view of a user (never leaks the password hash).
 function publicUser(user) {

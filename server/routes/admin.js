@@ -154,7 +154,7 @@ router.get('/users', requireAdmin, async (req, res) => {
       status: u.status || 'active',
       subState: !u.planId ? 'none' : (expired ? 'suspended' : 'active'),
       deviceCount: allDevices.filter(d => d.userId === u.id && !d.blocked).length,
-      maxDevices: Number(u.maxDevices) > 0 ? Number(u.maxDevices) : 2,
+      maxDevices: Number(u.maxDevices) > 0 ? Number(u.maxDevices) : 3,
       createdAt: u.createdAt,
     };
   });
@@ -262,7 +262,7 @@ router.post('/users/:id/device-limit', requireAdmin, async (req, res) => {
   if (!Number.isInteger(n) || n < 1 || n > 10) {
     return res.status(400).json({ error: 'Device limit must be a whole number between 1 and 10.' });
   }
-  await store.updateUser(user.id, { maxDevices: n === 2 ? undefined : n }); // 2 = back to default
+  await store.updateUser(user.id, { maxDevices: n === 3 ? undefined : n }); // 2 = back to default
   res.json({ ok: true, maxDevices: n });
 });
 
@@ -292,13 +292,13 @@ router.post('/device-appeals/:id/resolve', requireAdmin, async (req, res) => {
       // The block happened before the device row existed (or it was cleaned
       // up) — raising the cap by one gives the same outcome.
       const user = await store.findUserById(appeal.userId);
-      const cur = Number(user && user.maxDevices) > 0 ? Number(user.maxDevices) : 2;
+      const cur = Number(user && user.maxDevices) > 0 ? Number(user.maxDevices) : 3;
       await store.updateUser(appeal.userId, { maxDevices: cur + 1 });
     }
   } else if (resolution === 'raise-limit') {
     const n = Number(maxDevices);
     if (!Number.isInteger(n) || n < 1 || n > 10) return res.status(400).json({ error: 'Device limit must be 1-10.' });
-    await store.updateUser(appeal.userId, { maxDevices: n === 2 ? undefined : n });
+    await store.updateUser(appeal.userId, { maxDevices: n === 3 ? undefined : n });
   } else if (resolution !== 'dismiss') {
     return res.status(400).json({ error: 'Unknown resolution.' });
   }

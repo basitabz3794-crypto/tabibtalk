@@ -1130,7 +1130,7 @@
 <body class="tt-scifi">
 <script>/* Apply the saved display mode BEFORE first paint so minimalist users never
 see a dark flash. header.js (or the app's own module) handles live switching. */
-try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
+try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 
 <script>
 /* ============================================================
@@ -7862,7 +7862,34 @@ function showNotif(){
     +'</div>'
     +'</div>';
   document.body.appendChild(ov);
-  if (served) { try{ fetch('/api/notifications/mark-read', { method:'POST', credentials:'same-origin' }).catch(function(){}); }catch(e){} }
+  /* Live leaderboard items: this week's topper and the user's own current
+     prize, refreshed every time the bell opens. */
+  if (served) {
+    fetch('/api/leaderboard', { credentials:'same-origin' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if(!d) return;
+        var panel = ov.querySelector('.notif-panel'); if(!panel) return;
+        var items='';
+        if(d.top && d.top.length){
+          var t=d.top[0];
+          items+='<div class="notif-item"><div class="notif-item-msg">🏆 <b>Weekly topper:</b> '+esc(t.emoji||'')+' '+esc(t.nick)+' leads week '+esc(d.week)+' with '+t.score+' pts'+(t.award?' — '+t.award.emoji+' '+esc(t.award.title):'')+'.</div><div class="notif-item-date">Live standings</div></div>';
+        }
+        if(d.me){
+          items+='<div class="notif-item"><div class="notif-item-msg">'+(d.me.award
+            ? ('🎉 <b>Your prize this week:</b> '+d.me.award.emoji+' '+esc(d.me.award.title)+' — rank #'+d.me.rank+' with '+d.me.score+' pts. Hold your league until Monday!')
+            : ('📈 You have '+d.me.score+' pts (rank #'+d.me.rank+') this week — the top 10 win league prizes every Monday.'))+'</div><div class="notif-item-date">Weekly leaderboard</div></div>';
+        }
+        if(!items) return;
+        var host=document.createElement('div');
+        host.className='notif-broadcast-list';
+        host.style.marginBottom='4px';
+        host.innerHTML=items;
+        var title=panel.querySelector('.notif-panel-title');
+        if(title) title.insertAdjacentElement('afterend', host);
+      }).catch(function(){});
+    try{ fetch('/api/notifications/mark-read', { method:'POST', credentials:'same-origin' }).catch(function(){}); }catch(e){}
+  }
 }
 function notifyMeGerman(){
   _sj('tt_ad_notified_' + (typeof AD_CFG!=='undefined' ? AD_CFG.adId : 'default'), true);
@@ -8770,6 +8797,7 @@ function ttGoAccount(){
         + row('Current plan', planLabel)
         + row('Status', expiryLine)
         + '<div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">'
+        + '<button class="btn-primary" style="flex:1;min-width:130px" onclick="closeAccountModal();if(window.openOnboardModal)openOnboardModal(true)">👤 Personal details</button>'
         + '<a href="/plans.html" style="flex:1;min-width:130px;text-decoration:none"><button class="btn-primary" style="width:100%">'+(user.tier==='explorer'?'Choose a plan':'Change plan')+'</button></a>'
         + '<button class="pill outline acct-logout" onclick="ttLogout()">Log out</button>'
         + '<button class="pill outline" onclick="closeAccountModal()">Close</button>'
@@ -8859,7 +8887,9 @@ window.toggleLightTheme = toggleGreenTheme;
    same popup so there's a single button instead of three. Inlined here (not
    /js/header.js) because this file must keep working standalone/offline. */
 function ttGetDisplayMode(){
-  try{ return localStorage.getItem('tt_display_mode')==='minimal' ? 'minimal' : 'gamify'; }catch(e){ return 'gamify'; }
+  /* Minimalist is the default — clean and focused for doctors. Gamify is the
+     opt-in immersive skin. */
+  try{ return localStorage.getItem('tt_display_mode')==='gamify' ? 'gamify' : 'minimal'; }catch(e){ return 'minimal'; }
 }
 function ttApplyDisplayMode(mode){
   var minimal = mode==='minimal';
@@ -8923,49 +8953,65 @@ function maybeStartOnboarding(){
 }
 window.maybeStartOnboarding=maybeStartOnboarding;
 
-function openOnboardModal(){
+function openOnboardModal(editMode){
+  var ob0=ttOnboard()||{};
+  var curEmoji=(editMode&&ob0.emoji&&TT_EMOJIS.indexOf(ob0.emoji)>=0)?ob0.emoji:TT_EMOJIS[0];
+  var curLvl=(editMode&&ob0.level)?ob0.level:'beginner';
   var dark=document.body.classList.contains('tt-scifi');
   var card='background:'+(dark?'#0c1220':'#ffffff')+';color:'+(dark?'#e8f1f8':'#10151b')
     +';border:1px solid '+(dark?'rgba(255,255,255,.16)':'#e2e6e9')
     +';border-radius:20px;padding:26px;max-width:420px;width:calc(100vw - 36px);max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)';
   var chip='border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;border-radius:12px;cursor:pointer;font:inherit';
-  var emojis=TT_EMOJIS.map(function(e,i){ return '<button type="button" class="tt-ob-emoji" data-e="'+e+'" style="'+chip+';font-size:1.4rem;padding:8px 0'+(i===0?';outline:2px solid #f5b544':'')+'">'+e+'</button>'; }).join('');
+  var emojis=TT_EMOJIS.map(function(e,i){ return '<button type="button" class="tt-ob-emoji" data-e="'+e+'" style="'+chip+';font-size:1.4rem;padding:8px 0'+(e===curEmoji?';outline:2px solid #f5b544':'')+'">'+e+'</button>'; }).join('');
   var lvls=[['beginner','🌱 Beginner','New to Egyptian Arabic'],['intermediate','🌿 Intermediate','I can hold simple conversations'],['advanced','🌳 Advanced','I want to polish clinical fluency']]
-    .map(function(l,i){ return '<button type="button" class="tt-ob-lvl" data-l="'+l[0]+'" style="'+chip+';display:block;width:100%;text-align:left;padding:12px 14px;margin-top:8px'+(i===0?';outline:2px solid #f5b544':'')+'"><b>'+l[1]+'</b><br><small style="opacity:.7">'+l[2]+'</small></button>'; }).join('');
+    .map(function(l,i){ return '<button type="button" class="tt-ob-lvl" data-l="'+l[0]+'" style="'+chip+';display:block;width:100%;text-align:left;padding:12px 14px;margin-top:8px'+(l[0]===curLvl?';outline:2px solid #f5b544':'')+'"><b>'+l[1]+'</b><br><small style="opacity:.7">'+l[2]+'</small></button>'; }).join('');
   var ov=document.createElement('div');
   ov.id='tt-onboard-overlay';
   ov.style.cssText='position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:rgba(2,5,10,.6);backdrop-filter:blur(5px);padding:16px';
-  ov.innerHTML='<div style="'+card+'">'
-    +'<h2 style="margin:0 0 4px;font-size:1.3rem">Welcome to Tabib Talk! 👋</h2>'
-    +'<p style="margin:0 0 16px;opacity:.75;font-size:.9rem">Thirty seconds of setup, then we point you to the perfect starting spot.</p>'
+  ov.innerHTML='<div style="'+card+';position:relative">'
+    +(editMode?'<button onclick="document.getElementById(\'tt-onboard-overlay\').remove()" aria-label="Close" style="position:absolute;top:12px;right:14px;border:none;background:none;color:inherit;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button>':'')
+    +(editMode
+      ? '<h2 style="margin:0 0 4px;font-size:1.3rem">Personal details</h2>'
+        +'<p style="margin:0 0 16px;opacity:.75;font-size:.9rem">Update the nickname and profile emoji shown on the weekly leaderboard.</p>'
+      : '<h2 style="margin:0 0 4px;font-size:1.3rem">Welcome to Tabib Talk! 👋</h2>'
+        +'<p style="margin:0 0 16px;opacity:.75;font-size:.9rem">Thirty seconds of setup, then we point you to the perfect starting spot.</p>')
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:6px">Pick a nickname <small style="opacity:.6">(shown on the weekly leaderboard)</small></label>'
     +'<input id="tt-ob-nick" maxlength="24" placeholder="e.g. Dr. Nadia" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;font:inherit">'
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 6px">Choose your profile emoji</label>'
     +'<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px">'+emojis+'</div>'
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Your Arabic level</label>'
     +lvls
-    +'<button id="tt-ob-go" class="btn-primary" style="width:100%;margin-top:18px;padding:13px;border-radius:12px;border:none;cursor:pointer;font:inherit;font-weight:700;background:var(--accent-grad);color:#fff">Start learning →</button>'
+    +'<button id="tt-ob-go" class="btn-primary" style="width:100%;margin-top:18px;padding:13px;border-radius:12px;border:none;cursor:pointer;font:inherit;font-weight:700;background:var(--accent-grad);color:#fff">'+(editMode?'Save changes':'Start learning →')+'</button>'
     +'</div>';
   document.body.appendChild(ov);
-  var pickedEmoji=TT_EMOJIS[0], pickedLvl='beginner';
+  if(editMode&&ob0.nick){ try{ document.getElementById('tt-ob-nick').value=ob0.nick; }catch(e){} }
+  var pickedEmoji=curEmoji, pickedLvl=curLvl;
   ov.querySelectorAll('.tt-ob-emoji').forEach(function(b){ b.onclick=function(){ pickedEmoji=b.dataset.e; ov.querySelectorAll('.tt-ob-emoji').forEach(function(x){x.style.outline='';}); b.style.outline='2px solid #f5b544'; }; });
   ov.querySelectorAll('.tt-ob-lvl').forEach(function(b){ b.onclick=function(){ pickedLvl=b.dataset.l; ov.querySelectorAll('.tt-ob-lvl').forEach(function(x){x.style.outline='';}); b.style.outline='2px solid #f5b544'; }; });
   document.getElementById('tt-ob-go').onclick=function(){
     var nick=(document.getElementById('tt-ob-nick').value||'').trim();
     if(!nick){ document.getElementById('tt-ob-nick').style.borderColor='#d1373d'; document.getElementById('tt-ob-nick').focus(); return; }
-    _sj('tt_onboard',{ nick:nick.slice(0,24), emoji:pickedEmoji, level:pickedLvl, done:true, at:Date.now() });
+    _sj('tt_onboard',{ nick:nick.slice(0,24), emoji:pickedEmoji, level:pickedLvl, done:true, at:(ob0.at||Date.now()) });
     ov.remove();
     try{ if(typeof buildDrawer==='function') buildDrawer(); }catch(e){}
-    startTour(pickedLvl);
+    if(editMode){ try{ toast('Profile updated ✓', 2500); }catch(e){} }
+    else { startTour(pickedLvl); }
   };
 }
+window.openOnboardModal=openOnboardModal;
 
 /* Guided tour: a bouncing arrow + a caption bubble per step. Beginners are
    walked to Franco then the Dictionary; everyone else goes straight to the
    Courses. Skippable at any point. */
 function startTour(level){
   try{ navigate('page-main-menu'); }catch(e){}
-  var steps = level==='beginner' ? [
+  /* Basic-plan members get pointed at the open-content trio regardless of
+     level: Franco, the Medical Vocabulary dictionary, and Investigations. */
+  var steps = ((typeof ttTier==='function') && ttTier()==='basic') ? [
+    { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start with Franco — how Egyptian Arabic is written with Latin letters and numbers. Fully open on your plan.' },
+    { sel:'[onclick*="page-vocab"]', txt:'📖 Then build your word bank in Medical Vocabulary — your dictionary of essential terms.' },
+    { sel:'[onclick*="page-invest"]', txt:'🩻 And explore Medical Investigations &amp; Anatomy — how to name tests and body parts at the bedside.' }
+  ] : level==='beginner' ? [
     { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start HERE: Franco teaches you how Egyptian Arabic is written with Latin letters and numbers — the foundation for everything else.' },
     { sel:'[onclick*="page-vocab"]', txt:'📖 Next, build your word bank in the Dictionary — Important Medical Vocabulary.' }
   ] : [
@@ -9063,7 +9109,7 @@ function renderLeaderboard(){
         rows='<div class="fc-count">Nobody has scored this week yet — be the first!</div>';
       }
       el.innerHTML=meHtml+'<h3 class="mini-h">Top 10 · week '+esc(d.week)+'</h3>'+rows
-        +'<p class="fc-count" style="margin-top:16px;opacity:.75">Awards each week, Duolingo-league style: 💎 Diamond → 🖤 Obsidian → 🤍 Pearl → 💜 Amethyst → 💚 Emerald → ❤️ Ruby → 💙 Sapphire → 🥇 Gold → 🥈 Silver → 🥉 Bronze.</p>';
+        +'<p class="fc-count" style="margin-top:16px;opacity:.75">Weekly league awards: 💎 Diamond → 🖤 Obsidian → 🤍 Pearl → 💜 Amethyst → 💚 Emerald → ❤️ Ruby → 💙 Sapphire → 🥇 Gold → 🥈 Silver → 🥉 Bronze.</p>';
     })
     .catch(function(){ var el=document.getElementById('lb-content'); if(el) el.innerHTML='Could not load the leaderboard — check your connection (you need to be logged in).'; });
 }
@@ -9379,7 +9425,9 @@ html.tt-minimal #page-main-menu .hero-pill{
 }
 html.tt-minimal #page-main-menu .hero-title{ color:var(--text-dark) !important; font-family:'Plus Jakarta Sans',sans-serif; }
 html.tt-minimal #page-main-menu .hero-title .accent{
-  background:var(--accent-grad) !important; -webkit-background-clip:text; background-clip:text; color:transparent !important;
+  background:var(--accent-grad) !important;
+  -webkit-background-clip:text !important; background-clip:text !important;
+  color:transparent !important;
 }
 html.tt-minimal #page-main-menu .hero-sub{ color:var(--muted) !important; }
 html.tt-minimal #page-main-menu .hero-panel .btn-primary{
@@ -9409,7 +9457,9 @@ html.tt-minimal #page-main-menu .lesson-icon{ background:var(--secondary) !impor
 html.tt-minimal #page-main-menu .lesson-open{ color:var(--primary) !important; }
 html.tt-minimal #page-main-menu .ix-q, html.tt-minimal #page-main-menu .wod-en{ color:var(--text-dark) !important; }
 html.tt-minimal #page-main-menu .ix-ar, html.tt-minimal #page-main-menu .wod-ar{
-  background:var(--accent-grad) !important; -webkit-background-clip:text; background-clip:text; color:transparent !important;
+  background:var(--accent-grad) !important;
+  -webkit-background-clip:text !important; background-clip:text !important;
+  color:transparent !important;
 }
 html.tt-minimal #page-main-menu .ix-fr, html.tt-minimal #page-main-menu .wod-fr{ color:var(--muted) !important; }
 html.tt-minimal #page-main-menu .ix-pill{ background:var(--secondary) !important; color:var(--primary) !important; }
@@ -9815,7 +9865,11 @@ body.tt-scifi.tt-green .qb-note{
 (function(){
   var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var body = document.body;
-  body.classList.add('tt-scifi');
+  // Respect the saved display mode: Minimalist (the default) must not be
+  // re-darkened by this boot, which runs after the pre-paint strip. Only an
+  // explicit 'gamify' choice re-applies the sci-fi skin.
+  var __mode; try{ __mode = localStorage.getItem('tt_display_mode'); }catch(e){ __mode = null; }
+  if (__mode === 'gamify') body.classList.add('tt-scifi');
 
   /* Retire the old home-only field so it can't double-render.
      Its startIfNeeded() bails on a missing canvas, and this script

@@ -45,7 +45,8 @@ async function getCurrentUser() {
    page's <body> applies the saved mode before first paint so there's no dark
    flash; these functions handle live switching and the chooser popup. */
 function ttGetDisplayMode() {
-  try { return localStorage.getItem('tt_display_mode') === 'minimal' ? 'minimal' : 'gamify'; } catch (e) { return 'gamify'; }
+  // Minimalist is the default — clean and focused. Gamify is the opt-in skin.
+  try { return localStorage.getItem('tt_display_mode') === 'gamify' ? 'gamify' : 'minimal'; } catch (e) { return 'minimal'; }
 }
 function ttApplyDisplayMode(mode) {
   var minimal = mode === 'minimal';

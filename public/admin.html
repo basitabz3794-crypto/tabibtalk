@@ -91,7 +91,7 @@
 <body class="scifi">
 <script>/* Apply the saved display mode BEFORE first paint so minimalist users never
 see a dark flash. header.js (or the app's own module) handles live switching. */
-try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
+try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 <div class="nebula"></div>
 <canvas id="scifi-field"></canvas>
 
@@ -306,7 +306,7 @@ async function loadUsers(){
       <td style="color:var(--text)">${u.name||'—'}</td><td>${u.email}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
       <td style="text-transform:capitalize">${u.tier}</td>
       <td><span class="pill pill-${u.subState==='active'?'active':(u.subState==='suspended'?'suspended':'none')}">${u.subState}</span>${u.planId?'<div style="font-size:.72rem;color:var(--muted)">'+u.planId+'</div>':''}</td>
-      <td>${u.deviceCount}/${u.maxDevices}${u.maxDevices!==2?' <span style="font-size:.68rem;color:var(--gold)">raised</span>':''}</td>
+      <td>${u.deviceCount}/${u.maxDevices}${u.maxDevices!==3?' <span style="font-size:.68rem;color:var(--gold)">raised</span>':''}</td>
       <td><span class="pill pill-${u.status==='active'?'active':'banned'}">${u.status}</span></td>
       <td><div class="row-actions">
         <button class="btn btn-outline" onclick="manageSub('${u.id}','${u.planId||''}','${u.subState}')">Manage plan</button>
@@ -325,7 +325,7 @@ window.userAction=userAction;
 // Per-account device cap. 2 is the site default; raising it is the durable way
 // to permit a third (or fourth…) device for one trusted user.
 async function setDeviceLimit(id, current){
-  const v = prompt('How many devices may this account use? (site default is 2)', String(current||2));
+  const v = prompt('How many devices may this account use? (site default is 3)', String(current||3));
   if(v===null) return;
   const n = Number(v);
   if(!Number.isInteger(n) || n<1 || n>10){ alert('Enter a whole number between 1 and 10.'); return; }
@@ -470,7 +470,7 @@ async function resolveAppeal(id, resolution){
   await adminPost(`/api/admin/device-appeals/${id}/resolve`, { resolution }); loadAll();
 }
 async function resolveAppealRaise(id){
-  const v = prompt('New device limit for this account (site default is 2):', '3');
+  const v = prompt('New device limit for this account (site default is 3):', '4');
   if(v===null) return;
   const n = Number(v);
   if(!Number.isInteger(n) || n<1 || n>10){ alert('Enter a whole number between 1 and 10.'); return; }
