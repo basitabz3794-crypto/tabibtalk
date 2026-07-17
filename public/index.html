@@ -81,6 +81,9 @@
 </style>
 </head>
 <body class="scifi">
+<script>/* Apply the saved display mode BEFORE first paint so minimalist users never
+see a dark flash. header.js (or the app's own module) handles live switching. */
+try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 <div class="nebula"></div>
 <canvas id="scifi-field"></canvas>
 
@@ -92,9 +95,12 @@
   <div class="d-group">Navigate</div>
   <a href="/index.html">&#127968;&nbsp; Home</a>
   <a href="/app.html">&#128218;&nbsp; Open the Website</a>
+  <div class="d-group">Display</div>
+  <button class="d-link" onclick="closeMenu();ttSetDisplayMode('gamify')">&#128640;&nbsp; Sci-fi Gamify mode</button>
+  <button class="d-link" onclick="closeMenu();ttSetDisplayMode('minimal')">&#128280;&nbsp; Minimalist mode</button>
   <div class="d-group">Account</div>
   <a href="/account.html">&#128100;&nbsp; My Account</a>
-  <a href="/plans.html">&#128179;&nbsp; Plans</a>
+  <a href="/plans.html" data-plans-link>&#128179;&nbsp; Plans</a>
   <button class="d-link" onclick="openTerms()">&#128220;&nbsp; Terms &amp; Conditions</button>
   <a href="https://chat.whatsapp.com/DRdhj1aLapX5qgMJ0SGbPM" target="_blank" rel="noopener">&#128172;&nbsp; WhatsApp Community</a>
   <a href="https://www.instagram.com/thetabibtalk?igsh=eGRzZm1zMDd2c3hx&utm_source=qr" target="_blank" rel="noopener">&#128247;&nbsp; Instagram</a>
@@ -111,7 +117,8 @@
   <div class="r3d" style="--d:3">
   <div class="actions">
     <a href="/app.html" class="btn btn-primary">Open the Website &rarr;</a>
-    <a href="/plans.html" class="btn btn-outline">View Plans</a>
+    <a href="/plans.html" class="btn btn-outline" data-plans-link>View Plans</a>
+    <a href="/login.html" class="btn btn-outline" data-plans-off style="display:none">Sign up / Log in</a>
   </div>
   </div>
 
@@ -177,6 +184,19 @@
   })();
   enableCopyProtection();
   enableBlurOnBlur();
+
+  /* Kill-switch: when the admin disables plans & payments, this page keeps its
+     hero but drops every pricing link — visitors just sign up / log in and get
+     the full app. */
+  fetch('/api/site-config', { credentials:'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(cfg){
+      if (cfg && cfg.plansEnabled === false) {
+        document.querySelectorAll('[data-plans-link]').forEach(function(el){ el.style.display='none'; });
+        document.querySelectorAll('[data-plans-off]').forEach(function(el){ el.style.display=''; });
+      }
+    })
+    .catch(function(){});
 
   /* ---------- Read-aloud for the trilingual readout ----------
      Uses the browser's built-in speech synthesis, so it works for any visitor

@@ -17,6 +17,9 @@
 </style>
 </head>
 <body class="scifi">
+<script>/* Apply the saved display mode BEFORE first paint so minimalist users never
+see a dark flash. header.js (or the app's own module) handles live switching. */
+try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 <div class="nebula"></div>
 <canvas id="scifi-field"></canvas>
 
@@ -70,6 +73,24 @@
     <p style="text-align:center;margin-top:14px"><a href="#" onclick="showLogin();return false;" style="color:var(--accent);font-size:.88rem">&larr; Back to log in</a></p>
   </div>
 
+  <!-- Device-limit appeal panel: shown when login was refused because the
+       account is already active on its maximum number of devices. Lets the
+       user explain the situation (new phone, replaced laptop…) so the admin
+       can verify it and permit the device or raise their limit. -->
+  <div class="card form-panel reveal d2" id="panel-device-appeal">
+    <h3 style="font-family:var(--font-display);margin:0 0 6px">Device limit reached</h3>
+    <p style="color:var(--muted);font-size:.9rem;margin-top:0" id="appeal-reason"></p>
+    <p style="color:var(--muted);font-size:.88rem">If this is a mistake — for example you got a new phone and your old one is still counted — tell us what happened and we'll verify it and unblock you, usually within a few hours.</p>
+    <form id="appeal-form">
+      <div class="field">
+        <label for="appeal-msg">What happened?</label>
+        <textarea id="appeal-msg" required rows="4" maxlength="1000" placeholder="e.g. I bought a new phone last week — my old phone and my laptop are the two devices on file. Please allow this new phone." style="width:100%;resize:vertical;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text)"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Send to Tabib Talk for review</button>
+    </form>
+    <p style="text-align:center;margin-top:14px"><a href="#" onclick="showLogin();return false;" style="color:var(--accent);font-size:.88rem">&larr; Back to log in</a></p>
+  </div>
+
   <!-- Email-verification panel -->
   <div class="card form-panel reveal d2" id="panel-verify">
     <h3 style="font-family:var(--font-display);margin:0 0 6px">Verify your email</h3>
@@ -98,6 +119,15 @@ let lastCredentials = { email: '', password: '' };
 function showVerify(email) {
   document.getElementById('verify-email-label').textContent = email;
   panelTo('panel-verify');
+  document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('active'));
+}
+
+// Kept only long enough to authenticate the device-limit appeal; never persisted.
+let appealToken = '';
+function showDeviceAppeal(reason, idToken) {
+  appealToken = idToken || '';
+  document.getElementById('appeal-reason').textContent = reason || 'This account is already active on its maximum number of devices.';
+  panelTo('panel-device-appeal');
   document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('active'));
 }
 
@@ -130,6 +160,10 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       lastCredentials = { email, password };
       showAlert('Please verify your email first — we\'ve sent you a link.', 'error');
       showVerify(email);
+      return;
+    }
+    if (r.deviceBlocked) {
+      showDeviceAppeal(r.error, r.idToken);
       return;
     }
     window.location.href = nextUrl();
@@ -185,6 +219,21 @@ document.getElementById('resend-btn').addEventListener('click', async (e) => {
     }
   } catch (err) {
     showAlert(TTAuth.friendlyError(err));
+  } finally { busy(btn, false); }
+});
+
+document.getElementById('appeal-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearAlert();
+  if (!appealToken) { showAlert('Please log in again first, so we know the account is yours.'); showLogin(); return; }
+  const btn = e.target.querySelector('button[type=submit]');
+  busy(btn, true, 'Sending…');
+  try {
+    const r = await TTAuth.sendDeviceAppeal(appealToken, document.getElementById('appeal-msg').value);
+    showAlert(r.message || 'Appeal sent — we\'ll review it shortly.', 'success');
+    document.getElementById('appeal-msg').value = '';
+  } catch (err) {
+    showAlert(err.message);
   } finally { busy(btn, false); }
 });
 

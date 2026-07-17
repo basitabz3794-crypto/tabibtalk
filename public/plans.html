@@ -96,6 +96,9 @@
 </style>
 </head>
 <body class="scifi">
+<script>/* Apply the saved display mode BEFORE first paint so minimalist users never
+see a dark flash. header.js (or the app's own module) handles live switching. */
+try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 <div class="nebula"></div>
 <canvas id="scifi-field"></canvas>
 
@@ -112,6 +115,7 @@
 
   <div class="toggles">
     <div class="seg audience" role="tablist" aria-label="Choose audience">
+      <button data-aud="explorer" role="tab" aria-selected="false">Explorer</button>
       <button class="on" data-aud="student" role="tab" aria-selected="true">Student</button>
       <button data-aud="professional" role="tab" aria-selected="false">Professional</button>
     </div>
@@ -149,26 +153,26 @@
     <div class="table-scroll">
       <table class="cmp">
         <thead><tr>
-          <th>Feature</th><th>Explorer</th><th>Student</th><th class="hl">Professional<span class="tag">Recommended</span></th>
+          <th>Feature</th><th>Explorer</th><th>Student</th><th class="hl">Professional<span class="tag">Recommended</span></th><th>Lifetime</th>
         </tr></thead>
         <tbody>
-          <tr><td>Navigate the whole app</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Franco, Communication &amp; Ethics, History</td><td>Only as Course</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Course study paths</td><td>Few</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>All specialties &amp; IM systems — fully unlocked</td><td class="no">—</td><td>Few</td><td class="hl yes">✓</td></tr>
-          <tr><td>QBank (exam-style questions)</td><td class="no">—</td><td class="no">—</td><td class="hl yes">✓</td></tr>
-          <tr><td>Flashcards &amp; Quiz Hub</td><td>Few</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>AI Patient</td><td class="no">—</td><td>Limited (2 scenarios)</td><td class="hl">Fully unlocked</td></tr>
-          <tr><td>Bookmark</td><td class="no">—</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Conversations</td><td class="no">—</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Detailed analysis</td><td class="no">—</td><td>Flashcards &amp; Quiz Hub</td><td class="hl">Quiz Hub, Flashcards &amp; QBank</td></tr>
-          <tr><td>Translate, Search &amp; Streak</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Bedside history-taking reference</td><td class="no">—</td><td class="no">—</td><td class="hl yes">✓</td></tr>
-          <tr><td>Eye Comfort mode</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Dark / light background switch</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td></tr>
-          <tr><td>Voice on every available phrase</td><td>On free content</td><td>On Student content</td><td class="hl">On everything</td></tr>
-          <tr><td>Patient replies</td><td>On free content</td><td>On Student content</td><td class="hl">On everything</td></tr>
-          <tr><td>Dictionary</td><td class="no">—</td><td>Course only</td><td class="hl">Course + fully unlocked</td></tr>
+                    <tr><td>Navigate the whole app</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Franco, Communication &amp; Ethics, History</td><td>Only as Course</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Course study paths</td><td>Few</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>All specialties &amp; IM systems — fully unlocked</td><td class="no">—</td><td>Few</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>QBank (exam-style questions)</td><td class="no">—</td><td class="no">—</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Flashcards &amp; Quiz Hub</td><td>Few</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>AI Patient</td><td class="no">—</td><td>Limited (2 scenarios)</td><td class="hl">Fully unlocked</td><td>Fully unlocked</td></tr>
+          <tr><td>Bookmark</td><td class="no">—</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Conversations</td><td class="no">—</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Detailed analysis</td><td class="no">—</td><td>Flashcards &amp; Quiz Hub</td><td class="hl">Quiz Hub, Flashcards &amp; QBank</td><td>Quiz Hub, Flashcards &amp; QBank</td></tr>
+          <tr><td>Translate, Search &amp; Streak</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Bedside history-taking reference</td><td class="no">—</td><td class="no">—</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Eye Comfort mode</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Dark / light background switch</td><td class="yes">✓</td><td class="yes">✓</td><td class="hl yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>Voice on every available phrase</td><td>On free content</td><td>On Student content</td><td class="hl">On everything</td><td>On everything</td></tr>
+          <tr><td>Patient replies</td><td>On free content</td><td>On Student content</td><td class="hl">On everything</td><td>On everything</td></tr>
+          <tr><td>Dictionary</td><td class="no">—</td><td>Course only</td><td class="hl">Course + fully unlocked</td><td>Course + fully unlocked</td></tr>
         </tbody>
       </table>
     </div>
@@ -239,6 +243,13 @@ let currentUser = null;
 let selectedPlanId = null;
 const CONTACT = 'thetabibtalk@gmail.com';
 
+// Kill-switch: if the admin has disabled the plans/payment surface, this page
+// shouldn't exist for visitors — bounce home, where signup/login is the CTA.
+fetch('/api/site-config', { credentials:'same-origin' })
+  .then(r => r.json())
+  .then(cfg => { if (cfg && cfg.plansEnabled === false) window.location.replace('/index.html'); })
+  .catch(() => {});
+
 function showAlert(msg, type = 'error') { document.getElementById('alert-box').innerHTML = `<div class="alert alert-${type}">${msg}</div>`; }
 
 function contactHref(planLabel) {
@@ -257,7 +268,7 @@ const FEATURES = {
   student: ['Full access to the learning app', 'Franco, Communication & Ethics, History', 'Course study paths with subtests', 'Flashcards & Quiz Hub', 'AI Patient (2 scenarios)', 'Bookmark & Conversations', 'Detailed analysis (Flashcards & Quiz Hub)', 'Translate, Search & Streak', 'Streaks and analytics'],
   professional: ['Everything in Student, plus:', 'All specialties & Internal-Medicine systems — fully unlocked', 'Full QBank (exam-style questions)', 'Detailed analysis (Quiz Hub, Flashcards & QBank)', 'Bedside history-taking reference', 'Priority access to new content', 'Streaks and analytics'],
 };
-const HINTS = { student: 'Recommended for 1st, 2nd & 3rd-year students.', professional: 'For highly-motivated 1st–2nd years, 3rd–5th-year students, interns, GPs & residents — especially doctors practising in Gulf countries.' };
+const HINTS = { explorer: 'Free forever — create an account and start exploring today.', student: 'Recommended for 1st, 2nd & 3rd-year students.', professional: 'For highly-motivated 1st–2nd years, 3rd–5th-year students, interns, GPs & residents — especially doctors practising in Gulf countries.' };
 
 let audience = 'student';
 let period = 'monthly';
@@ -272,6 +283,35 @@ function planTermLabel(period){
 
 function render() {
   document.getElementById('audience-hint').textContent = HINTS[audience];
+
+  // Explorer has no billing periods: hide the Monthly/6-Month/12-Month toggle
+  // and show a single free-plan box with a direct way in.
+  const periodSeg = document.querySelector('.seg.period');
+  if (audience === 'explorer') {
+    if (periodSeg) periodSeg.style.display = 'none';
+    document.getElementById('cards').innerHTML = `
+      <div class="tier-card featured" style="grid-column:1/-1;max-width:520px;margin:0 auto">
+        <span class="ribbon">Free forever</span>
+        <div class="plan-name">Explorer</div>
+        <div class="plan-term">No payment, no card — just an account</div>
+        <div class="price-row"><span class="price-now">$0</span></div>
+        <div class="price-sub">The key to everything — required before buying any plan</div>
+        <ul class="feats">
+          <li>Navigate the whole app and browse every section</li>
+          <li>Franco, Communication &amp; Ethics as Course</li>
+          <li>A taste of the Course study paths</li>
+          <li>Translate, Search &amp; Streak — fully open</li>
+          <li>Sample Flashcards &amp; Quiz Hub content</li>
+          <li>Voice &amp; patient replies on free content</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="openExplorer()">Open Explorer plan</button>
+        </div>
+      </div>`;
+    return;
+  }
+  if (periodSeg) periodSeg.style.display = '';
+
   const periods = [
     { key: 'monthly', featured: period === 'monthly' },
     { key: 'six', featured: period === 'six' },
@@ -301,6 +341,13 @@ function render() {
       </div>`;
   }).join('');
 }
+
+// Explorer is free: signing up IS activating it, so send visitors to signup
+// (or straight into the app if they're already signed in).
+function openExplorer() {
+  window.location.href = currentUser ? '/app.html' : '/login.html?next=/app.html';
+}
+window.openExplorer = openExplorer;
 
 function choosePaid(planId, planName) {
   if (!currentUser) {

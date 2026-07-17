@@ -38,6 +38,63 @@ async function getCurrentUser() {
   return user;
 }
 
+/* ---------- Display modes (shared by every outer page) ----------
+   One persisted preference — 'gamify' (the sci-fi look, default) or 'minimal'
+   (the original clean light styling) — applied by toggling the body classes
+   the two skins are scoped under. A tiny inline snippet at the top of each
+   page's <body> applies the saved mode before first paint so there's no dark
+   flash; these functions handle live switching and the chooser popup. */
+function ttGetDisplayMode() {
+  try { return localStorage.getItem('tt_display_mode') === 'minimal' ? 'minimal' : 'gamify'; } catch (e) { return 'gamify'; }
+}
+function ttApplyDisplayMode(mode) {
+  var minimal = mode === 'minimal';
+  document.documentElement.classList.toggle('tt-minimal', minimal);
+  // Outer pages scope their sci-fi skin under body.scifi; the app under
+  // body.tt-scifi. Toggle whichever this page uses.
+  if (document.getElementById('site-header')) document.body.classList.toggle('scifi', !minimal);
+  if (document.querySelector('.app-header')) document.body.classList.toggle('tt-scifi', !minimal);
+}
+function ttSetDisplayMode(mode) {
+  try { localStorage.setItem('tt_display_mode', mode === 'minimal' ? 'minimal' : 'gamify'); } catch (e) {}
+  ttApplyDisplayMode(mode);
+  ttCloseDisplayMenu();
+}
+function ttCloseDisplayMenu() {
+  var ov = document.getElementById('tt-display-menu'); if (ov) ov.remove();
+}
+function ttOpenDisplayMenu() {
+  ttCloseDisplayMenu();
+  var dark = document.body.classList.contains('scifi') || document.body.classList.contains('tt-scifi');
+  var cur = ttGetDisplayMode();
+  var card = 'background:' + (dark ? '#0c1220' : '#ffffff') + ';color:' + (dark ? '#e8f1f8' : '#10151b')
+    + ';border:1px solid ' + (dark ? 'rgba(255,255,255,.16)' : '#e2e6e9')
+    + ';border-radius:18px;padding:22px;max-width:340px;width:calc(100vw - 40px);box-shadow:0 30px 80px rgba(0,0,0,.45)';
+  var opt = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 14px;border-radius:12px;'
+    + 'border:1px solid ' + (dark ? 'rgba(255,255,255,.12)' : '#e2e6e9') + ';background:transparent;color:inherit;'
+    + 'font:inherit;font-weight:600;cursor:pointer;margin-top:10px';
+  var on = 'outline:2px solid ' + (dark ? '#22d3ee' : '#0f9c8c');
+  var opts = ''
+    + '<button style="' + opt + (cur === 'gamify' ? ';' + on : '') + '" onclick="ttSetDisplayMode(\'gamify\')">🚀 <span>Sci-fi Gamify mode<br><small style="font-weight:500;opacity:.7">Immersive dark theme with motion</small></span></button>'
+    + '<button style="' + opt + (cur === 'minimal' ? ';' + on : '') + '" onclick="ttSetDisplayMode(\'minimal\')">🔬 <span>Minimalist mode<br><small style="font-weight:500;opacity:.7">Clean, light, distraction-free</small></span></button>';
+  // App-only extras (green palette + eye comfort) appear when their toggles exist.
+  if (typeof window.toggleGreenTheme === 'function') {
+    opts += '<button style="' + opt + '" onclick="toggleGreenTheme();ttCloseDisplayMenu()">🌿 <span>Green theme<br><small style="font-weight:500;opacity:.7">Switch the gamify palette to green</small></span></button>';
+  }
+  if (typeof window.toggleEyeComfort === 'function') {
+    opts += '<button style="' + opt + '" onclick="toggleEyeComfort();ttCloseDisplayMenu()">👁️ <span>Eye comfort<br><small style="font-weight:500;opacity:.7">Warmer, gentler colours</small></span></button>';
+  }
+  var ov = document.createElement('div');
+  ov.id = 'tt-display-menu';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(2,5,10,.55);backdrop-filter:blur(4px)';
+  ov.innerHTML = '<div style="' + card + '" role="dialog" aria-label="Display options">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:1.05rem">Display options</b>'
+    + '<button onclick="ttCloseDisplayMenu()" aria-label="Close" style="border:none;background:none;color:inherit;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button></div>'
+    + opts + '</div>';
+  ov.addEventListener('click', function (e) { if (e.target === ov) ttCloseDisplayMenu(); });
+  document.body.appendChild(ov);
+}
+
 /* ---------- Header with pinned My Account ---------- */
 function renderHeader(activePage) {
   const el = document.getElementById('site-header');
@@ -47,11 +104,24 @@ function renderHeader(activePage) {
     <div class="brand-text"><strong>Tabib Talk</strong><span>Egyptian Medical Arabic</span></div>
     <nav>
       <a href="/index.html" data-key="home">Land up page</a>
-      <a href="/plans.html" data-key="plans">Plans</a>
+      <a href="/plans.html" data-key="plans" data-plans-link>Plans</a>
       <a href="/app.html" class="cta" data-key="app" onclick="return openAppGuard(event)">Open the Website</a>
       <a href="/account.html" class="account-pin" data-key="account">My Account</a>
+      <button type="button" onclick="ttOpenDisplayMenu()" aria-label="Display options" title="Display options — Gamify / Minimalist"
+        style="width:36px;height:36px;border-radius:10px;border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;cursor:pointer;font-size:1rem;flex:none">🎨</button>
     </nav>`;
   el.querySelectorAll('nav a').forEach(a => { if (a.dataset.key === activePage) a.classList.add('active'); });
+  ttApplyDisplayMode(ttGetDisplayMode());
+  // Kill-switch: hide every Plans link when the admin has disabled the
+  // commercial surface.
+  fetch('/api/site-config', { credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (cfg) {
+      if (cfg && cfg.plansEnabled === false) {
+        document.querySelectorAll('[data-plans-link]').forEach(function (a) { a.style.display = 'none'; });
+      }
+    })
+    .catch(function () {});
 }
 
 /* NOTE: useBackButton() used to swap the top-right "Home" link for a "← Back"

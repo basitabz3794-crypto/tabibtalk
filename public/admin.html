@@ -89,6 +89,9 @@
 </style>
 </head>
 <body class="scifi">
+<script>/* Apply the saved display mode BEFORE first paint so minimalist users never
+see a dark flash. header.js (or the app's own module) handles live switching. */
+try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 <div class="nebula"></div>
 <canvas id="scifi-field"></canvas>
 
@@ -157,6 +160,10 @@ document.getElementById('unlock-btn').addEventListener('click', async () => {
     document.getElementById('gate').style.display='none';
     document.getElementById('hub').style.display='block';
     loadAll();
+    // Near-realtime analytics: the top stats re-poll every 30s (each poll also
+    // downgrades any newly-expired plans server-side), so tier changes and
+    // expiries show up without touching Refresh.
+    setInterval(() => { loadStats().catch(()=>{}); }, 30000);
   } catch(e){ document.getElementById('gate-alert').innerHTML = '<div class="alert alert-error" style="margin-top:12px">Invalid admin key.</div>'; }
 });
 
@@ -195,6 +202,7 @@ async function loadStats(){
     ['Rejected', totals.rejected, false],
     ['Reset requests', totals.resetRequests, false],
     ['Flagged devices', totals.flaggedDevices, false],
+    ['Device appeals', totals.deviceAppeals || 0, false, 'blocked users waiting for review'],
     ['Recommendations', totals.recommendations, false],
   ];
   const active = totals.active;
@@ -202,9 +210,9 @@ async function loadStats(){
     ? `<div class="card stat-card" style="grid-column: 1 / -1">
          <div class="l" style="margin-bottom:8px">Active subscriptions by tier</div>
          <div style="display:flex;flex-wrap:wrap;gap:16px 24px;font-size:.95rem">
-           <div><b style="color:#e8f1f8">Student</b> <span style="color:var(--muted)">·</span> ${activeByTier.student||0}</div>
-           <div><b style="color:#e8f1f8">Professional</b> <span style="color:var(--muted)">·</span> ${activeByTier.professional||0}</div>
-           <div><b style="color:#e8f1f8">Lifetime</b> <span style="color:var(--muted)">·</span> ${activeByTier.lifetime||0}</div>
+           <div><b style="color:var(--text)">Student</b> <span style="color:var(--muted)">·</span> ${activeByTier.student||0}</div>
+           <div><b style="color:var(--text)">Professional</b> <span style="color:var(--muted)">·</span> ${activeByTier.professional||0}</div>
+           <div><b style="color:var(--text)">Lifetime</b> <span style="color:var(--muted)">·</span> ${activeByTier.lifetime||0}</div>
          </div>
          <div style="border-top:1px solid var(--border-soft);margin-top:12px;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;font-size:.85rem;color:var(--text-dim)">
            ${Object.entries(activeByPlan).sort((a,b)=>b[1]-a[1]).map(([planId,count])=>`
@@ -295,10 +303,11 @@ async function loadUsers(){
       <td style="color:var(--text)">${u.name||'—'}</td><td>${u.email}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
       <td style="text-transform:capitalize">${u.tier}</td>
       <td><span class="pill pill-${u.subState==='active'?'active':(u.subState==='suspended'?'suspended':'none')}">${u.subState}</span>${u.planId?'<div style="font-size:.72rem;color:var(--muted)">'+u.planId+'</div>':''}</td>
-      <td>${u.deviceCount}</td>
+      <td>${u.deviceCount}/${u.maxDevices}${u.maxDevices!==2?' <span style="font-size:.68rem;color:var(--gold)">raised</span>':''}</td>
       <td><span class="pill pill-${u.status==='active'?'active':'banned'}">${u.status}</span></td>
       <td><div class="row-actions">
         <button class="btn btn-outline" onclick="manageSub('${u.id}','${u.planId||''}','${u.subState}')">Manage plan</button>
+        <button class="btn btn-ghost" onclick="setDeviceLimit('${u.id}',${u.maxDevices})" title="Allow this account to use more (or fewer) devices">Devices: ${u.maxDevices}</button>
         ${u.subState==='active'?`<button class="btn btn-ghost" onclick="userAction('${u.id}','suspend')">Suspend</button>`:`<button class="btn btn-ghost" onclick="userAction('${u.id}','reactivate')">Reactivate</button>`}
         ${u.status==='banned'?`<button class="btn btn-primary" onclick="userAction('${u.id}','unban')">Unban</button>`:`<button class="btn btn-danger" onclick="userAction('${u.id}','ban')">Ban</button>`}
       </div></td>
@@ -309,6 +318,17 @@ async function userAction(id, action){
   await adminPost(`/api/admin/users/${id}/action`, { action }); loadAll();
 }
 window.userAction=userAction;
+
+// Per-account device cap. 2 is the site default; raising it is the durable way
+// to permit a third (or fourth…) device for one trusted user.
+async function setDeviceLimit(id, current){
+  const v = prompt('How many devices may this account use? (site default is 2)', String(current||2));
+  if(v===null) return;
+  const n = Number(v);
+  if(!Number.isInteger(n) || n<1 || n>10){ alert('Enter a whole number between 1 and 10.'); return; }
+  await adminPost(`/api/admin/users/${id}/device-limit`, { maxDevices: n }); loadAll();
+}
+window.setDeviceLimit=setDeviceLimit;
 
 // Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
 function manageSub(userId, currentPlan, subState){
@@ -374,7 +394,36 @@ async function loadRecs(){
 }
 
 async function loadDevices(){
-  const { devices } = await adminGet('/api/admin/devices');
+  const [{ devices }, { appeals }] = await Promise.all([
+    adminGet('/api/admin/devices'),
+    adminGet('/api/admin/device-appeals'),
+  ]);
+
+  // ---- Appeals from users blocked by the device limit ----
+  // Each pending appeal offers the three sensible outcomes: permit exactly the
+  // device they appealed from, raise their whole account's cap, or dismiss.
+  const pendingAppeals = appeals.filter(a => a.status === 'pending');
+  const pastAppeals = appeals.filter(a => a.status !== 'pending').slice(0, 10);
+  const appealCard = (a) => `
+    <div class="card" style="margin-bottom:12px;border-left:3px solid ${a.status==='pending'?'var(--gold)':'var(--border)'}">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+        <div style="color:var(--text);font-weight:700">${esc(a.name||'')} <span style="color:var(--muted);font-weight:500">${esc(a.email)}</span></div>
+        <div style="color:var(--muted);font-size:.78rem">${fmt(a.submittedAt)}${a.status!=='pending'?' · <span style="text-transform:capitalize">'+esc(a.status)+(a.resolution?' ('+esc(a.resolution)+')':'')+'</span>':''}</div>
+      </div>
+      <div style="color:var(--text-dim);margin:10px 0;white-space:pre-wrap">${esc(a.message)}</div>
+      <div style="color:var(--muted);font-size:.74rem;font-family:monospace">device ${esc((a.deviceId||'(none)').slice(0,20))}${a.deviceId&&a.deviceId.length>20?'…':''} · ${esc((a.userAgent||'').slice(0,80))}</div>
+      ${a.status==='pending'?`<div class="row-actions" style="margin-top:12px">
+        <button class="btn btn-primary" onclick="resolveAppeal('${esc(a.id)}','permit-device')" title="Unblock exactly the device this appeal was sent from">Permit this device</button>
+        <button class="btn btn-outline" onclick="resolveAppealRaise('${esc(a.id)}')" title="Let the whole account use more devices from now on">Raise device limit…</button>
+        <button class="btn btn-ghost" onclick="resolveAppeal('${esc(a.id)}','dismiss')">Dismiss</button>
+      </div>`:''}
+    </div>`;
+  const appealsHtml = `<div class="card" style="margin-bottom:16px">
+    <h3 class="sec">Device-limit appeals ${pendingAppeals.length?`<span class="pill pill-pending" style="margin-left:8px">${pendingAppeals.length} pending</span>`:''}</h3>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:-6px">When a login is refused by the device limit, the user can explain their situation from the login page — it lands here for you to verify.</p>
+    ${pendingAppeals.length? pendingAppeals.map(appealCard).join('') : '<div class="empty" style="padding:14px">No appeals waiting.</div>'}
+    ${pastAppeals.length? '<h3 class="sec" style="margin-top:18px;font-size:.95rem">Recently resolved</h3>'+pastAppeals.map(appealCard).join('') : ''}
+  </div>`;
   const row = d => {
     const uid = esc(d.userId), did = esc(d.deviceId);
     const state = d.flagged ? '<span class="pill pill-suspended">flagged</span>'
@@ -394,7 +443,7 @@ async function loadDevices(){
       <td><div style="display:flex;gap:6px;flex-wrap:wrap">${actions.join('') || '—'}</div></td>
     </tr>`;
   };
-  document.getElementById('panel-devices').innerHTML = `<div class="card"><h3 class="sec">Device history &amp; violations</h3><div class="table-scroll"><table class="data">
+  document.getElementById('panel-devices').innerHTML = appealsHtml + `<div class="card"><h3 class="sec">Device history &amp; violations</h3><div class="table-scroll"><table class="data">
     <thead><tr><th>User</th><th>Device</th><th>First seen</th><th>Last seen</th><th>Uses</th><th>State</th><th>Action</th></tr></thead>
     <tbody>${devices.length? devices.map(row).join('') : '<tr><td colspan="7" class="empty">No device activity yet.</td></tr>'}</tbody></table></div>
     <p style="color:var(--muted);font-size:.82rem;margin-top:14px">
@@ -413,6 +462,18 @@ async function permitDevice(userId, deviceId){
   await adminPost(`/api/admin/devices/${userId}/${deviceId}/permit`, { reason }); loadAll();
 }
 window.permitDevice=permitDevice;
+
+async function resolveAppeal(id, resolution){
+  await adminPost(`/api/admin/device-appeals/${id}/resolve`, { resolution }); loadAll();
+}
+async function resolveAppealRaise(id){
+  const v = prompt('New device limit for this account (site default is 2):', '3');
+  if(v===null) return;
+  const n = Number(v);
+  if(!Number.isInteger(n) || n<1 || n>10){ alert('Enter a whole number between 1 and 10.'); return; }
+  await adminPost(`/api/admin/device-appeals/${id}/resolve`, { resolution:'raise-limit', maxDevices:n }); loadAll();
+}
+window.resolveAppeal=resolveAppeal; window.resolveAppealRaise=resolveAppealRaise;
 
 async function loadNotify(){
   const { notifications } = await adminGet('/api/admin/notifications');
@@ -498,9 +559,29 @@ async function loadDev(){
   const fx = await adminGet('/api/admin/fx-config');
   const adc = await adminGet('/api/admin/ad-config');
   const pay = await adminGet('/api/admin/payment-config');
+  const site = await adminGet('/api/admin/site-config');
   const inpStyle = 'padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)';
   document.getElementById('panel-dev').innerHTML = `<div class="card">
     <h3 class="sec">Developer — live plan configuration</h3>
+
+    <!-- Plans & payments kill-switch. When OFF the whole commercial surface
+         disappears: landing loses its pricing links, plans.html bounces home,
+         and every signed-in user gets full (lifetime) access in the app. -->
+    <div style="border:1px solid ${site.plansEnabled?'rgba(255,255,255,.12)':'rgba(245,181,68,.5)'};border-radius:12px;padding:16px;margin-bottom:18px;background:${site.plansEnabled?'rgba(255,255,255,.04)':'rgba(245,181,68,.08)'}">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+        <div>
+          <div style="font-weight:700;color:var(--txt, var(--text))">Plans &amp; payment pages: <span style="color:${site.plansEnabled?'var(--ok)':'var(--gold)'}">${site.plansEnabled?'ENABLED':'DISABLED'}</span></div>
+          <p style="color:var(--dim, var(--muted));font-size:.85rem;margin:6px 0 0;max-width:560px">
+            ${site.plansEnabled
+              ? 'The site is running normally: pricing page, checkout and tier gating are all live.'
+              : 'The commercial surface is hidden. Visitors see a landing page without plans, only need to sign up / log in, and every signed-in user gets full access as if on Lifetime.'}
+          </p>
+        </div>
+        <button class="btn ${site.plansEnabled?'btn-danger':'btn-primary'}" onclick="toggleSitePlans(${site.plansEnabled?'false':'true'})">
+          ${site.plansEnabled?'Disable plans & payments':'Enable plans & payments'}
+        </button>
+      </div>
+    </div>
 
     <!-- Global currency configuration: drives the INR/EGP figures for EVERY plan.
          Uses a translucent fill rather than var(--bg-2): that token is #ffffff in
@@ -698,6 +779,18 @@ async function saveFxConfig(){
   }
 }
 window.saveFxConfig = saveFxConfig;
+
+// Plans & payments kill-switch. Confirmation spells out exactly what changes,
+// because this one button reshapes the whole public site.
+async function toggleSitePlans(enable){
+  const msg = enable
+    ? 'Re-enable plans & payments?\n\nThe pricing page, checkout and tier gating all come back, and users return to the access their own plan grants.'
+    : 'Disable plans & payments?\n\n• The landing page loses its pricing links\n• plans.html redirects home\n• Every signed-in user gets FULL access (as if Lifetime)\n\nNo data is deleted — flip it back any time.';
+  if(!confirm(msg)) return;
+  await adminPost('/api/admin/site-config', { plansEnabled: enable });
+  loadDev();
+}
+window.toggleSitePlans = toggleSitePlans;
 
 // ---- Advertisement box ----
 const AD_FIELDS = ['adId','badge','teaserBadge','titlePre','titleAccent','titlePost','subtitle','ctaLabel','confirmText'];

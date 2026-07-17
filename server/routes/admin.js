@@ -21,12 +21,13 @@ router.get('/overview', requireAdmin, async (req, res) => {
   // Each collection is fetched once and joined in memory. Looking users up one
   // at a time inside the loop below would be a separate network round-trip per
   // proof now that the store is remote.
-  const [rawUsers, proofs, recommendations, pendingResets, devices] = await Promise.all([
+  const [rawUsers, proofs, recommendations, pendingResets, devices, pendingAppeals] = await Promise.all([
     store.listAllUsers(),
     store.listAllManualProofs(),
     store.listRecommendations(),
     store.listResetRequests('pending'),
     store.listAllDevices(),
+    store.listDeviceAppeals('pending'),
   ]);
   // Downgrade expired paid tiers first, so the analytics are always fresh.
   const users = await reconcileAllUsers(rawUsers);
@@ -126,6 +127,7 @@ router.get('/overview', requireAdmin, async (req, res) => {
       recommendations: recommendations.length,
       resetRequests: pendingResets.length,
       flaggedDevices: devices.filter(d => d.flagged).length,
+      deviceAppeals: pendingAppeals.length,
       renewalsDue: renewalsDue.length,
     },
     tierCounts,
@@ -151,6 +153,7 @@ router.get('/users', requireAdmin, async (req, res) => {
       status: u.status || 'active',
       subState: !u.planId ? 'none' : (expired ? 'suspended' : 'active'),
       deviceCount: allDevices.filter(d => d.userId === u.id && !d.blocked).length,
+      maxDevices: Number(u.maxDevices) > 0 ? Number(u.maxDevices) : 2,
       createdAt: u.createdAt,
     };
   });
@@ -245,6 +248,76 @@ router.post('/devices/:userId/:deviceId/permit', requireAdmin, async (req, res) 
   });
   if (!updated) return res.status(404).json({ error: 'Device not found.' });
   res.json({ ok: true });
+});
+
+// ---- Set an account's device limit ----
+// The global rule is 2 devices; this raises (or restores) the cap for ONE
+// account — the durable way to "permit a third device or more", since it also
+// stops that user's future sign-ins being flagged again and again.
+router.post('/users/:id/device-limit', requireAdmin, async (req, res) => {
+  const user = await store.findUserById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const n = Number((req.body || {}).maxDevices);
+  if (!Number.isInteger(n) || n < 1 || n > 10) {
+    return res.status(400).json({ error: 'Device limit must be a whole number between 1 and 10.' });
+  }
+  await store.updateUser(user.id, { maxDevices: n === 2 ? undefined : n }); // 2 = back to default
+  res.json({ ok: true, maxDevices: n });
+});
+
+// ---- Device-limit appeals (filed from the login page when blocked) ----
+router.get('/device-appeals', requireAdmin, async (req, res) => {
+  res.json({ appeals: await store.listDeviceAppeals() });
+});
+
+// Resolve an appeal. `resolution` says what the admin decided:
+//   permit-device — unblock the specific device the appeal came from
+//   raise-limit   — bump the account's device cap to `maxDevices`
+//   dismiss       — no action, just close it
+router.post('/device-appeals/:id/resolve', requireAdmin, async (req, res) => {
+  const appeal = await store.findDeviceAppeal(req.params.id);
+  if (!appeal) return res.status(404).json({ error: 'Appeal not found.' });
+  const { resolution, maxDevices } = req.body || {};
+
+  if (resolution === 'permit-device') {
+    if (!appeal.deviceId) return res.status(400).json({ error: 'This appeal has no device fingerprint to permit — raise the limit instead.' });
+    const dev = await store.findDevice(appeal.userId, appeal.deviceId);
+    if (dev) {
+      await store.updateDevice(appeal.userId, appeal.deviceId, {
+        blocked: false, flagged: false, flagReason: null,
+        permittedAt: new Date().toISOString(), permittedReason: 'Appeal approved by admin',
+      });
+    } else {
+      // The block happened before the device row existed (or it was cleaned
+      // up) — raising the cap by one gives the same outcome.
+      const user = await store.findUserById(appeal.userId);
+      const cur = Number(user && user.maxDevices) > 0 ? Number(user.maxDevices) : 2;
+      await store.updateUser(appeal.userId, { maxDevices: cur + 1 });
+    }
+  } else if (resolution === 'raise-limit') {
+    const n = Number(maxDevices);
+    if (!Number.isInteger(n) || n < 1 || n > 10) return res.status(400).json({ error: 'Device limit must be 1-10.' });
+    await store.updateUser(appeal.userId, { maxDevices: n === 2 ? undefined : n });
+  } else if (resolution !== 'dismiss') {
+    return res.status(400).json({ error: 'Unknown resolution.' });
+  }
+
+  await store.updateDeviceAppeal(appeal.id, {
+    status: resolution === 'dismiss' ? 'dismissed' : 'resolved',
+    resolution, resolvedAt: new Date().toISOString(),
+  });
+  res.json({ ok: true });
+});
+
+// ---- Site switches (Developer): plans/payment kill-switch ----
+router.get('/site-config', requireAdmin, async (req, res) => {
+  const cfg = await store.getSiteConfig();
+  res.json({ plansEnabled: cfg.plansEnabled !== false });
+});
+router.post('/site-config', requireAdmin, async (req, res) => {
+  const { plansEnabled } = req.body || {};
+  await store.setSiteConfig({ plansEnabled: plansEnabled !== false });
+  res.json({ ok: true, plansEnabled: plansEnabled !== false });
 });
 
 // ---- Full admin subscription + account controls (items 12 & 15) ----

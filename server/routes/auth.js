@@ -54,14 +54,17 @@ async function registerDevice(user, req) {
   }
   const devices = await store.listDevicesForUser(user.id);
   const activeDevices = devices.filter(d => !d.blocked);
-  if (activeDevices.length >= MAX_DEVICES) {
+  // Admin can raise an individual account's limit ("permit a third device or
+  // more") — user.maxDevices overrides the global default when set.
+  const limit = Number(user.maxDevices) > 0 ? Number(user.maxDevices) : MAX_DEVICES;
+  if (activeDevices.length >= limit) {
     // Record the over-limit attempt as a flagged device for the admin to see.
     await store.createDevice({
       id: nanoid(), userId: user.id, deviceId, firstSeen: now, lastSeen: now, count: 1,
       userAgent: req.headers['user-agent'] || '', blocked: true, flagged: true,
-      flagReason: 'Exceeded 2-device limit',
+      flagReason: `Exceeded ${limit}-device limit`,
     });
-    return { blocked: true, reason: `This account is already active on ${MAX_DEVICES} devices. Using more devices isn't allowed and has been flagged.` };
+    return { blocked: true, limit, reason: `This account is already active on ${limit} devices. Using more devices isn't allowed and has been flagged.` };
   }
   await store.createDevice({
     id: nanoid(), userId: user.id, deviceId, firstSeen: now, lastSeen: now, count: 1,
@@ -148,13 +151,57 @@ router.post('/firebase-session', async (req, res) => {
 
   if (user.status === 'banned') return res.status(403).json({ error: 'This account has been banned. Please contact support.' });
 
-  // Enforce device limit before establishing the session.
+  // Enforce device limit before establishing the session. deviceBlocked lets
+  // the login page offer the "explain your situation" appeal box instead of a
+  // dead end.
   const dev = await registerDevice(user, req);
-  if (dev.blocked) return res.status(403).json({ error: dev.reason });
+  if (dev.blocked) return res.status(403).json({ error: dev.reason, deviceBlocked: true });
 
   user = await reconcileUser(user);
   req.session.userId = user.id;
   res.json(publicUser(user));
+});
+
+// ---- Device-limit appeal ----
+// Filed from the login page when the max-devices rule blocks a sign-in. There
+// is no session at that point (login failed), so ownership is proven with the
+// Firebase ID token from the password check that just succeeded — nobody can
+// file appeals against an account they can't sign in to. One pending appeal
+// per account; the admin resolves it in Devices & Violations.
+router.post('/device-appeal', async (req, res) => {
+  if (!firebase.isEnabled()) {
+    return res.status(503).json({ error: 'Appeals are temporarily unavailable. Please email us instead.' });
+  }
+  const { idToken, message } = req.body || {};
+  const text = String(message || '').trim();
+  if (!idToken) return res.status(400).json({ error: 'Please log in again before sending your appeal.' });
+  if (!text) return res.status(400).json({ error: 'Please describe your situation so we can verify it.' });
+
+  let decoded;
+  try { decoded = await firebase.verifyIdToken(idToken); }
+  catch (err) { return res.status(401).json({ error: 'Your sign-in expired — please enter your password again, then resend the appeal.' }); }
+
+  const user = (await store.findUserByFirebaseUid(decoded.uid)) || (await store.findUserByEmail(decoded.email || ''));
+  if (!user) return res.status(404).json({ error: 'We couldn\'t find your account.' });
+
+  const existing = (await store.listDeviceAppeals('pending')).find(a => a.userId === user.id);
+  if (existing) {
+    return res.json({ ok: true, message: 'You already have an appeal waiting for review — we\'ll get back to you soon.' });
+  }
+
+  await store.createDeviceAppeal({
+    id: nanoid(),
+    userId: user.id,
+    email: user.email,
+    name: user.name || '',
+    deviceId: req.headers['x-device-id'] || '',
+    userAgent: req.headers['user-agent'] || '',
+    message: text.slice(0, 1000),
+    status: 'pending', // pending -> resolved | dismissed
+    submittedAt: new Date().toISOString(),
+  });
+
+  res.json({ ok: true, message: 'Thanks — your appeal has been sent. We\'ll review it and unblock the device or raise your limit if everything checks out.' });
 });
 
 // ---- Log out ----

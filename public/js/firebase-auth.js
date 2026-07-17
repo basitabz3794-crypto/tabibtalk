@@ -130,9 +130,32 @@ const TTAuth = (function () {
     const r = await postSession(idToken);
     if (!r.ok) {
       await auth.signOut();
+      // Blocked by the max-devices rule: hand the (still valid) ID token back
+      // so the login page can offer the appeal form — the token is the proof
+      // of account ownership the appeal endpoint requires.
+      if (r.data.deviceBlocked) {
+        return { deviceBlocked: true, error: r.data.error, idToken: idToken };
+      }
       throw new Error(r.data.error || 'Could not sign you in.');
     }
     return { ok: true, user: r.data };
+  }
+
+  // ---- Device-limit appeal ----
+  // Sends the user's explanation to the admin's Devices & Violations queue.
+  async function sendDeviceAppeal(idToken, message) {
+    const res = await fetch('/api/auth/device-appeal', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': (typeof getDeviceId === 'function') ? getDeviceId() : '',
+      },
+      body: JSON.stringify({ idToken: idToken, message: message }),
+    });
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(data.error || 'Could not send your appeal right now.');
+    return data;
   }
 
   // ---- Resend the verification email ----
@@ -170,5 +193,5 @@ const TTAuth = (function () {
     try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
   }
 
-  return { ready, signUp, logIn, resendVerification, sendReset, logOut, friendlyError };
+  return { ready, signUp, logIn, resendVerification, sendReset, sendDeviceAppeal, logOut, friendlyError };
 })();

@@ -224,3 +224,15 @@ body.tt-blurred > * { filter: blur(14px); transition: filter .15s ease; }
   font-weight: 800;
   letter-spacing: -.01em;
 }
+
+/* ============================================================
+   Minimalist display mode (html.tt-minimal)
+   The sci-fi skin is entirely scoped under body.scifi, so removing
+   that class already restores this light theme. These rules only
+   silence the fixed sci-fi shell pieces (starfield canvas + nebula)
+   that are styled or animated outside the body.scifi scope, and fix
+   the terms heading that assumed a dark backdrop.
+   ============================================================ */
+html.tt-minimal .nebula,
+html.tt-minimal #scifi-field { display: none !important; }
+html.tt-minimal .terms-body .t-sub { color: var(--text); }

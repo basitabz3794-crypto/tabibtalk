@@ -78,6 +78,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Public site switches. Only exposes what the frontend legitimately needs:
+// whether the plans/payment surface is live. When it isn't, the landing page
+// drops its pricing links, plans.html bounces home, and the app treats every
+// signed-in user as lifetime.
+app.get('/api/site-config', async (req, res) => {
+  try {
+    const store = require('./data/store');
+    const cfg = await store.getSiteConfig();
+    res.json({ plansEnabled: cfg.plansEnabled !== false });
+  } catch (e) {
+    // If Firebase is unreachable, fail OPEN (plans shown) — the safe default
+    // for a commerce page is the one that matches normal operation.
+    res.json({ plansEnabled: true });
+  }
+});
+
 // Firebase client config, served from env so it lives in one place.
 // These values are safe to expose publicly — a Firebase web API key identifies
 // the project, it doesn't authorise anything on its own. The Admin SDK service

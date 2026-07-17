@@ -223,10 +223,10 @@
           .bookmark-pill { padding: 6px 10px !important; font-size: .82rem !important; margin-left: auto !important; flex: none; }
           .bookmark-pill svg { width: 13px !important; height: 13px !important; }
           .streak-pill { padding: 6px 9px !important; font-size: .88rem !important; margin-left: 4px !important; flex: none; }
-          /* Hide theme + eye-comfort on every phone width — they're accessible
-             via the drawer's Display section, which frees up ~76px per row so
-             streak/search/account fit even on iPhone 14/15-sized screens. */
-          #theme-btn, #eye-comfort-btn { display: none !important; }
+          /* Hide the unified display button on phones — every one of its
+             options is in the drawer's Display section, and dropping it keeps
+             streak/search/account on-screen for iPhone-sized widths. */
+          #display-mode-btn { display: none !important; }
         }
         /* Phones (any width up to and including iPhone 15 Pro Max at ~430px).
            The brand text costs ~82px of horizontal space, which is what keeps
@@ -1120,6 +1120,9 @@
     </style>
 </head>
 <body class="tt-scifi">
+<script>/* Apply the saved display mode BEFORE first paint so minimalist users never
+see a dark flash. header.js (or the app's own module) handles live switching. */
+try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
 
 <script>
 /* ============================================================
@@ -1203,8 +1206,10 @@
                 <span class="brand-text"><strong>Tabib Talk</strong><small>EGYPTIAN MEDICAL ARABIC</small></span>
             </div>
             <button class="notif-pill" id="notif-bell-btn" title="Notifications" onclick="showNotif()" aria-label="Notifications"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
-            <button class="notif-pill" id="theme-btn" title="Green theme" onclick="toggleGreenTheme()" aria-label="Switch to the green theme"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a1.72 1.72 0 0 0 1.72-1.72c0-.45-.18-.86-.46-1.16a1.7 1.7 0 0 1 1.2-2.9h1.99A5.55 5.55 0 0 0 22 10.67C21.96 6.01 17.51 2 12 2z"/><circle cx="6.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="8.8" cy="7.4" r="1.3" fill="currentColor" stroke="none"/><circle cx="14" cy="6.6" r="1.3" fill="currentColor" stroke="none"/><circle cx="17.8" cy="10.4" r="1.3" fill="currentColor" stroke="none"/></svg></button>
-            <button class="notif-pill" id="eye-comfort-btn" title="Eye Comfort" onclick="toggleEyeComfort()" aria-label="Eye Comfort" style="animation:none"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <!-- Unified display button: replaces the separate green-theme and
+                 eye-comfort pills. Opens one popup with every look option —
+                 Sci-fi Gamify, Minimalist, Green theme, Eye comfort. -->
+            <button class="notif-pill" id="display-mode-btn" title="Display options" onclick="ttOpenDisplayMenu()" aria-label="Display options"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" stroke="none"/></svg></button>
             <button class="bookmark-pill" title="Bookmarks" onclick="navigate('page-bookmarks')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg> <span id="bm-count">0</span></button>
             <button class="streak-pill" title="Streak" onclick="navigate('page-streak')">🔥 <span id="streak-count">1</span></button>
             <button class="search-pill" title="Search phrases" onclick="navigate('page-search')" aria-label="Search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
@@ -7489,6 +7494,8 @@ function buildDrawer(){
      phones (see the \u2264400px media query), so users need a way to reach them
      from the drawer regardless of screen width. */
   h+='<div class="drawer-group">Display</div>';
+  h+='<div class="drawer-link" onclick="closeDrawer();ttSetDisplayMode(\'gamify\')">\uD83D\uDE80 Sci-fi Gamify mode</div>';
+  h+='<div class="drawer-link" onclick="closeDrawer();ttSetDisplayMode(\'minimal\')">\uD83D\uDD2C Minimalist mode</div>';
   h+='<div class="drawer-link" onclick="closeDrawer();toggleGreenTheme()">\uD83C\uDF3F Toggle green theme</div>';
   h+='<div class="drawer-link" onclick="closeDrawer();toggleEyeComfort()">\uD83D\uDC41\uFE0F Toggle eye comfort</div>';
   h+='<div class="drawer-group">Account</div>';
@@ -8646,12 +8653,22 @@ function _ttDownloadBlob(blob, filename){
       if(!data || !data.user || !data.user.tier) return; // standalone/offline — leave local state as-is
       var serverTier = data.user.tier;
       if(KNOWN_TIERS.indexOf(serverTier) === -1) return;
-      try{
-        if(typeof setTier === 'function'){ setTier(serverTier); }
-        else { localStorage.setItem('tt_tier', JSON.stringify(serverTier)); }
-        var ov = document.getElementById('landing-overlay'); if(ov) ov.remove();
-        if(typeof buildDrawer === 'function') buildDrawer();
-      }catch(e){ console.error('tier sync failed', e); }
+      // Kill-switch: when the admin has disabled the plans/payment surface,
+      // every signed-in account gets full access, exactly as if on Lifetime.
+      // The tier they really own is untouched server-side, so re-enabling
+      // plans instantly restores normal gating.
+      fetch('/api/site-config', { credentials:'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(cfg){ applyTier(cfg && cfg.plansEnabled === false ? 'lifetime' : serverTier); })
+        .catch(function(){ applyTier(serverTier); });
+      function applyTier(tier){
+        try{
+          if(typeof setTier === 'function'){ setTier(tier); }
+          else { localStorage.setItem('tt_tier', JSON.stringify(tier)); }
+          var ov = document.getElementById('landing-overlay'); if(ov) ov.remove();
+          if(typeof buildDrawer === 'function') buildDrawer();
+        }catch(e){ console.error('tier sync failed', e); }
+      }
     })
     .catch(function(){ /* offline or API unreachable — app still works from local tier */ });
 })();
@@ -8805,6 +8822,59 @@ window.toggleGreenTheme = toggleGreenTheme;
 // Aliases kept so any older call sites still resolve to the current toggle.
 window.toggleDarkTheme = toggleGreenTheme;
 window.toggleLightTheme = toggleGreenTheme;
+
+/* ---------- Unified display modes ----------
+   One persisted preference shared with the rest of the site (the outer pages
+   apply the same localStorage key via header.js):
+     'gamify'  — the sci-fi skin (body.tt-scifi), the default
+     'minimal' — the original clean light guide styling, for doctors who want
+                 fewer distractions and more focus
+   Green theme and Eye comfort stay as independent toggles, surfaced in the
+   same popup so there's a single button instead of three. Inlined here (not
+   /js/header.js) because this file must keep working standalone/offline. */
+function ttGetDisplayMode(){
+  try{ return localStorage.getItem('tt_display_mode')==='minimal' ? 'minimal' : 'gamify'; }catch(e){ return 'gamify'; }
+}
+function ttApplyDisplayMode(mode){
+  var minimal = mode==='minimal';
+  document.documentElement.classList.toggle('tt-minimal', minimal);
+  document.body.classList.toggle('tt-scifi', !minimal);
+}
+function ttSetDisplayMode(mode){
+  try{ localStorage.setItem('tt_display_mode', mode==='minimal' ? 'minimal' : 'gamify'); }catch(e){}
+  ttApplyDisplayMode(mode);
+  ttCloseDisplayMenu();
+}
+function ttCloseDisplayMenu(){ var ov=document.getElementById('tt-display-menu'); if(ov) ov.remove(); }
+function ttOpenDisplayMenu(){
+  ttCloseDisplayMenu();
+  var dark = document.body.classList.contains('tt-scifi');
+  var cur = ttGetDisplayMode();
+  var card = 'background:'+(dark?'#0c1220':'#ffffff')+';color:'+(dark?'#e8f1f8':'#10151b')
+    +';border:1px solid '+(dark?'rgba(255,255,255,.16)':'#e2e6e9')
+    +';border-radius:18px;padding:22px;max-width:340px;width:calc(100vw - 40px);box-shadow:0 30px 80px rgba(0,0,0,.45)';
+  var opt = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 14px;border-radius:12px;'
+    +'border:1px solid '+(dark?'rgba(255,255,255,.12)':'#e2e6e9')+';background:transparent;color:inherit;'
+    +'font:inherit;font-weight:600;cursor:pointer;margin-top:10px';
+  var on = 'outline:2px solid '+(dark?'#22d3ee':'#0f9c8c');
+  var greenOn = document.body.classList.contains('tt-green');
+  var eyeOn = document.body.classList.contains('eye-comfort');
+  var ov = document.createElement('div');
+  ov.id='tt-display-menu';
+  ov.style.cssText='position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(2,5,10,.55);backdrop-filter:blur(4px)';
+  ov.innerHTML='<div style="'+card+'" role="dialog" aria-label="Display options">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:1.05rem">Display options</b>'
+    +'<button onclick="ttCloseDisplayMenu()" aria-label="Close" style="border:none;background:none;color:inherit;font-size:1.5rem;cursor:pointer;line-height:1">&times;</button></div>'
+    +'<button style="'+opt+(cur==='gamify'?';'+on:'')+'" onclick="ttSetDisplayMode(\'gamify\')">🚀 <span>Sci-fi Gamify mode<br><small style="font-weight:500;opacity:.7">Immersive dark theme with motion</small></span></button>'
+    +'<button style="'+opt+(cur==='minimal'?';'+on:'')+'" onclick="ttSetDisplayMode(\'minimal\')">🔬 <span>Minimalist mode<br><small style="font-weight:500;opacity:.7">Clean, light, distraction-free — the classic look</small></span></button>'
+    +'<button style="'+opt+'" onclick="toggleGreenTheme();ttCloseDisplayMenu()">🌿 <span>Green theme '+(greenOn?'· on':'· off')+'<br><small style="font-weight:500;opacity:.7">Switch the gamify palette to green</small></span></button>'
+    +'<button style="'+opt+'" onclick="toggleEyeComfort();ttCloseDisplayMenu()">👁️ <span>Eye comfort '+(eyeOn?'· on':'· off')+'<br><small style="font-weight:500;opacity:.7">Warmer, gentler colours for long sessions</small></span></button>'
+    +'</div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseDisplayMenu(); });
+  document.body.appendChild(ov);
+}
+window.ttGetDisplayMode=ttGetDisplayMode; window.ttApplyDisplayMode=ttApplyDisplayMode;
+window.ttSetDisplayMode=ttSetDisplayMode; window.ttOpenDisplayMenu=ttOpenDisplayMenu; window.ttCloseDisplayMenu=ttCloseDisplayMenu;
 
 /* restore saved preferences (light is the default unless dark was explicitly chosen) */
 (function(){
@@ -8962,6 +9032,18 @@ body.tt-scifi {
   background:var(--void); color:var(--text-dark);
   overflow-x:hidden;
 }
+/* The swipe-right trilingual/patient-reply popup must be OPAQUE. Its card
+   reads background:var(--surface), which in this skin is 4.5% white — pure
+   glass, so the blurred page shows through and the Arabic is hard to read,
+   especially on phones. Solid ink instead, in both palettes. */
+body.tt-scifi #row-popup-card{
+  background:#0c1220 !important;
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+body.tt-scifi.tt-green #row-popup-card{ background:#0f3626 !important; }
+body.tt-scifi #row-popup-overlay{ background:rgba(2,5,10,.72); }
+
 /* Kill the light ambient wash + the old home-only sci-fi shell */
 body.tt-scifi::before{display:none}
 body.tt-scifi #page-main-menu{background:transparent;margin:0;padding:0;overflow:visible}
@@ -9009,6 +9091,15 @@ body.tt-scifi.tt-green .tt-live::before{
 body.tt-scifi.tt-green tbody tr:hover td{background:rgba(74,222,128,.10)}
 body.tt-scifi.tt-green .ctx-chip{background:rgba(74,222,128,.15);color:var(--cy);
   border-color:rgba(74,222,128,.32)}
+
+/* ---------- Minimalist display mode --------------------------------
+   The whole gamify skin above is scoped under body.tt-scifi, so removing
+   that class restores the original light guide styling. These rules only
+   silence the fixed atmosphere pieces (particle canvas, nebula, cursor
+   bloom, and the old home-only shell) which are created/animated by JS
+   regardless of the body class. */
+html.tt-minimal #tt-field, html.tt-minimal #tt-nebula, html.tt-minimal #tt-bloom,
+html.tt-minimal .home-nebula, html.tt-minimal #home-scifi-field { display:none !important; }
 
 /* ---------- 2. Global atmosphere ------------------------------------ */
 #tt-field{position:fixed;inset:0;z-index:0;pointer-events:none;display:block}

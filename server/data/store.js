@@ -246,6 +246,30 @@ async function setFxConfig(patch) { return patchConfig('fxConfig', patch); }
 async function getAdConfig() { return getConfig('adConfig'); }
 async function setAdConfig(patch) { return patchConfig('adConfig', patch); }
 
+// Site-wide switches (admin "Developer" section). Today just plansEnabled:
+// when false, the plans/payment surface is hidden everywhere and every
+// signed-in user is treated as lifetime by the app.
+async function getSiteConfig() { return getConfig('siteConfig'); }
+async function setSiteConfig(patch) { return patchConfig('siteConfig', patch); }
+
+// ---------- Device-limit appeals ----------
+// Filed from the login page when someone is blocked by the max-devices rule,
+// so the admin can judge the story (new phone, cyber café, shared account…)
+// in the Devices & Violations tab and permit the device or raise the limit.
+async function createDeviceAppeal(appeal) {
+  return putOne('deviceAppeals', appeal.id, appeal);
+}
+async function listDeviceAppeals(status) {
+  const all = newestFirst(await getAll('deviceAppeals'), 'submittedAt');
+  return status ? all.filter(a => a.status === status) : all;
+}
+async function findDeviceAppeal(id) {
+  return getOne('deviceAppeals', id);
+}
+async function updateDeviceAppeal(id, patch) {
+  return patchOne('deviceAppeals', id, patch);
+}
+
 // ---------- Advertisement interests ----------
 // Every "I'm interested" tap on the in-app promo box, captured with the user's
 // contact details at the moment they responded.
@@ -273,6 +297,8 @@ module.exports = {
   getFxConfig, setFxConfig,
   createInterest, listInterests, findInterest,
   getAdConfig, setAdConfig,
+  getSiteConfig, setSiteConfig,
+  createDeviceAppeal, listDeviceAppeals, findDeviceAppeal, updateDeviceAppeal,
   // deprecated aliases
   createInstapayProof, listPendingInstapayProofs, listAllInstapayProofs, findInstapayProof, updateInstapayProof,
 };
