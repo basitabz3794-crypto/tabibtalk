@@ -189,6 +189,7 @@ async function loadStats(){
     'student-monthly':'Student · Monthly', 'student-6m':'Student · 6-month', 'student-12m':'Student · 12-month',
     'professional-monthly':'Professional · Monthly', 'professional-6m':'Professional · 6-month', 'professional-yearly':'Professional · Yearly',
     'lifetime':'Lifetime',
+    'basic-monthly':'Basic · Monthly', 'advanced-monthly':'Advanced · Monthly',
   };
   const cards = [
     ['Total users', totals.users, true],
@@ -213,6 +214,8 @@ async function loadStats(){
            <div><b style="color:var(--text)">Student</b> <span style="color:var(--muted)">·</span> ${activeByTier.student||0}</div>
            <div><b style="color:var(--text)">Professional</b> <span style="color:var(--muted)">·</span> ${activeByTier.professional||0}</div>
            <div><b style="color:var(--text)">Lifetime</b> <span style="color:var(--muted)">·</span> ${activeByTier.lifetime||0}</div>
+           <div><b style="color:var(--text)">Basic</b> <span style="color:var(--muted)">·</span> ${activeByTier.basic||0}</div>
+           <div><b style="color:var(--text)">Advanced</b> <span style="color:var(--muted)">·</span> ${activeByTier.advanced||0}</div>
          </div>
          <div style="border-top:1px solid var(--border-soft);margin-top:12px;padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;font-size:.85rem;color:var(--text-dim)">
            ${Object.entries(activeByPlan).sort((a,b)=>b[1]-a[1]).map(([planId,count])=>`
@@ -332,7 +335,7 @@ window.setDeviceLimit=setDeviceLimit;
 
 // Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
 function manageSub(userId, currentPlan, subState){
-  const plans = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime'];
+  const plans = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime','basic-monthly','advanced-monthly'];
   const opts = plans.map(p=>`<option value="${p}" ${p===currentPlan?'selected':''}>${p}</option>`).join('');
   const html = `
     <div class="modal-overlay open" id="manage-modal">
@@ -553,7 +556,7 @@ async function loadInterests(){
 }
 
 // ---- Developer section: live-edit plan prices & durations ----
-const DEV_PLAN_ORDER = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime'];
+const DEV_PLAN_ORDER = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime','basic-monthly','advanced-monthly'];
 async function loadDev(){
   const { plans, durationsDays } = await adminGet('/api/admin/plan-config');
   const fx = await adminGet('/api/admin/fx-config');
@@ -579,6 +582,26 @@ async function loadDev(){
         </div>
         <button class="btn ${site.plansEnabled?'btn-danger':'btn-primary'}" onclick="toggleSitePlans(${site.plansEnabled?'false':'true'})">
           ${site.plansEnabled?'Disable plans & payments':'Enable plans & payments'}
+        </button>
+      </div>
+    </div>
+
+    <!-- Second switch: the NEW two-plan structure. When ON, the pricing page
+         shows only Basic + Advanced instead of Explorer/Student/Professional/
+         Lifetime. Both new plans' prices and durations are editable in the
+         plan table below (rows "Basic" and "Advanced") with no code change. -->
+    <div style="border:1px solid ${site.newPlans?'rgba(34,211,238,.45)':'rgba(255,255,255,.12)'};border-radius:12px;padding:16px;margin-bottom:18px;background:${site.newPlans?'rgba(34,211,238,.07)':'rgba(255,255,255,.04)'}">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+        <div>
+          <div style="font-weight:700;color:var(--txt, var(--text))">Payment and plans page — New (Basic / Advanced): <span style="color:${site.newPlans?'var(--ok)':'var(--muted)'}">${site.newPlans?'ON':'OFF'}</span></div>
+          <p style="color:var(--dim, var(--muted));font-size:.85rem;margin:6px 0 0;max-width:560px">
+            ${site.newPlans
+              ? 'The pricing page shows only Basic and Advanced. Basic: whole site except Flashcards (Franco & Communication allowed), AI Patient (General chat + Abdominal pain allowed) and QBank (lesson names visible, content locked). Advanced: everything, like Professional.'
+              : 'OFF — the classic Explorer / Student / Professional / Lifetime page is live. Turn on to switch to the two-plan structure (Basic + Advanced). Edit their prices in the plan table below.'}
+          </p>
+        </div>
+        <button class="btn ${site.newPlans?'btn-ghost':'btn-primary'}" onclick="toggleNewPlans(${site.newPlans?'false':'true'})">
+          ${site.newPlans?'Switch back to classic plans':'Switch to Basic / Advanced'}
         </button>
       </div>
     </div>
@@ -791,6 +814,16 @@ async function toggleSitePlans(enable){
   loadDev();
 }
 window.toggleSitePlans = toggleSitePlans;
+
+async function toggleNewPlans(enable){
+  const msg = enable
+    ? 'Switch the pricing page to the NEW structure (Basic / Advanced)?\n\nExisting subscribers keep their current plans; only what NEW visitors see changes.'
+    : 'Switch back to the classic Explorer / Student / Professional / Lifetime page?';
+  if(!confirm(msg)) return;
+  await adminPost('/api/admin/site-config', { newPlans: enable });
+  loadDev();
+}
+window.toggleNewPlans = toggleNewPlans;
 
 // ---- Advertisement box ----
 const AD_FIELDS = ['adId','badge','teaserBadge','titlePre','titleAccent','titlePost','subtitle','ctaLabel','confirmText'];

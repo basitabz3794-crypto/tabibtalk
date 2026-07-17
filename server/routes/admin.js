@@ -64,8 +64,9 @@ router.get('/overview', requireAdmin, async (req, res) => {
     'student-monthly': 'Monthly', 'student-6m': '6-month', 'student-12m': '12-month',
     'professional-monthly': 'Monthly', 'professional-6m': '6-month', 'professional-yearly': 'Yearly',
     'lifetime': 'Lifetime',
+    'basic-monthly': 'Monthly', 'advanced-monthly': 'Monthly',
   };
-  const activeByTier = { student: 0, professional: 0, lifetime: 0 };
+  const activeByTier = { student: 0, professional: 0, lifetime: 0, basic: 0, advanced: 0 };
   const activeByPlan = {}; // planId -> count
   activeSubs.forEach(({ user }) => {
     const t = user.tier;
@@ -309,15 +310,19 @@ router.post('/device-appeals/:id/resolve', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- Site switches (Developer): plans/payment kill-switch ----
+// ---- Site switches (Developer): plans kill-switch + new plan structure ----
 router.get('/site-config', requireAdmin, async (req, res) => {
   const cfg = await store.getSiteConfig();
-  res.json({ plansEnabled: cfg.plansEnabled !== false });
+  res.json({ plansEnabled: cfg.plansEnabled !== false, newPlans: cfg.newPlans === true });
 });
 router.post('/site-config', requireAdmin, async (req, res) => {
-  const { plansEnabled } = req.body || {};
-  await store.setSiteConfig({ plansEnabled: plansEnabled !== false });
-  res.json({ ok: true, plansEnabled: plansEnabled !== false });
+  const body = req.body || {};
+  const patch = {};
+  if (body.plansEnabled !== undefined) patch.plansEnabled = body.plansEnabled !== false;
+  if (body.newPlans !== undefined) patch.newPlans = body.newPlans === true;
+  await store.setSiteConfig(patch);
+  const cfg = await store.getSiteConfig();
+  res.json({ ok: true, plansEnabled: cfg.plansEnabled !== false, newPlans: cfg.newPlans === true });
 });
 
 // ---- Full admin subscription + account controls (items 12 & 15) ----

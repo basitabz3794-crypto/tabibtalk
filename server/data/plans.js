@@ -101,10 +101,27 @@ const PLANS = {
     billing: 'one_time', period: 'one-time', priceWas: 99, priceNow: 99, ...convert(99, REF_RATES),
     offerNote: 'pay once, yours forever', accessTier: 'lifetime',
   },
+
+  // ---- NEW plan structure (behind siteConfig.newPlans) ----
+  // Basic: nearly the whole site, with Flashcards / AI Patient / QBank held
+  // back (small whitelists apply in the app). Ships free by default — set a
+  // price in the admin Developer table to make it paid, no code change needed.
+  'basic-monthly': {
+    id: 'basic-monthly', name: 'Basic', audience: 'basic',
+    billing: 'monthly', period: '1 month', priceWas: 0, priceNow: 0, ...convert(0, REF_RATES),
+    offerNote: 'free to start', accessTier: 'basic',
+  },
+  // Advanced: everything Professional had, $3/month. Price is admin-editable
+  // live via the same Developer table as every other plan.
+  'advanced-monthly': {
+    id: 'advanced-monthly', name: 'Advanced', audience: 'advanced',
+    billing: 'monthly', period: '1 month', priceWas: 3, priceNow: 3, ...convert(3, REF_RATES),
+    offerNote: 'launch price', accessTier: 'advanced',
+  },
 };
 
 // Access tiers that unlock full content (mirrors isLocked() logic in the app).
-const FULL_ACCESS_TIERS = ['professional', 'lifetime'];
+const FULL_ACCESS_TIERS = ['professional', 'lifetime', 'advanced'];
 
 function isFullAccess(tier) {
   return FULL_ACCESS_TIERS.includes(tier);
@@ -121,6 +138,10 @@ const PLAN_DURATION_DAYS = {
   'student-monthly': 30, 'student-6m': 180, 'student-12m': 365,
   'professional-monthly': 30, 'professional-6m': 180, 'professional-yearly': 365,
   'lifetime': null, 'explorer': null,
+  // Basic never expires while free (like explorer); if the admin prices it,
+  // they can set a duration in the Developer table (override.days wins).
+  'basic-monthly': null,
+  'advanced-monthly': 30,
 };
 
 // Compute an ISO expiry date from an activation date + plan id (null = never expires).

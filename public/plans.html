@@ -466,20 +466,85 @@ function preselectFromQuery() {
   }
 }
 
+/* ---- NEW two-plan structure (admin Developer toggle "Payment and plans
+   page New"). Replaces the audience/period pickers, the Lifetime banner and
+   the comparison table with just Basic + Advanced. Prices/durations come from
+   the same /api/plans/config the classic page uses, so the admin's live
+   Developer-table edits (e.g. changing the Advanced price) apply here with no
+   code change. Checkout reuses the existing payment-methods flow. ---- */
+function renderNewPlans() {
+  document.querySelector('.toggles').style.display = 'none';
+  document.querySelector('.lifetime').style.display = 'none';
+  document.querySelector('.compare').style.display = 'none';
+
+  const basic = ALL_PLANS['basic-monthly'] || { priceNow: 0, inr: 0, egp: 0, offerNote: '' };
+  const adv = ALL_PLANS['advanced-monthly'] || { priceNow: 3, inr: 0, egp: 0, offerNote: '' };
+  const fx = p => `&#8776; ₹${(p.inr||0).toLocaleString('en-IN')} INR &middot; E£${(p.egp||0).toLocaleString()} EGP`;
+  const basicFree = !basic.priceNow;
+
+  document.getElementById('cards').innerHTML = `
+    <div class="tier-card" style="grid-column:1;max-width:none">
+      <div class="plan-name">Basic</div>
+      <div class="plan-term">${basicFree ? 'Free — just create an account' : 'Monthly'}</div>
+      <div class="price-row"><span class="price-now">$${basic.priceNow}</span>${basicFree?'':'<span style="color:var(--muted)">/month</span>'}</div>
+      ${basicFree ? '' : `<div class="price-fx">${fx(basic)}</div>`}
+      <div class="price-sub">${basic.offerNote||''}</div>
+      <ul class="feats">
+        <li>The whole learning website — courses, conversations, quiz hub, translate, search, streak</li>
+        <li>Flashcards: Franco &amp; Communication decks</li>
+        <li>AI Patient: General chat + Abdominal-pain history</li>
+        <li>QBank: browse every lesson name (content locked)</li>
+      </ul>
+      <div class="btn-row">
+        ${basicFree
+          ? `<button class="btn btn-primary" onclick="openExplorer()">Open Basic plan</button>`
+          : `<button class="btn btn-primary" onclick="choosePaid('basic-monthly','Basic (1 month)')">Choose Basic</button>`}
+      </div>
+    </div>
+    <div class="tier-card featured" style="grid-column:2;max-width:none">
+      <span class="ribbon">Everything unlocked</span>
+      <div class="plan-name">Advanced</div>
+      <div class="plan-term">Monthly</div>
+      <div class="price-row"><span class="price-now">$${adv.priceNow}</span><span style="color:var(--muted)">/month</span></div>
+      <div class="price-fx">${fx(adv)}</div>
+      <div class="price-sub">${adv.offerNote||''}</div>
+      <ul class="feats">
+        <li>Everything in Basic, plus:</li>
+        <li>All Flashcards decks</li>
+        <li>AI Patient — every scenario</li>
+        <li>Full QBank with detailed analysis</li>
+        <li>All specialties &amp; Internal-Medicine systems unlocked</li>
+        <li>Bedside history-taking reference</li>
+      </ul>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="choosePaid('advanced-monthly','Advanced (1 month)')">Choose Advanced</button>
+      </div>
+    </div>`;
+  // Two side-by-side cards on desktop.
+  document.getElementById('cards').style.gridTemplateColumns = 'repeat(auto-fit,minmax(290px,1fr))';
+}
+
 (async () => {
   renderHeader('plans');
   // The top-right nav link stays "Land up page" here — it must remain intact,
   // visible and functional in the same position as on the landing page, so we
   // deliberately do NOT swap it for a "← Back" button.
   currentUser = await getCurrentUser();
-  const { plans } = await api('/api/plans/config');
+  const [{ plans }, siteCfg] = await Promise.all([
+    api('/api/plans/config'),
+    fetch('/api/site-config', { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
+  ]);
   ALL_PLANS = plans;
-  if (ALL_PLANS.lifetime) {
-    const lt = ALL_PLANS.lifetime;
-    document.getElementById('lt-price-block').innerHTML = `<span class="lt-now">$${lt.priceNow}</span>`;
-    document.getElementById('lt-price-fx').textContent = `≈ ₹${(lt.inr||0).toLocaleString('en-IN')} INR · E£${(lt.egp||0).toLocaleString()} EGP`;
+  if (siteCfg && siteCfg.newPlans === true) {
+    renderNewPlans();
+  } else {
+    if (ALL_PLANS.lifetime) {
+      const lt = ALL_PLANS.lifetime;
+      document.getElementById('lt-price-block').innerHTML = `<span class="lt-now">$${lt.priceNow}</span>`;
+      document.getElementById('lt-price-fx').textContent = `≈ ₹${(lt.inr||0).toLocaleString('en-IN')} INR · E£${(lt.egp||0).toLocaleString()} EGP`;
+    }
+    render();
   }
-  render();
   await loadPaymentDetails();
   preselectFromQuery();
   enableCopyProtection();

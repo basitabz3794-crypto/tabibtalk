@@ -15,6 +15,8 @@ const SHARE_LIMITS = {
   student: 2,
   professional: 5,
   lifetime: 5,
+  basic: 2,
+  advanced: 5,
 };
 
 router.post('/record', requireLogin, async (req, res) => {

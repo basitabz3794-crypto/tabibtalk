@@ -23,9 +23,13 @@ function publicUser(user) {
 // Re-evaluate a user's effective state: expire subscriptions whose time is up.
 async function reconcileUser(user) {
   if (!user) return user;
-  // Lifetime and explorer never expire. Paid tiers expire to 'explorer'.
-  if (user.planExpiresAt && isExpired(user.planExpiresAt) && user.tier !== 'explorer' && user.tier !== 'lifetime') {
-    const updated = await store.updateUser(user.id, { tier: 'explorer', subStatus: 'expired' });
+  // Lifetime, explorer and (free) basic never expire. Paid tiers expire to
+  // their mode's free tier: Advanced falls back to Basic, the classic paid
+  // tiers fall back to Explorer.
+  if (user.planExpiresAt && isExpired(user.planExpiresAt)
+      && user.tier !== 'explorer' && user.tier !== 'lifetime' && user.tier !== 'basic') {
+    const fallbackTier = user.tier === 'advanced' ? 'basic' : 'explorer';
+    const updated = await store.updateUser(user.id, { tier: fallbackTier, subStatus: 'expired' });
     return updated;
   }
   return user;

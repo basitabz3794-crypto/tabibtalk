@@ -19,6 +19,7 @@ const progressRoutes = require('./routes/progress');
 const notificationRoutes = require('./routes/notifications');
 const sharesRoutes = require('./routes/shares');
 const interestsRoutes = require('./routes/interests');
+const leaderboardRoutes = require('./routes/leaderboard');
 const adminRoutes = require('./routes/admin');
 
 const FirebaseSessionStore = require('./data/session-store')(session);
@@ -67,6 +68,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/shares', sharesRoutes);
 app.use('/api/interests', interestsRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {
@@ -86,11 +88,16 @@ app.get('/api/site-config', async (req, res) => {
   try {
     const store = require('./data/store');
     const cfg = await store.getSiteConfig();
-    res.json({ plansEnabled: cfg.plansEnabled !== false });
+    res.json({
+      plansEnabled: cfg.plansEnabled !== false,
+      // Second switch: the NEW two-plan structure (Basic / Advanced). Off by
+      // default — the classic Student/Professional page keeps rendering.
+      newPlans: cfg.newPlans === true,
+    });
   } catch (e) {
     // If Firebase is unreachable, fail OPEN (plans shown) — the safe default
     // for a commerce page is the one that matches normal operation.
-    res.json({ plansEnabled: true });
+    res.json({ plansEnabled: true, newPlans: false });
   }
 });
 

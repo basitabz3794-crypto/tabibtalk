@@ -115,8 +115,16 @@ async function mergeProgress(userId, patch) {
   return patch;
 }
 
+// Every user's progress in one read — the weekly leaderboard needs the whole
+// picture at once, and one bulk read beats N per-user round-trips.
+async function getAllProgress() {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  const snapshot = await database().ref('progress').once('value');
+  return snapshot.val() || {};
+}
+
 module.exports = {
   isEnabled, whyDisabled, database,
   verifyIdToken, getAuthUserByEmail, revokeTokens,
-  getProgress, mergeProgress,
+  getProgress, mergeProgress, getAllProgress,
 };

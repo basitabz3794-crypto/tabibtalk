@@ -223,10 +223,13 @@
           .bookmark-pill { padding: 6px 10px !important; font-size: .82rem !important; margin-left: auto !important; flex: none; }
           .bookmark-pill svg { width: 13px !important; height: 13px !important; }
           .streak-pill { padding: 6px 9px !important; font-size: .88rem !important; margin-left: 4px !important; flex: none; }
-          /* Hide the unified display button on phones — every one of its
-             options is in the drawer's Display section, and dropping it keeps
-             streak/search/account on-screen for iPhone-sized widths. */
-          #display-mode-btn { display: none !important; }
+          /* The display button STAYS visible on normal phones (users read a
+             hidden button as broken). The full row measures ~364px, so it
+             fits from 370px up; only below that do we fall back to the
+             drawer's Display section. */
+          .notif-pill, .search-pill, .bookmark-pill, .streak-pill, .menu-toggle {
+            touch-action: manipulation; position: relative; z-index: 5;
+          }
         }
         /* Phones (any width up to and including iPhone 15 Pro Max at ~430px).
            The brand text costs ~82px of horizontal space, which is what keeps
@@ -235,6 +238,11 @@
            full "Tabib Talk / EGYPTIAN MEDICAL ARABIC" wordmark. */
         @media (max-width: 480px) {
           .brand-text { display: none !important; }
+        }
+        /* Below 370px the ~364px button row can't fit — only there does the
+           display button retreat to the drawer's Display section. */
+        @media (max-width: 369px) {
+          #display-mode-btn { display: none !important; }
         }
 
         .brand { display: flex; align-items: center; gap: 13px; cursor: pointer; }
@@ -1223,6 +1231,7 @@ try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentEle
             <button class="tab" onclick="selectTab(this); goTool('ai')">AI Patient <span class="pro-badge">PRO</span></button>
             <button class="tab" onclick="selectTab(this); goTool('translate')">Translate</button>
             <button class="tab" onclick="selectTab(this); navigate('page-qbank')">QBank <span class="pro-badge">PRO</span></button>
+            <button class="tab" onclick="selectTab(this); navigate('page-leaderboard')">🏆 Leaderboard</button>
             <button class="tab" onclick="selectTab(this); navigate('page-conversations')">Conversations</button>
         </nav>
     </header>
@@ -4004,6 +4013,7 @@ try{if(localStorage.getItem('tt_display_mode')==='minimal'){document.documentEle
         <div id="page-qbank" class="page-section"><div class="tool-wrap" id="qbank-body"></div></div>
         <div id="page-saved" class="page-section"><div class="tool-wrap" id="saved-body"></div></div>
         <div id="page-streak" class="page-section"><div class="tool-wrap" id="streak-body"></div></div>
+        <div id="page-leaderboard" class="page-section"><div class="tool-wrap" id="leaderboard-body"></div></div>
         <div id="page-qanalysis" class="page-section"><div class="tool-wrap" id="qanalysis-body"></div></div>
         <div id="page-chapter" class="page-section"><div class="tool-wrap" id="chapter-body"></div></div>
         <div id="page-chapter-cat" class="page-section"><div class="tool-wrap" id="chapter-cat-body"></div></div>
@@ -5355,15 +5365,19 @@ function buildSmartToolsPage(){
 
 /* ---------------- Flashcards ---------------- */
 var FC={list:[],i:0,flipped:false,key:'',learned:0,mastered:0};
+/* Basic-tier whitelist: the "Franco and communications" decks stay open. */
+var FC_BASIC_ALLOWED = ['franco-alpha','ethics'];
+function fcAllowed(key){ return ttTier()!=='basic' || FC_BASIC_ALLOWED.indexOf(key)>=0; }
 function buildFlashcards(){
-  var chips=SUBJECTS.filter(function(s){return s.k!=='franco' && getItems(s.k).length;}).map(function(s){ return '<button class="pill outline" id="fcchip-'+s.k+'" onclick="fcLoad(\''+s.k+'\')">'+s.label+'</button>'; }).join('');
+  var chips=SUBJECTS.filter(function(s){return s.k!=='franco' && getItems(s.k).length;}).map(function(s){ var lk=!fcAllowed(s.k); return '<button class="pill outline" id="fcchip-'+s.k+'" style="'+(lk?'opacity:.55':'')+'" onclick="fcLoad(\''+s.k+'\')">'+s.label+(lk?' 🔒':'')+'</button>'; }).join('');
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back to home</button><span class="ctx-chip">Smart tool</span></div>';
   h+='<h1 class="tool-title">Flashcards · Spaced repetition</h1><p class="tool-sub">Show English first. Try to recall the Arabic and Franco-Arabic — then flip the card to check. Your grades schedule the next review automatically.</p>';
   h+='<h3 class="mini-h">Choose a deck</h3><div class="chip-row">'+chips+'</div><div id="fc-stage"></div>';
   document.getElementById('flashcards-body').innerHTML=h;
-  fcLoad('chest');
+  fcLoad(fcAllowed('chest') ? 'chest' : 'franco-alpha');
 }
 function fcLoad(key){
+  if(!fcAllowed(key)){ if(typeof showUpgrade==='function') showUpgrade(['Advanced']); return; }
   var list=getItems(key); if(!list.length) return;
   FC={list:shuffle(list.slice()), i:0, flipped:false, key:key, learned:0, mastered:0};
   document.querySelectorAll('#flashcards-body .chip-row .pill').forEach(function(p){ p.classList.remove('active'); });
@@ -6456,7 +6470,7 @@ function isPro(){ return _lj('tt_pro',false)===true; }
    tt_pro remains only as the legacy demo override. */
 function qbFullAccess(){
   var t = (typeof ttTier==='function') ? ttTier() : null;
-  return t==='professional' || t==='professional-yearly' || t==='lifetime' || isPro();
+  return t==='professional' || t==='professional-yearly' || t==='lifetime' || t==='advanced' || isPro();
 }
 window.qbFullAccess = qbFullAccess;
 function setPro(v){ _sj('tt_pro', v); renderQbankHub(); updateSavedCount(); }
@@ -6496,7 +6510,7 @@ function qbStart(key){
   // Explorer/Student can reach this from the browsable hub — tell them what
   // unlocks it instead of silently doing nothing.
   if(!qbFullAccess()){
-    if(typeof showUpgrade==='function') showUpgrade(['Professional','Lifetime']);
+    if(typeof showUpgrade==='function') showUpgrade(ttTier()==='basic' ? ['Advanced'] : ['Professional','Lifetime']);
     return;
   }
   var subj=SUBJECTS.filter(function(s){return s.k===key;})[0];
@@ -6634,9 +6648,11 @@ function renderStreak(){
   h+='<h3 class="mini-h">Correct answers</h3><div class="stat-grid">'
     +'<div class="stat-card"><div class="lbl">QBank — Correct</div><div class="val a2">'+(correct.qbank||0)+'</div></div>'
     +'<div class="stat-card"><div class="lbl">Course Quizzes — Correct</div><div class="val a3">'+(correct.course||0)+'</div></div></div>';
+  h+='<h3 class="mini-h">Weekly leaderboard</h3><div id="streak-lb" class="fc-count">Loading your score…</div>';
   h+=testScoresHTML();
   h+='<h3 class="mini-h">This month</h3>'+calendarHTML();
   body.innerHTML=h;
+  try{ if(typeof fillStreakScore==='function') fillStreakScore(); }catch(e){}
 }
 function setGoal(m){ _sj('tt_goal', m); renderStreak(); }
 function calendarHTML(){
@@ -7209,7 +7225,7 @@ function setTier(t){ _sj('tt_tier',t); }
    The deeper gate on individual subjects (qbFullAccess/qbStart) is kept as a
    second line of defence. */
 var LOCKED_STUDENT=['page-qbank','page-cardio','page-chest','page-abdomen','page-neuro','page-endo','page-hema','page-rheuma','page-surgery','page-pediatrics','page-obgyn','page-ent','page-ophthal','page-vocab','page-invest','page-er'];
-function isLocked(id){ var t=ttTier(); if(t==='professional'||t==='professional-yearly'||t==='lifetime') return false; return LOCKED_STUDENT.indexOf(id)>=0; }
+function isLocked(id){ var t=ttTier(); if(t==='professional'||t==='professional-yearly'||t==='lifetime'||t==='advanced') return false; if(t==='basic') return false; return LOCKED_STUDENT.indexOf(id)>=0; }
 
 /* ---------- Local-date helpers (fix calendar off-by-one) ---------- */
 function _pad(n){ return (n<10?'0':'')+n; }
@@ -7338,6 +7354,7 @@ window.showUpgrade=showUpgrade; window.closeUpgrade=closeUpgrade;
    Student can already use a couple of free scenarios — worth calling out
    explicitly rather than implying Student has zero access. */
 function upgradeTiersFor(id){
+  if(ttTier()==='basic') return { tiers:['Advanced'] };
   var STUDENT_INCLUDED_SMART = ['page-flashcards','page-saved','page-bookmarks','page-conversations','page-conv-view','page-ethics','page-history'];
   if(STUDENT_INCLUDED_SMART.indexOf(id) >= 0) return { tiers:['Student','Professional','Lifetime'] };
   if(id === 'page-ai') return { tiers:['Professional','Lifetime'], note:'Student plan users can already access some AI Patient scenarios for free.' };
@@ -7493,6 +7510,8 @@ function buildDrawer(){
   /* Display toggles \u2014 the header pills for these are hidden on very narrow
      phones (see the \u2264400px media query), so users need a way to reach them
      from the drawer regardless of screen width. */
+  try{ var _ob=_lj('tt_onboard',null); if(_ob&&_ob.nick){ h+='<div style="padding:10px 12px;font-weight:800;color:var(--primary);font-size:1.02rem">'+(_ob.emoji||'')+' '+String(_ob.nick).replace(/</g,'&lt;')+'</div>'; } }catch(e){}
+  h+='<div class="drawer-link" onclick="navigate(\'page-leaderboard\')">🏆 Weekly Leaderboard</div>';
   h+='<div class="drawer-group">Display</div>';
   h+='<div class="drawer-link" onclick="closeDrawer();ttSetDisplayMode(\'gamify\')">\uD83D\uDE80 Sci-fi Gamify mode</div>';
   h+='<div class="drawer-link" onclick="closeDrawer();ttSetDisplayMode(\'minimal\')">\uD83D\uDD2C Minimalist mode</div>';
@@ -7686,7 +7705,10 @@ var SMART_PAGES=['page-ai','page-saved','page-bookmarks','page-conversations','p
 /* ---------- Access control (student + explorer) ---------- */
 function isLocked(id){
   var t=ttTier();
-  if(t==='professional'||t==='professional-yearly'||t==='lifetime') return false;
+  if(t==='professional'||t==='professional-yearly'||t==='lifetime'||t==='advanced') return false;
+  /* Basic (new plan structure): every PAGE is reachable — Flashcards, AI
+     Patient and QBank apply their own finer-grained locks inside. */
+  if(t==='basic') return false;
   if(t==='explorer'){
     if(SMART_PAGES.indexOf(id)>=0) return true;                 /* smart features locked (except translate/search/streak) */
     if(LOCKED_STUDENT.indexOf(id)>=0) return true;              /* subject/chapter pages locked */
@@ -8572,7 +8594,7 @@ function _ttDownloadBlob(blob, filename){
   window.buildAI = function(){
     _buildAI.apply(this, arguments);
     try{
-      if(ttTier()==='student'){
+      if(ttTier()==='student'||ttTier()==='basic'){
         document.querySelectorAll('#ai-body .pill[data-i]').forEach(function(chip){
           var idx = parseInt(chip.getAttribute('data-i'), 10);
           if(STUDENT_OPEN_IDX.indexOf(idx) < 0){
@@ -8585,7 +8607,7 @@ function _ttDownloadBlob(blob, filename){
     }catch(e){}
   };
   window.aiStart = function(idx){
-    if(ttTier()==='student' && STUDENT_OPEN_IDX.indexOf(idx) < 0){ showUpgrade(); return; }
+    if((ttTier()==='student'||ttTier()==='basic') && STUDENT_OPEN_IDX.indexOf(idx) < 0){ showUpgrade(); return; }
     return _aiStart.apply(this, arguments);
   };
 })();
@@ -8638,7 +8660,7 @@ function _ttDownloadBlob(blob, filename){
    so an admin-approved payment unlocks the right content immediately,
    instead of relying only on whatever was last stored in this browser. */
 (function(){
-  var KNOWN_TIERS = ['explorer','student','professional','lifetime'];
+  var KNOWN_TIERS = ['explorer','student','professional','lifetime','basic','advanced'];
   var _dev; try { _dev = localStorage.getItem('tt_device_id'); if(!_dev){ _dev='dev-'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('tt_device_id',_dev);} } catch(e){ _dev='dev-unknown'; }
   // Only enforce login when served over http/https from the website (not the standalone file://).
   var served = (location.protocol === 'http:' || location.protocol === 'https:');
@@ -8667,6 +8689,10 @@ function _ttDownloadBlob(blob, filename){
           else { localStorage.setItem('tt_tier', JSON.stringify(tier)); }
           var ov = document.getElementById('landing-overlay'); if(ov) ov.remove();
           if(typeof buildDrawer === 'function') buildDrawer();
+          // First visit? Collect nickname/emoji/level, then run the guided
+          // tour. Fires for plans-off (tier forced lifetime) and plans-on
+          // (after the account's plan is resolved) alike.
+          setTimeout(function(){ try{ if(window.maybeStartOnboarding) maybeStartOnboarding(); }catch(e){} }, 900);
         }catch(e){ console.error('tier sync failed', e); }
       }
     })
@@ -8729,7 +8755,7 @@ function ttGoAccount(){
         body.innerHTML='<p>You\'re not logged in.</p><a class="btn-primary" href="/login.html?next=/app.html" style="display:inline-block;margin-top:10px;text-decoration:none;text-align:center">Log in</a>';
         return;
       }
-      var PLAN_LABELS = {'student-monthly':'Student · Monthly','student-6m':'Student · 6 months','student-12m':'Student · 12 months','professional-monthly':'Professional · Monthly','professional-6m':'Professional · 6 months','professional-yearly':'Professional · 12 months','lifetime':'Lifetime','explorer':'Explorer (free)'};
+      var PLAN_LABELS = {'student-monthly':'Student · Monthly','student-6m':'Student · 6 months','student-12m':'Student · 12 months','professional-monthly':'Professional · Monthly','professional-6m':'Professional · 6 months','professional-yearly':'Professional · 12 months','lifetime':'Lifetime','explorer':'Explorer (free)','basic-monthly':'Basic · Monthly','advanced-monthly':'Advanced · Monthly'};
       var planLabel = PLAN_LABELS[user.planId] || (user.tier ? user.tier.charAt(0).toUpperCase()+user.tier.slice(1) : 'Explorer');
       var expiryLine = user.tier==='lifetime' ? 'Never expires'
         : (user.planExpiresAt ? ('Renews/expires '+ttFmtDate(user.planExpiresAt)) : 'Free plan — upgrade any time');
@@ -8766,7 +8792,7 @@ function ttLogout(){
   function finish(){
     try{
       ['tt_tier','tt_pro','tt_streak','tt_days','tt_time','tt_path','tt_solved',
-       'tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores']
+       'tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard']
         .forEach(function(k){ localStorage.removeItem(k); });
       // Ad state is keyed per campaign (tt_ad_seen_<id> / tt_ad_notified_<id>),
       // so sweep by prefix rather than listing ids that change over time.
@@ -8875,6 +8901,204 @@ function ttOpenDisplayMenu(){
 }
 window.ttGetDisplayMode=ttGetDisplayMode; window.ttApplyDisplayMode=ttApplyDisplayMode;
 window.ttSetDisplayMode=ttSetDisplayMode; window.ttOpenDisplayMenu=ttOpenDisplayMenu; window.ttCloseDisplayMenu=ttCloseDisplayMenu;
+
+
+/* ==================== Onboarding + Weekly Leaderboard ==================== */
+/* Onboarding: first sign-in collects a nickname, an emoji avatar and the
+   user's Arabic level, then walks them to the right starting point with
+   animated arrows. Stored in tt_onboard, which syncs per-account like every
+   other tt_ key — so it follows the user across devices and the leaderboard
+   can show their nickname. */
+function ttOnboard(){ return _lj('tt_onboard', null); }
+
+var TT_EMOJIS=['🩺','🧠','❤️','🦴','💊','🔬','🧬','🩻','🚑','⚕️','😊','😎','🤓','🦉','🐱','🦁'];
+
+function maybeStartOnboarding(){
+  var served=(location.protocol==='http:'||location.protocol==='https:');
+  if(!served) return;
+  var ob=ttOnboard();
+  if(ob && ob.done) return;
+  if(document.getElementById('tt-onboard-overlay')) return;
+  openOnboardModal();
+}
+window.maybeStartOnboarding=maybeStartOnboarding;
+
+function openOnboardModal(){
+  var dark=document.body.classList.contains('tt-scifi');
+  var card='background:'+(dark?'#0c1220':'#ffffff')+';color:'+(dark?'#e8f1f8':'#10151b')
+    +';border:1px solid '+(dark?'rgba(255,255,255,.16)':'#e2e6e9')
+    +';border-radius:20px;padding:26px;max-width:420px;width:calc(100vw - 36px);max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)';
+  var chip='border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;border-radius:12px;cursor:pointer;font:inherit';
+  var emojis=TT_EMOJIS.map(function(e,i){ return '<button type="button" class="tt-ob-emoji" data-e="'+e+'" style="'+chip+';font-size:1.4rem;padding:8px 0'+(i===0?';outline:2px solid #f5b544':'')+'">'+e+'</button>'; }).join('');
+  var lvls=[['beginner','🌱 Beginner','New to Egyptian Arabic'],['intermediate','🌿 Intermediate','I can hold simple conversations'],['advanced','🌳 Advanced','I want to polish clinical fluency']]
+    .map(function(l,i){ return '<button type="button" class="tt-ob-lvl" data-l="'+l[0]+'" style="'+chip+';display:block;width:100%;text-align:left;padding:12px 14px;margin-top:8px'+(i===0?';outline:2px solid #f5b544':'')+'"><b>'+l[1]+'</b><br><small style="opacity:.7">'+l[2]+'</small></button>'; }).join('');
+  var ov=document.createElement('div');
+  ov.id='tt-onboard-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:rgba(2,5,10,.6);backdrop-filter:blur(5px);padding:16px';
+  ov.innerHTML='<div style="'+card+'">'
+    +'<h2 style="margin:0 0 4px;font-size:1.3rem">Welcome to Tabib Talk! 👋</h2>'
+    +'<p style="margin:0 0 16px;opacity:.75;font-size:.9rem">Thirty seconds of setup, then we point you to the perfect starting spot.</p>'
+    +'<label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:6px">Pick a nickname <small style="opacity:.6">(shown on the weekly leaderboard)</small></label>'
+    +'<input id="tt-ob-nick" maxlength="24" placeholder="e.g. Dr. Nadia" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;font:inherit">'
+    +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 6px">Choose your profile emoji</label>'
+    +'<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px">'+emojis+'</div>'
+    +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Your Arabic level</label>'
+    +lvls
+    +'<button id="tt-ob-go" class="btn-primary" style="width:100%;margin-top:18px;padding:13px;border-radius:12px;border:none;cursor:pointer;font:inherit;font-weight:700;background:var(--accent-grad);color:#fff">Start learning →</button>'
+    +'</div>';
+  document.body.appendChild(ov);
+  var pickedEmoji=TT_EMOJIS[0], pickedLvl='beginner';
+  ov.querySelectorAll('.tt-ob-emoji').forEach(function(b){ b.onclick=function(){ pickedEmoji=b.dataset.e; ov.querySelectorAll('.tt-ob-emoji').forEach(function(x){x.style.outline='';}); b.style.outline='2px solid #f5b544'; }; });
+  ov.querySelectorAll('.tt-ob-lvl').forEach(function(b){ b.onclick=function(){ pickedLvl=b.dataset.l; ov.querySelectorAll('.tt-ob-lvl').forEach(function(x){x.style.outline='';}); b.style.outline='2px solid #f5b544'; }; });
+  document.getElementById('tt-ob-go').onclick=function(){
+    var nick=(document.getElementById('tt-ob-nick').value||'').trim();
+    if(!nick){ document.getElementById('tt-ob-nick').style.borderColor='#d1373d'; document.getElementById('tt-ob-nick').focus(); return; }
+    _sj('tt_onboard',{ nick:nick.slice(0,24), emoji:pickedEmoji, level:pickedLvl, done:true, at:Date.now() });
+    ov.remove();
+    try{ if(typeof buildDrawer==='function') buildDrawer(); }catch(e){}
+    startTour(pickedLvl);
+  };
+}
+
+/* Guided tour: a bouncing arrow + a caption bubble per step. Beginners are
+   walked to Franco then the Dictionary; everyone else goes straight to the
+   Courses. Skippable at any point. */
+function startTour(level){
+  try{ navigate('page-main-menu'); }catch(e){}
+  var steps = level==='beginner' ? [
+    { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start HERE: Franco teaches you how Egyptian Arabic is written with Latin letters and numbers — the foundation for everything else.' },
+    { sel:'[onclick*="page-vocab"]', txt:'📖 Next, build your word bank in the Dictionary — Important Medical Vocabulary.' }
+  ] : [
+    { sel:'#tabbar .tab:nth-child(2)', txt:'🎓 Head straight into the Courses — guided study paths for every specialty, with subtests that unlock as you pass.' }
+  ];
+  if(!document.getElementById('tt-tour-style')){
+    var st=document.createElement('style'); st.id='tt-tour-style';
+    st.textContent='@keyframes ttArrowBob{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}'
+      +'.tt-tour-hl{position:relative!important;z-index:10061!important;outline:3px solid #f5b544!important;outline-offset:4px;border-radius:14px}';
+    document.head.appendChild(st);
+  }
+  var i=0;
+  function cleanup(){
+    document.querySelectorAll('.tt-tour-hl').forEach(function(e){ e.classList.remove('tt-tour-hl'); });
+    var a=document.getElementById('tt-tour-arrow'); if(a) a.remove();
+    var b=document.getElementById('tt-tour-bubble'); if(b) b.remove();
+  }
+  function show(){
+    cleanup();
+    if(i>=steps.length) return;
+    var step=steps[i];
+    var el=document.querySelector(step.sel);
+    if(el){
+      el.classList.add('tt-tour-hl');
+      try{ el.scrollIntoView({ block:'center', behavior:'smooth' }); }catch(e){ el.scrollIntoView(); }
+    }
+    setTimeout(function(){
+      if(el){
+        var r=el.getBoundingClientRect();
+        var above = r.top > 130;
+        var ar=document.createElement('div'); ar.id='tt-tour-arrow';
+        ar.style.cssText='position:fixed;z-index:10062;font-size:2.4rem;pointer-events:none;'
+          +'left:'+Math.min(window.innerWidth-50, Math.max(10, r.left + r.width/2 - 20))+'px;'
+          +(above ? ('top:'+Math.max(8,(r.top-56))+'px;') : ('top:'+(r.bottom+8)+'px;'))
+          +'animation:ttArrowBob 1s ease-in-out infinite;filter:drop-shadow(0 4px 8px rgba(0,0,0,.4))';
+        ar.textContent = above ? '⬇️' : '⬆️';
+        document.body.appendChild(ar);
+      }
+      var dark=document.body.classList.contains('tt-scifi');
+      var bub=document.createElement('div'); bub.id='tt-tour-bubble';
+      bub.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:10063;'
+        +'background:'+(dark?'#0c1220':'#ffffff')+';color:'+(dark?'#e8f1f8':'#10151b')+';'
+        +'border:1px solid '+(dark?'rgba(255,255,255,.2)':'#d7dde2')+';border-radius:16px;padding:16px 18px;'
+        +'max-width:420px;width:calc(100vw - 32px);box-shadow:0 20px 60px rgba(0,0,0,.45)';
+      bub.innerHTML='<div style="font-size:.95rem;line-height:1.5">'+step.txt+'</div>'
+        +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">'
+        +'<button id="tt-tour-skip" style="border:none;background:none;color:inherit;opacity:.6;cursor:pointer;font:inherit;padding:9px 12px">Skip</button>'
+        +'<button id="tt-tour-next" style="border:none;border-radius:10px;background:var(--accent-grad);color:#fff;font:inherit;font-weight:700;cursor:pointer;padding:9px 18px">'+(i===steps.length-1?'Got it! ✓':'Next →')+'</button>'
+        +'</div>';
+      document.body.appendChild(bub);
+      document.getElementById('tt-tour-skip').onclick=cleanup;
+      document.getElementById('tt-tour-next').onclick=function(){ i++; if(i>=steps.length){ cleanup(); } else { show(); } };
+    }, 450);
+  }
+  show();
+}
+window.startTour=startTour;
+
+/* ---------- Weekly leaderboard ---------- */
+function renderLeaderboard(){
+  var body=document.getElementById('leaderboard-body'); if(!body) return;
+  var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Leaderboard</span></div>';
+  h+='<h1 class="tool-title">🏆 Weekly Leaderboard</h1><p class="tool-sub">Earn points every week: 1 point per minute of study, up to 10 per test you finish, plus 5 × your streak. Resets every Monday — the top 10 win a league award.</p>';
+  h+='<div id="lb-content" class="fc-count">Loading this week\'s standings…</div>';
+  body.innerHTML=h;
+  var served=(location.protocol==='http:'||location.protocol==='https:');
+  if(!served){ document.getElementById('lb-content').innerHTML='The leaderboard needs the website version of the app.'; return; }
+  var dev; try{ dev=localStorage.getItem('tt_device_id'); }catch(e){ dev=''; }
+  fetch('/api/leaderboard',{ credentials:'same-origin', headers:{ 'x-device-id':dev||'' } })
+    .then(function(r){ if(!r.ok) throw new Error('unauth'); return r.json(); })
+    .then(function(d){
+      var el=document.getElementById('lb-content'); if(!el) return;
+      var ob=ttOnboard()||{};
+      var meHtml='';
+      if(d.me){
+        meHtml='<div class="stat-card" style="margin-bottom:18px;padding:18px">'
+          +'<div class="lbl">Your week ('+esc(d.week)+')'+(d.me.award?' · '+d.me.award.emoji+' '+esc(d.me.award.title):'')+'</div>'
+          +'<div class="val a3" style="font-size:1.9rem">'+d.me.score+' pts <span style="font-size:1rem;color:var(--muted)">· rank #'+d.me.rank+'</span></div>'
+          +'<div class="fc-count" style="margin-top:6px">⏱ '+d.me.minutes+' study min &nbsp;·&nbsp; 📝 '+d.me.testPts+' test pts &nbsp;·&nbsp; 🔥 '+d.me.streakBonus+' streak bonus</div></div>';
+      } else {
+        meHtml='<div class="stat-card" style="margin-bottom:18px;padding:18px"><div class="lbl">Your week</div><div class="fc-count">No points yet — study a few minutes or finish a quiz and you\'re on the board!</div></div>';
+      }
+      var rows='';
+      if(d.top && d.top.length){
+        rows=d.top.map(function(e,idx){
+          var medal=['🥇','🥈','🥉'][idx]||('<span style="opacity:.6">#'+e.rank+'</span>');
+          var isMe = d.me && d.me.rank===e.rank && ob.nick===e.nick;
+          return '<div class="qa-analysis" style="'+(isMe?'outline:2px solid #f5b544;outline-offset:3px;border-radius:12px;padding:6px 8px;':'')+'">'
+            +'<div class="qa-analysis-top"><span style="font-size:1.05rem">'+medal+' '+esc(e.emoji||'')+' <b>'+esc(e.nick)+'</b>'
+            +(e.award?' <span style="font-size:.72rem;font-weight:800;letter-spacing:.04em;color:var(--amber);text-transform:uppercase">'+e.award.emoji+' '+esc(e.award.title)+'</span>':'')
+            +'</span><span class="d-c">'+e.score+' pts</span></div>'
+            +'<div class="prog"><div class="prog-bar" style="width:'+Math.max(4,Math.round(e.score/Math.max(1,d.top[0].score)*100))+'%"></div></div></div>';
+        }).join('');
+      } else {
+        rows='<div class="fc-count">Nobody has scored this week yet — be the first!</div>';
+      }
+      el.innerHTML=meHtml+'<h3 class="mini-h">Top 10 · week '+esc(d.week)+'</h3>'+rows
+        +'<p class="fc-count" style="margin-top:16px;opacity:.75">Awards each week, Duolingo-league style: 💎 Diamond → 🖤 Obsidian → 🤍 Pearl → 💜 Amethyst → 💚 Emerald → ❤️ Ruby → 💙 Sapphire → 🥇 Gold → 🥈 Silver → 🥉 Bronze.</p>';
+    })
+    .catch(function(){ var el=document.getElementById('lb-content'); if(el) el.innerHTML='Could not load the leaderboard — check your connection (you need to be logged in).'; });
+}
+window.renderLeaderboard=renderLeaderboard;
+
+/* Streak page: show this week's score inline. */
+function fillStreakScore(){
+  var el=document.getElementById('streak-lb'); if(!el) return;
+  var served=(location.protocol==='http:'||location.protocol==='https:');
+  if(!served){ el.innerHTML='Available on the website version.'; return; }
+  var dev; try{ dev=localStorage.getItem('tt_device_id'); }catch(e){ dev=''; }
+  fetch('/api/leaderboard',{ credentials:'same-origin', headers:{ 'x-device-id':dev||'' } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var el2=document.getElementById('streak-lb'); if(!el2) return;
+      if(d.me){
+        el2.innerHTML='<div class="stat-card" style="cursor:pointer;padding:16px" onclick="navigate(\'page-leaderboard\')">'
+          +'<div class="lbl">Weekly score (tap for the leaderboard)</div>'
+          +'<div class="val a2">'+d.me.score+' pts <span style="font-size:1rem;color:var(--muted)">· rank #'+d.me.rank+(d.me.award?' · '+d.me.award.emoji:'')+'</span></div></div>';
+      } else {
+        el2.innerHTML='<div class="stat-card" style="cursor:pointer;padding:16px" onclick="navigate(\'page-leaderboard\')"><div class="lbl">Weekly score</div><div class="fc-count">No points yet this week — tap to see the board.</div></div>';
+      }
+    })
+    .catch(function(){ var el2=document.getElementById('streak-lb'); if(el2) el2.innerHTML='Could not load your weekly score.'; });
+}
+window.fillStreakScore=fillStreakScore;
+
+/* Route the new page through navigate() like every other section. */
+(function(){
+  try{
+    var _n=window.navigate;
+    window.navigate=function(id,nh){ _n(id,nh); if(id==='page-leaderboard'){ try{ renderLeaderboard(); }catch(e){ console.error('leaderboard',e); } } };
+  }catch(e){}
+})();
+
 
 /* restore saved preferences (light is the default unless dark was explicitly chosen) */
 (function(){
@@ -9044,6 +9268,25 @@ body.tt-scifi #row-popup-card{
 body.tt-scifi.tt-green #row-popup-card{ background:#0f3626 !important; }
 body.tt-scifi #row-popup-overlay{ background:rgba(2,5,10,.72); }
 
+/* Same opacity treatment for the notifications panel and the My Account
+   modal: both read background:var(--surface), which this skin defines as
+   4.5% white glass — the page bled through behind their text. Solid ink. */
+body.tt-scifi .notif-panel{
+  background:#0c1220 !important;
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+body.tt-scifi.tt-green .notif-panel{ background:#0f3626 !important; }
+body.tt-scifi #account-modal > div{
+  background:#0c1220 !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:0 30px 80px rgba(0,0,0,.6) !important;
+}
+body.tt-scifi.tt-green #account-modal > div{ background:#0f3626 !important; }
+/* The ad pop-up card shares the same glass problem. */
+body.tt-scifi .ad-card{ background:#0c1220 !important; border:1px solid rgba(255,255,255,.14); }
+body.tt-scifi.tt-green .ad-card{ background:#0f3626 !important; }
+
 /* Kill the light ambient wash + the old home-only sci-fi shell */
 body.tt-scifi::before{display:none}
 body.tt-scifi #page-main-menu{background:transparent;margin:0;padding:0;overflow:visible}
@@ -9100,6 +9343,79 @@ body.tt-scifi.tt-green .ctx-chip{background:rgba(74,222,128,.15);color:var(--cy)
    regardless of the body class. */
 html.tt-minimal #tt-field, html.tt-minimal #tt-nebula, html.tt-minimal #tt-bloom,
 html.tt-minimal .home-nebula, html.tt-minimal #home-scifi-field { display:none !important; }
+
+/* Minimalist keeps the SAME full-bleed desktop layout as gamify — the three
+   920px rails only made sense for the original single-column guide. Mirrors
+   the body.tt-scifi full-bleed rules above, scoped to minimal mode. */
+html.tt-minimal .container, html.tt-minimal .app-header-inner,
+html.tt-minimal .tabbar, html.tt-minimal .tool-wrap { box-sizing:border-box; }
+html.tt-minimal .container{
+  max-width:none;width:100%;margin:0;
+  padding:22px clamp(14px,2.6vw,46px) 72px;
+}
+html.tt-minimal .container:not(:has(> .page-section.active)){ padding-top:0;padding-bottom:0; }
+html.tt-minimal .app-header-inner, html.tt-minimal .tabbar{
+  max-width:none;padding-left:clamp(14px,2.6vw,46px);padding-right:clamp(14px,2.6vw,46px);
+}
+html.tt-minimal .tool-wrap{
+  max-width:none;width:100%;margin:0;
+  padding:22px clamp(14px,2.6vw,46px) 56px;
+  min-height:calc(100vh - 132px);
+}
+html.tt-minimal .lessons, html.tt-minimal .menu-grid, html.tt-minimal .tools-grid{
+  grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+}
+
+/* The home page (#page-main-menu) carries its own hardcoded DARK hero styling
+   (background:#04070d, light text, glass cards) — that's why Minimalist mode
+   showed a black home while every course page went light. Re-skin the home to
+   the same clean light-greenish palette the course pages use. */
+html.tt-minimal #page-main-menu{
+  background:var(--bg) !important; margin:0; padding:18px 4px 40px; overflow:visible;
+}
+html.tt-minimal #page-main-menu .hero-pill{
+  background:var(--secondary) !important; border:1px solid var(--border) !important;
+  color:var(--primary) !important; backdrop-filter:none;
+}
+html.tt-minimal #page-main-menu .hero-title{ color:var(--text-dark) !important; font-family:'Plus Jakarta Sans',sans-serif; }
+html.tt-minimal #page-main-menu .hero-title .accent{
+  background:var(--accent-grad) !important; -webkit-background-clip:text; background-clip:text; color:transparent !important;
+}
+html.tt-minimal #page-main-menu .hero-sub{ color:var(--muted) !important; }
+html.tt-minimal #page-main-menu .hero-panel .btn-primary{
+  background:var(--accent-grad) !important; color:#fff !important; box-shadow:0 8px 20px var(--accent-glow) !important;
+}
+html.tt-minimal #page-main-menu .btn-red{
+  background:var(--surface) !important; border:1px solid var(--border) !important;
+  color:var(--text-dark) !important; backdrop-filter:none;
+}
+html.tt-minimal #page-main-menu .btn-red:hover{ border-color:var(--primary) !important; color:var(--primary) !important; }
+html.tt-minimal #page-main-menu .section-h{ color:var(--primary) !important; font-family:'Plus Jakarta Sans',sans-serif; }
+html.tt-minimal #page-main-menu .section-h span{ color:var(--muted) !important; }
+html.tt-minimal #page-main-menu .lesson-card, html.tt-minimal #page-main-menu .tool-card,
+html.tt-minimal #page-main-menu .ix-box, html.tt-minimal #page-main-menu .wod-card,
+html.tt-minimal #page-main-menu .stat-card{
+  background:var(--surface) !important; border:1px solid var(--border) !important;
+  backdrop-filter:none; box-shadow:0 8px 24px rgba(15,23,30,.06);
+  color:var(--text-dark);
+}
+html.tt-minimal #page-main-menu .lesson-card:hover{
+  border-color:var(--primary) !important; box-shadow:0 14px 34px rgba(15,156,140,.14);
+}
+html.tt-minimal #page-main-menu .lesson-title{ color:var(--text-dark) !important; }
+html.tt-minimal #page-main-menu .lesson-desc{ color:var(--muted) !important; }
+html.tt-minimal #page-main-menu .lesson-num{ color:rgba(15,156,140,.35) !important; }
+html.tt-minimal #page-main-menu .lesson-icon{ background:var(--secondary) !important; color:var(--primary) !important; }
+html.tt-minimal #page-main-menu .lesson-open{ color:var(--primary) !important; }
+html.tt-minimal #page-main-menu .ix-q, html.tt-minimal #page-main-menu .wod-en{ color:var(--text-dark) !important; }
+html.tt-minimal #page-main-menu .ix-ar, html.tt-minimal #page-main-menu .wod-ar{
+  background:var(--accent-grad) !important; -webkit-background-clip:text; background-clip:text; color:transparent !important;
+}
+html.tt-minimal #page-main-menu .ix-fr, html.tt-minimal #page-main-menu .wod-fr{ color:var(--muted) !important; }
+html.tt-minimal #page-main-menu .ix-pill{ background:var(--secondary) !important; color:var(--primary) !important; }
+html.tt-minimal #page-main-menu .wod-head{ color:var(--muted) !important; }
+html.tt-minimal #page-main-menu #analytics .stat-row b{ color:var(--text-dark) !important; }
+html.tt-minimal #page-main-menu #analytics .stat-row span{ color:var(--muted) !important; }
 
 /* ---------- 2. Global atmosphere ------------------------------------ */
 #tt-field{position:fixed;inset:0;z-index:0;pointer-events:none;display:block}
