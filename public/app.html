@@ -5255,11 +5255,11 @@ function startQuiz(type, returnId){
   navigate('page-quiz');
   loadQuestion();
 }
+/* Subject switcher intentionally disabled: while a test is in progress only
+   the test is shown, with no way to jump to another lesson mid-round. Kept as
+   a no-op that clears the strip so every existing caller stays safe. */
 function buildQuizChips(){
-  var el=document.getElementById('quiz-subject-chips'); if(!el) return;
-  el.innerHTML = SUBJECTS.filter(function(s){ return s.k!=='franco'; }).map(function(s){
-    return '<button class="pill'+(s.k===QZ.type?' active':'')+'" onclick="startQuiz(\''+s.k+'\',\''+QZ.ret+'\')">'+s.label+'</button>';
-  }).join('');
+  var el=document.getElementById('quiz-subject-chips'); if(el) el.innerHTML='';
 }
 function loadQuestion(){
   QZ.answered=false;
@@ -5739,6 +5739,10 @@ function renderInteraction(){
    +'</div>';
   box.setAttribute('data-q-en', qen); box.setAttribute('data-q-ar', it.q_ar); box.setAttribute('data-q-fr', it.q_fr);
   box.setAttribute('data-a-en', it.a_en); box.setAttribute('data-a-ar', it.a_ar); box.setAttribute('data-a-fr', it.a_fr);
+  // Add the doctor/patient speaker buttons to this freshly-built box. scanVoice
+  // decorates .ix-ar but only runs at page load — this box re-renders later
+  // (and on every return to Home), so its speakers were never being added.
+  try{ if(typeof scanVoice==='function') scanVoice(); }catch(e){}
 }
 function shareDoctorPatient(){
   var box=document.getElementById('home-interaction'); if(!box) return;
@@ -7138,24 +7142,30 @@ function renderConversationsHub(){
     h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
     groups[g].forEach(function(s){
       h+='<article class="lesson-card" style="cursor:default"><h3 class="lesson-title" style="display:block;margin:0 0 10px">'+s.label+'</h3>'
-        +'<div class="chip-row"><button class="pill" onclick="openConversation(\''+s.k+'\')">\uD83D\uDCAC Conversation</button>'
+        +'<div class="chip-row"><button class="pill" onclick="openConversation(\''+s.k+'\',\'page-path\')">\uD83D\uDCAC Conversation</button>'
         +'<button class="pill outline" onclick="openPath(\''+s.k+'\')">\uD83D\uDCDA Study Path</button></div></article>';
     });
     h+='</div>';
   });
   body.innerHTML=h;
 }
-function openConversation(key){ PATHRET='page-conversations'; navigate('page-conv-view'); renderConvView(key); }
+function openConversation(key, ret){
+  // Remember exactly where this conversation was opened FROM, so Back returns
+  // there (course path, chapter, featured lesson…) instead of a stale shared
+  // global that the next caller overwrites. Defaults to the Conversations hub.
+  CONV_RET = ret || 'page-conversations';
+  navigate('page-conv-view'); renderConvView(key);
+}
 function renderConvView(key){
   var body=document.getElementById('conv-view-body'); if(!body) return;
-  body.innerHTML='<div class="backbar"><button class="back-to-home" onclick="navigate(\''+(PATHRET||'page-conversations')+'\')">&larr; Back</button><span class="ctx-chip">Conversation</span></div>'
+  body.innerHTML='<div class="backbar"><button class="back-to-home" onclick="navigate(\''+(CONV_RET||'page-conversations')+'\')">&larr; Back</button><span class="ctx-chip">Conversation</span></div>'
     +'<h1 class="tool-title">'+subjLabel(key)+'</h1><p class="tool-sub">Doctor asks, patient answers \u2014 in Egyptian Arabic, Franco and English.</p><div id="conv-view-inner"></div>';
   try{ if(typeof renderQA==='function') renderQA(convData(key),'conv-view-inner'); }catch(e){ console.error('conv',e); }
 }
 window.renderConversationsHub=renderConversationsHub; window.openConversation=openConversation; window.renderConvView=renderConvView;
 
 /* ---------- (2) Gated Study Path ---------- */
-var PATH={key:null,label:'',cat:0}; var PATHRET='page-main-menu';
+var PATH={key:null,label:'',cat:0}; var PATHRET='page-main-menu'; var CONV_RET='page-conversations';
 function openPath(key){ PATH.key=key; PATH.label=subjLabel(key); navigate('page-path'); renderPathList(); }
 function renderPathList(){
   var body=document.getElementById('path-body'); var key=PATH.key; var cats=catsOf(key);
@@ -7173,7 +7183,7 @@ function renderPathList(){
   });
   var allDone=allCatsPassed(key);
   h+='<h3 class="mini-h">Finish the '+(SUBJECTS.filter(function(x){return x.k===key;})[0]||{}).grp+'</h3>';
-  h+='<div class="path-card'+(allDone?'':' locked')+'" '+(allDone?'onclick="openConversation(\''+key+'\')"':'')+'><div class="path-num">\uD83D\uDCAC</div><div class="path-info"><div class="path-title">Doctor &amp; Patient Conversation</div><div class="path-sub">'+(allDone?'Read the full conversation':'Pass all sections to unlock')+'</div></div>'+(allDone?'<span class="path-badge open">Open</span>':'<span class="path-badge locked">\uD83D\uDD12</span>')+'</div>';
+  h+='<div class="path-card'+(allDone?'':' locked')+'" '+(allDone?'onclick="openConversation(\''+key+'\',\'page-path\')"':'')+'><div class="path-num">\uD83D\uDCAC</div><div class="path-info"><div class="path-title">Doctor &amp; Patient Conversation</div><div class="path-sub">'+(allDone?'Read the full conversation':'Pass all sections to unlock')+'</div></div>'+(allDone?'<span class="path-badge open">Open</span>':'<span class="path-badge locked">\uD83D\uDD12</span>')+'</div>';
   var finalDone=pathPassed(key,'final');
   h+='<div class="path-card'+(allDone?(finalDone?' done':''):' locked')+'" '+(allDone?'onclick="startSubtest(\'final\')"':'')+'><div class="path-num">\uD83C\uDFC1</div><div class="path-info"><div class="path-title">Final Quiz</div><div class="path-sub">'+(finalDone?'Completed \u2713':(allDone?'Score 70% to complete this subject':'Pass all sections to unlock'))+'</div></div>'+(finalDone?'<span class="path-badge done">\u2713</span>':(allDone?'<span class="path-badge open">Start</span>':'<span class="path-badge locked">\uD83D\uDD12</span>'))+'</div>';
   body.innerHTML=h;
@@ -7345,7 +7355,7 @@ function renderConversationsHub(){
   h+='<h1 class="tool-title">Doctor &amp; Patient Conversations</h1><p class="tool-sub">The doctor\u2013patient conversation for every specialty, chapter and Internal-Medicine system \u2014 in Egyptian Arabic, Franco and English.</p>';
   Object.keys(groups).forEach(function(g){
     h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
-    groups[g].forEach(function(s){ h+='<article class="lesson-card" onclick="openConversation(\''+s.k+'\')"><h3 class="lesson-title" style="display:block;margin:0 0 8px">'+s.label+'</h3><span class="lesson-open">\uD83D\uDCAC View Conversation &rarr;</span></article>'; });
+    groups[g].forEach(function(s){ h+='<article class="lesson-card" onclick="openConversation(\''+s.k+'\',\'page-conversations\')"><h3 class="lesson-title" style="display:block;margin:0 0 8px">'+s.label+'</h3><span class="lesson-open">\uD83D\uDCAC View Conversation &rarr;</span></article>'; });
     h+='</div>';
   });
   body.innerHTML=h;
@@ -7557,7 +7567,7 @@ function renderChapter(){
   h+='<div class="chapter-list">';
   cats.forEach(function(c,i){ h+='<div class="path-card chap-card" style="animation-delay:'+(i*0.03)+'s" onclick="openChapterCat('+i+')"><div class="path-num">'+(i+1)+'</div><div class="path-info"><div class="path-title">'+c.title+'</div><div class="path-sub">'+c.items.length+' phrases</div></div><span class="path-badge open">Open</span></div>'; });
   h+='</div><div style="height:8px"></div>';
-  h+='<div class="path-card chap-end" onclick="openConversation(\''+key+'\')"><div class="path-num">\uD83D\uDCAC</div><div class="path-info"><div class="path-title">View Doctor &amp; Patient Conversation</div><div class="path-sub">Full trilingual conversation</div></div><span class="path-badge open">Open</span></div>';
+  h+='<div class="path-card chap-end" onclick="openConversation(\''+key+'\',\'page-chapter\')"><div class="path-num">\uD83D\uDCAC</div><div class="path-info"><div class="path-title">View Doctor &amp; Patient Conversation</div><div class="path-sub">Full conversation</div></div><span class="path-badge open">Open</span></div>';
   h+='<div class="path-card chap-end" onclick="startQuiz(\''+key+'\',\'page-chapter\')"><div class="path-num">\uD83C\uDF93</div><div class="path-info"><div class="path-title">Practice '+label+' Interactive Quiz</div><div class="path-sub">Test your recall with explanations</div></div><span class="path-badge open">Start</span></div>';
   body.innerHTML=h;
 }
@@ -8281,11 +8291,16 @@ function buildQuizHub(){
       +'<p class="lesson-desc" style="margin:0 0 10px">Question '+(rz.i+1)+' of '+rz.data.length+' · Score so far '+rz.score+'</p>'
       +'<div class="prog"><div class="prog-bar" style="width:'+Math.round(rz.i/rz.data.length*100)+'%"></div></div></article>';
   }
+  // Card grid, matching the QBank hub: each subject is a lesson-card showing
+  // its question count and opening straight into its round.
   Object.keys(groups).forEach(function(g){
-    h+='<h3 class="mini-h">'+g+'</h3><div class="chip-row">';
+    h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
     groups[g].forEach(function(s){
-      // Subject name only \u2014 the "\u00b7 N" question count is deliberately not shown.
-      h+='<button class="pill outline" onclick="startQuiz(\''+s.k+'\',\'page-quiz-hub\')">'+s.label+'</button>';
+      var n=getItems(s.k).length;
+      h+='<article class="lesson-card" onclick="startQuiz(\''+s.k+'\',\'page-quiz-hub\')">'
+        +'<h3 class="lesson-title" style="display:block;margin:0 0 6px">'+s.label+'</h3>'
+        +'<p class="lesson-desc" style="margin:0 0 10px">'+n+' questions</p>'
+        +'<span class="lesson-open">Start quiz &rarr;</span></article>';
     });
     h+='</div>';
   });
@@ -9279,6 +9294,9 @@ function renderFeaturedHome(){
     .map(function(s){ return { label:s.label, act:"openPath('"+s.k+"')" }; });
   var groups=[
     ['beginner','Beginners',[
+      // Franco has no course study path (it's a single lesson, excluded from
+      // the Course hub) — so its featured card opens the Franco lesson page,
+      // which IS its course content. The others open their study paths.
       { label:'Franco (Arabizi)', act:"navigate('page-franco')" },
       { label:'Medical Vocabulary', act:"openPath('vocab')" },
       { label:'Investigations & Anatomy', act:"openPath('invest')" }]],

@@ -27,7 +27,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
 <div class="wrap narrow">
   <h1 class="page-title reveal">Welcome</h1>
-  <p class="page-sub reveal d1">Create a free account to start with Explorer — it's the key to everything, and required before buying any plan.</p>
+  <p class="page-sub reveal d1" id="welcome-sub">Create a free account to start with Explorer — it's the key to everything, and required before buying any plan.</p>
 
   <div id="alert-box"></div>
 
@@ -253,6 +253,19 @@ document.getElementById('forgot-form').addEventListener('submit', async (e) => {
 renderHeader('account');
 enableCopyProtection();
   enableBlurOnBlur();
+
+/* The welcome line names the free starting plan, which depends on which
+   plans page the admin has live: "Basic" under the new structure, "Explorer"
+   under the classic one. */
+fetch('/api/site-config', { credentials:'same-origin' })
+  .then(function(r){ return r.json(); })
+  .then(function(cfg){
+    var sub = document.getElementById('welcome-sub');
+    if (sub && cfg && cfg.plansEnabled !== false && cfg.newPlans === true) {
+      sub.textContent = "Create a free account to continue with the Basic plan — it's free, and the key to everything.";
+    }
+  })
+  .catch(function(){});
 </script>
 </body>
 </html>
