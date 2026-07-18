@@ -303,7 +303,7 @@ async function loadUsers(){
   document.getElementById('panel-users').innerHTML = `<div class="card"><div class="table-scroll"><table class="data">
     <thead><tr><th>Name</th><th>Email</th><th>Nationality</th><th>Grade</th><th>Tier</th><th>Subscription</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>${users.length? users.map(u=>`<tr>
-      <td style="color:var(--text)">${u.name||'—'}</td><td>${u.email}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
+      <td><a href="#" onclick="userDetail('${u.id}');return false" style="color:var(--accent);font-weight:700;text-decoration:none" title="Full plan history">${esc(u.name||'—')}</a></td><td>${esc(u.email)}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
       <td style="text-transform:capitalize">${u.tier}</td>
       <td><span class="pill pill-${u.subState==='active'?'active':(u.subState==='suspended'?'suspended':'none')}">${u.subState}</span>${u.planId?'<div style="font-size:.72rem;color:var(--muted)">'+u.planId+'</div>':''}</td>
       <td>${u.deviceCount}/${u.maxDevices}${u.maxDevices!==3?' <span style="font-size:.68rem;color:var(--gold)">raised</span>':''}</td>
@@ -332,6 +332,59 @@ async function setDeviceLimit(id, current){
   await adminPost(`/api/admin/users/${id}/device-limit`, { maxDevices: n }); loadAll();
 }
 window.setDeviceLimit=setDeviceLimit;
+
+// Full per-user drill-down: identity, the CURRENT plan with its exact dates
+// and duration in months, and every payment ever submitted.
+async function userDetail(id){
+  const d = await adminGet(`/api/admin/users/${id}/detail`);
+  const u = d.user;
+  const PLAN_NAMES2 = {
+    'student-monthly':'Student · Monthly','student-6m':'Student · 6-month','student-12m':'Student · 12-month',
+    'professional-monthly':'Professional · Monthly','professional-6m':'Professional · 6-month','professional-yearly':'Professional · Yearly',
+    'lifetime':'Lifetime','basic-monthly':'Basic · Monthly','advanced-monthly':'Advanced · Monthly',
+  };
+  const months = (a,b)=>{
+    if(!a) return '';
+    const start=new Date(a), end=b?new Date(b):null;
+    if(!end) return 'no expiry (ongoing)';
+    const m=(end-start)/(1000*60*60*24*30.44);
+    return (Math.round(m*10)/10)+' month'+(m>=1.95?'s':'')+' — from '+fmtD(a)+' to '+fmtD(b);
+  };
+  const row=(k,v)=>`<div style="display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:.9rem"><span style="color:var(--muted);flex:none">${k}</span><span style="color:var(--text);font-weight:600;text-align:right">${v}</span></div>`;
+  const proofRows = d.proofs.length ? d.proofs.map(p=>`<tr>
+      <td>${fmtD(p.submittedAt)}</td>
+      <td>${esc(PLAN_NAMES2[p.planId]||p.planId)}</td>
+      <td><span class="method-badge ${esc(p.method)}">${esc(p.method)}</span></td>
+      <td style="font-family:monospace;font-size:.78rem;word-break:break-all">${esc(p.transactionId||'—')}</td>
+      <td><span class="pill pill-${p.status==='approved'?'active':(p.status==='rejected'?'rejected':'pending')}">${esc(p.status)}</span>${p.reviewedAt?'<div style="font-size:.7rem;color:var(--muted)">reviewed '+fmtD(p.reviewedAt)+'</div>':''}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty">No payments submitted yet.</td></tr>';
+  const html = `
+    <div class="modal-overlay open" id="user-detail-modal" onclick="if(event.target===this)this.remove()">
+      <div class="modal" style="max-width:640px;max-height:88vh;overflow-y:auto">
+        <button class="modal-x" onclick="document.getElementById('user-detail-modal').remove()">&times;</button>
+        <h2 style="margin-top:0">${esc(u.name||'(no name)')} <span class="pill pill-${u.status==='active'?'active':'banned'}" style="margin-left:8px;vertical-align:middle">${esc(u.status)}</span></h2>
+        ${row('Email', esc(u.email))}
+        ${row('Phone', esc(u.phone||'—'))}
+        ${row('College', esc(u.college||'—'))}
+        ${row('Nationality / Grade', esc(u.nationality||'—')+' · '+esc(u.grade||'—'))}
+        ${row('Joined', fmtD(u.createdAt))}
+        ${row('Devices', d.deviceCount+' active / limit '+u.maxDevices+(d.appeals?' · '+d.appeals+' appeal(s)':''))}
+        <h3 class="sec" style="margin-top:20px">Current plan</h3>
+        ${row('Plan', esc(PLAN_NAMES2[u.planId]||u.planId||'None — free tier'))}
+        ${row('Tier', '<span style="text-transform:capitalize">'+esc(u.tier)+'</span>'+(u.subStatus?' · '+esc(u.subStatus):''))}
+        ${u.planActivatedAt?row('Activated', fmtD(u.planActivatedAt)):''}
+        ${u.planId?row('Duration', months(u.planActivatedAt,u.planExpiresAt)||'—'):''}
+        ${u.planExpiresAt?row('Expires', fmtD(u.planExpiresAt)):''}
+        <h3 class="sec" style="margin-top:20px">Payment history <span style="color:var(--muted);font-weight:500">(${d.proofs.length})</span></h3>
+        <div class="table-scroll"><table class="data">
+          <thead><tr><th>Submitted</th><th>Plan</th><th>Method</th><th>Transaction</th><th>Status</th></tr></thead>
+          <tbody>${proofRows}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+window.userDetail=userDetail;
 
 // Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
 function manageSub(userId, currentPlan, subState){

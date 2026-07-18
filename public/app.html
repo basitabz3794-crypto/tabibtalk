@@ -1253,6 +1253,8 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
                 </div>
                 </div><!-- /hero-panel -->
                 <div id="analytics" class="analytics"></div>
+                <div id="continue-learning"></div>
+                <div id="featured-lessons"></div>
                 <div id="home-interaction"></div>
                 <div id="word-of-day"></div>
             </section>
@@ -1326,6 +1328,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
                     <p class="tool-desc">Instant trilingual</p>
                 </article>
             </div>
+            <div id="available-features"></div>
         </div>
         </div>
 
@@ -5166,7 +5169,8 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
         window.addEventListener('DOMContentLoaded', initializeApp);
     </script>
-    <button id="home-fab" onclick="navigate('page-main-menu')" title="Back to Main Menu" aria-label="Home">⌂</button>
+    <!-- home-fab removed: the sticky tab bar's Home tab and each page's
+         inline back button already cover this — one navigation path each. -->
 
     <script>
     function selectTab(el){
@@ -5196,7 +5200,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
         <div class="drawer-head"><span>Browse subjects</span><button onclick="closeDrawer()" aria-label="Close">&times;</button></div>
         <div id="drawer-body"></div>
     </aside>
-    <button id="back-fab" onclick="goBack()" title="Back" aria-label="Back">&larr;</button>
+    <!-- back-fab removed: redundant with the inline back buttons. -->
 <script>
 /* ================= TABIB TALK — SMART TOOLS MODULE ================= */
 var SUBJECTS = [
@@ -5365,28 +5369,86 @@ function buildSmartToolsPage(){
 
 /* ---------------- Flashcards ---------------- */
 var FC={list:[],i:0,flipped:false,key:'',learned:0,mastered:0};
-/* Basic-tier whitelist: the "Franco and communications" decks stay open. */
+/* Deck access rules, one source of truth for the listing AND the loader:
+   basic    -> the "Franco and communications" whitelist
+   explorer -> Franco, Communication & Ethics, General History Taking
+   everyone else -> all decks */
 var FC_BASIC_ALLOWED = ['franco-alpha','ethics'];
-function fcAllowed(key){ return ttTier()!=='basic' || FC_BASIC_ALLOWED.indexOf(key)>=0; }
-function buildFlashcards(){
-  var chips=SUBJECTS.filter(function(s){return s.k!=='franco' && getItems(s.k).length;}).map(function(s){ var lk=!fcAllowed(s.k); return '<button class="pill outline" id="fcchip-'+s.k+'" style="'+(lk?'opacity:.55':'')+'" onclick="fcLoad(\''+s.k+'\')">'+s.label+(lk?' 🔒':'')+'</button>'; }).join('');
-  var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back to home</button><span class="ctx-chip">Smart tool</span></div>';
-  h+='<h1 class="tool-title">Flashcards · Spaced repetition</h1><p class="tool-sub">Show English first. Try to recall the Arabic and Franco-Arabic — then flip the card to check. Your grades schedule the next review automatically.</p>';
-  h+='<h3 class="mini-h">Choose a deck</h3><div class="chip-row">'+chips+'</div><div id="fc-stage"></div>';
-  document.getElementById('flashcards-body').innerHTML=h;
-  fcLoad(fcAllowed('chest') ? 'chest' : 'franco-alpha');
+var FC_EXPLORER_ALLOWED = ['franco-alpha','ethics','history'];
+function fcAllowed(key){
+  var t=ttTier();
+  if(t==='basic') return FC_BASIC_ALLOWED.indexOf(key)>=0;
+  if(t==='explorer') return FC_EXPLORER_ALLOWED.indexOf(key)>=0;
+  return true;
 }
-function fcLoad(key){
-  if(!fcAllowed(key)){ if(typeof showUpgrade==='function') showUpgrade(['Advanced']); return; }
-  var list=getItems(key); if(!list.length) return;
-  FC={list:shuffle(list.slice()), i:0, flipped:false, key:key, learned:0, mastered:0};
-  document.querySelectorAll('#flashcards-body .chip-row .pill').forEach(function(p){ p.classList.remove('active'); });
-  var chip=document.getElementById('fcchip-'+key); if(chip) chip.classList.add('active');
+function fcUpsell(){ return ttTier()==='basic' ? ['Advanced'] : ['Student','Professional','Lifetime']; }
+
+/* Per-account deck progress (tt_fc syncs like every tt_ key):
+   { deckKey: { order:[idx…], i, learned, mastered, done, total, at } }
+   The shuffled ORDER is persisted too, so resuming shows the exact same
+   sequence — a real resume, not a reshuffle. */
+function fcSavedAll(){ var a=_lj('tt_fc',{}); return (a&&typeof a==='object')?a:{}; }
+function fcPersist(){
+  if(!FC||!FC.key) return;
+  var all=fcSavedAll();
+  all[FC.key]={ order:FC.order, i:FC.i, learned:FC.learned, mastered:FC.mastered, done:false, total:FC.base.length, at:Date.now() };
+  _sj('tt_fc',all);
+}
+
+/* Listing page FIRST (Home → deck list → deck), with saved progress on every
+   card — the premium-platform pattern. */
+function buildFlashcards(){
+  var all=fcSavedAll();
+  var h='<div class="backbar"><span class="ctx-chip">Flashcards</span></div>';
+  h+='<h1 class="tool-title">Flashcards · Spaced repetition</h1><p class="tool-sub">Pick a deck. Your position and progress are saved to your account — leave any time and resume exactly where you stopped, on any device.</p>';
+  h+='<div class="lessons">';
+  SUBJECTS.filter(function(s){return s.k!=='franco' && getItems(s.k).length;}).forEach(function(s){
+    var total=getItems(s.k).length;
+    var st=all[s.k];
+    var locked=!fcAllowed(s.k);
+    var pct = st ? Math.min(100, Math.round(((st.done?st.total:(st.i||0))/Math.max(1,(st.total||total)))*100)) : 0;
+    var sub = locked ? (ttTier()==='basic' ? 'Advanced plan' : 'Included from Student plan')
+      : st ? (st.done ? '✓ Completed · Learned '+(st.learned||0)+' · Mastered '+(st.mastered||0)
+                      : 'Resume at card '+((st.i||0)+1)+' of '+(st.total||total))
+           : total+' cards';
+    h+='<article class="lesson-card'+(locked?' qb-locked':'')+'" onclick="fcOpenDeck(\''+s.k+'\')">'
+      +(locked?'<span class="qb-lock" aria-hidden="true">🔒</span>':'')
+      +'<h3 class="lesson-title" style="display:block;margin:0 0 6px">'+s.label+'</h3>'
+      +'<p class="lesson-desc" style="margin:0 0 10px">'+sub+'</p>'
+      +((st&&!locked)?'<div class="prog"><div class="prog-bar" style="width:'+pct+'%"></div></div>':'')
+      +'<span class="lesson-open" style="margin-top:10px;display:inline-block">'+(st&&!st.done&&!locked?'Resume &rarr;':'Open deck &rarr;')+'</span></article>';
+  });
+  h+='</div>';
+  document.getElementById('flashcards-body').innerHTML=h;
+}
+function fcOpenDeck(key){
+  if(!fcAllowed(key)){ if(typeof showUpgrade==='function') showUpgrade(fcUpsell()); return; }
+  document.getElementById('flashcards-body').innerHTML=
+    '<div class="backbar"><button class="back-to-home" onclick="buildFlashcards()">&larr; All decks</button><span class="ctx-chip">Flashcards</span></div>'
+    +'<div id="fc-stage"></div>';
+  fcLoad(key);
+}
+window.fcOpenDeck=fcOpenDeck;
+function fcLoadV2(key){
+  if(!fcAllowed(key)){ if(typeof showUpgrade==='function') showUpgrade(fcUpsell()); return; }
+  var base=getItems(key); if(!base.length) return;
+  var st=fcSavedAll()[key];
+  if(st && !st.done && Array.isArray(st.order) && st.order.length && st.i>0 && st.i<st.order.length && st.total===base.length){
+    FC={ base:base, order:st.order.slice(), i:st.i, flipped:false, key:key, learned:st.learned||0, mastered:st.mastered||0 };
+    try{ toast('Resumed at card '+(FC.i+1)+' of '+FC.order.length, 2400); }catch(e){}
+  } else {
+    var order=shuffle(base.map(function(_,ix){ return ix; }));
+    FC={ base:base, order:order, i:0, flipped:false, key:key, learned:0, mastered:0 };
+    fcPersist();
+  }
   fcRender();
 }
+window.fcLoadV2=fcLoadV2;
+function fcLoad(key){ return fcLoadV2(key); }
+function fcCard(){ return FC.base[FC.order[FC.i]]; }
 function fcRender(){
   var st=document.getElementById('fc-stage'); if(!st) return;
-  var total=FC.list.length, c=FC.list[FC.i];
+  var total=FC.order.length, c=fcCard();
   var subj=SUBJECTS.filter(function(x){return x.k===FC.key;})[0]||{label:''};
   var due=total-FC.i;
   var stats='<div class="stat-grid">'
@@ -5406,9 +5468,21 @@ function fcRender(){
   st.innerHTML=stats+meta+card;
 }
 function fcFlip(){ FC.flipped=!FC.flipped; fcRender(); }
-function fcGrade(g){ if(g===1)FC.learned++; if(g===2)FC.mastered++; if(g===0)FC.list.push(FC.list[FC.i]); fcNext(); }
-function fcNext(){ FC.i++; FC.flipped=false; if(FC.i>=FC.list.length) fcDone(); else fcRender(); }
-function fcDone(){ document.getElementById('fc-stage').innerHTML='<div class="tr-result" style="text-align:center"><h2 style="color:var(--primary);margin-top:0">Deck complete! 🎉</h2><p class="tool-sub" style="margin:8px auto 18px">Learned '+FC.learned+' · Mastered '+FC.mastered+'</p><button class="btn-primary" onclick="fcLoad(\''+FC.key+'\')">Restart deck</button></div>'; }
+function fcGrade(g){
+  if(g===1)FC.learned++; if(g===2)FC.mastered++;
+  if(g===0)FC.order.push(FC.order[FC.i]); // "again" re-queues the same card
+  fcNext();
+}
+function fcNext(){
+  FC.i++; FC.flipped=false;
+  if(FC.i>=FC.order.length){ fcDone(); } else { fcPersist(); fcRender(); }
+}
+function fcDone(){
+  var all=fcSavedAll();
+  all[FC.key]={ order:[], i:0, learned:FC.learned, mastered:FC.mastered, done:true, total:FC.base.length, at:Date.now() };
+  _sj('tt_fc',all);
+  document.getElementById('fc-stage').innerHTML='<div class="tr-result" style="text-align:center"><h2 style="color:var(--primary);margin-top:0">Deck complete! 🎉</h2><p class="tool-sub" style="margin:8px auto 18px">Learned '+FC.learned+' · Mastered '+FC.mastered+'</p><button class="btn-primary" onclick="fcLoad(\''+FC.key+'\')">Restart deck</button> <button class="pill outline" onclick="buildFlashcards()">All decks</button></div>';
+}
 
 /* ---------------- Translate ---------------- */
 var TRX=[];
@@ -5629,14 +5703,19 @@ function buildAnalytics(){
     +'<div><b>'+mediclSpec+'</b><span>Medical Specialties</span></div>'
     +'<div><b>3</b><span>Scripts (EN / AR / Franco)</span></div>'
     +'<div><b>1</b><span>Day Streak</span></div></div>';
-  h+='<h3 class="mini-h">What\u2019s New</h3><div class="feat-grid">'
-    +'<div class="feat"><b>'+total+' Phrases</b><span>Across '+mediclSpec+' medical specialties</span></div>'
-    +'<div class="feat"><b>Swipe To Bookmark</b><span>Swipe left on any phrase to save it</span></div>'
-    +'<div class="feat"><b>AI Patient</b><span>Trilingual role-play interviews</span></div>'
-    +'<div class="feat"><b>Flashcards</b><span>Spaced-repetition decks</span></div>'
-    +'<div class="feat"><b>Quiz Hub</b><span>Answers with explanations</span></div>'
-    +'<div class="feat"><b>Translate</b><span>EN · AR · Franco lookup</span></div></div>';
   el.innerHTML=h;
+  /* The old "What's New" grid now lives at the very bottom of Home as
+     "Available Features" — a closing overview rather than an opener. */
+  var af=document.getElementById('available-features');
+  if(af){
+    af.innerHTML='<h2 class="section-h">Available Features</h2><div class="feat-grid">'
+      +'<div class="feat"><b>'+total+' Phrases</b><span>Across '+mediclSpec+' medical specialties</span></div>'
+      +'<div class="feat"><b>Swipe To Bookmark</b><span>Swipe left on any phrase to save it</span></div>'
+      +'<div class="feat"><b>AI Patient</b><span>Trilingual role-play interviews</span></div>'
+      +'<div class="feat"><b>Flashcards</b><span>Spaced-repetition decks</span></div>'
+      +'<div class="feat"><b>Quiz Hub</b><span>Answers with explanations</span></div>'
+      +'<div class="feat"><b>Translate</b><span>EN · AR · Franco lookup</span></div></div>';
+  }
 }
 
 /* ---- 8. Dynamic homepage interaction box ---- */
@@ -5747,16 +5826,11 @@ function buildAI(){
   aiStart(0);
 }
 
-/* ---- 12. Flashcards fix: red active chip, never blank ---- */
-function fcLoad(key){
-  try{
-    var list=getItems(key); if(!list || !list.length){ return; }
-    FC={list:shuffle(list.slice()), i:0, flipped:false, key:key, learned:0, mastered:0};
-    document.querySelectorAll('#flashcards-body .chip-row .pill').forEach(function(p){ p.classList.remove('active'); });
-    var chip=document.getElementById('fcchip-'+key); if(chip) chip.classList.add('active');
-    fcRender();
-  }catch(e){ console.error('fcLoad', e); }
-}
+/* ---- 12. (superseded) The old chip-era fcLoad; the listing-first engine
+   (fcLoadV2) owns loading now. This later declaration must delegate, or it
+   would clobber the engine with the pre-rewrite FC shape and crash
+   fcRender. ---- */
+function fcLoad(key){ try{ return fcLoadV2(key); }catch(e){ console.error('fcLoad', e); } }
 
 /* ---- 13-15. Bookmarks ---- */
 var BOOKMARKS=[];
@@ -7013,7 +7087,7 @@ window.renderSearch=renderSearch; window.doSearch=doSearch;
 
 /* ---- (3) What's New: 'Swipe To Answer' tile ---- */
 function fixWhatsNew(){
-  document.querySelectorAll('#analytics .feat').forEach(function(f){
+  document.querySelectorAll('#available-features .feat').forEach(function(f){
     var b=f.querySelector('b'); if(b && /Phrases\s*$/.test(b.textContent)){
       b.textContent='Swipe To Answer';
       var s=f.querySelector('span'); if(s) s.textContent='Swipe right on any phrase to reveal the patient\u2019s trilingual response.';
@@ -7545,7 +7619,7 @@ window.showLanding=showLanding;
 
 /* ---------- (Homepage) richer, animated What's New ---------- */
 function enhanceWhatsNew(){
-  var grid=document.querySelector('#analytics .feat-grid'); if(!grid) return;
+  var grid=document.querySelector('#available-features .feat-grid'); if(!grid) return;
   if(grid.getAttribute('data-enh')) return; grid.setAttribute('data-enh','1');
   var tiles=[
     ['\uD83D\uDD0A','Voice On Every Phrase','Tap the speaker to hear it in Egyptian Arabic \u2014 and US English.','navigate(\'page-conversations\')'],
@@ -7763,7 +7837,7 @@ function wnPop(el){
 }
 window.wnPop=wnPop;
 function enhanceWhatsNew(){
-  var grid=document.querySelector('#analytics .feat-grid'); if(!grid) return;
+  var grid=document.querySelector('#available-features .feat-grid'); if(!grid) return;
   var tiles=[
     ['\uD83D\uDD0A','Voice On Every Phrase','Tap the speaker to hear Egyptian Arabic and US English.'],
     ['\uD83D\uDCAC','Patient Replies','Swipe right on any phrase to reveal the trilingual answer.'],
@@ -8198,6 +8272,15 @@ function buildQuizHub(){
   });
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back to home</button><span class="ctx-chip">Quiz hub</span></div>';
   h+='<h1 class="tool-title">Quiz Hub</h1><p class="tool-sub">Every quiz in one place \u2014 including each Internal-Medicine system. Pick a subject to drop straight into a round with an explanation after every answer.</p>';
+  /* Resume an interrupted round — position, score and the exact question
+     order are saved to the account after every question. */
+  var rz=_lj('tt_qz',null);
+  if(rz && rz.type && !rz.pathMode && Array.isArray(rz.data) && rz.i>0 && rz.i<rz.data.length){
+    h+='<article class="lesson-card" style="margin-bottom:16px;cursor:pointer" onclick="resumeQuiz()">'
+      +'<h3 class="lesson-title" style="display:block;margin:0 0 6px">▶ Resume: '+esc(rz.label||subjLabel(rz.type))+'</h3>'
+      +'<p class="lesson-desc" style="margin:0 0 10px">Question '+(rz.i+1)+' of '+rz.data.length+' · Score so far '+rz.score+'</p>'
+      +'<div class="prog"><div class="prog-bar" style="width:'+Math.round(rz.i/rz.data.length*100)+'%"></div></div></article>';
+  }
   Object.keys(groups).forEach(function(g){
     h+='<h3 class="mini-h">'+g+'</h3><div class="chip-row">';
     groups[g].forEach(function(s){
@@ -8639,43 +8722,9 @@ function _ttDownloadBlob(blob, filename){
   };
 })();
 
-/* Flashcards access control:
-   - Explorer: only Franco, Communication & Ethics, and General History Taking
-     are selectable; every other subject chip is visually locked and blocked.
-   - Student / Professional / Lifetime: fully unlocked (untouched). */
-(function(){
-  var EXPLORER_OPEN_KEYS = ['franco-alpha','ethics','history'];
-  var _buildFlashcards = window.buildFlashcards;
-  var _fcLoad = window.fcLoad;
-  window.buildFlashcards = function(){
-    _buildFlashcards.apply(this, arguments);
-    try{
-      if(ttTier()==='explorer'){
-        document.querySelectorAll('.pill[id^="fcchip-"]').forEach(function(chip){
-          var key = chip.id.replace('fcchip-','');
-          if(EXPLORER_OPEN_KEYS.indexOf(key) < 0){
-            chip.classList.add('ai-locked-chip');
-            if(!/\u{1F512}/u.test(chip.textContent)) chip.innerHTML += ' \u{1F512}';
-            chip.onclick = function(e){ if(e) e.preventDefault(); showUpgrade(['Student','Professional','Lifetime']); };
-          }
-        });
-      }
-    }catch(e){}
-  };
-  window.fcLoad = function(key){
-    if(ttTier()==='explorer' && EXPLORER_OPEN_KEYS.indexOf(key) < 0){
-      // Fall back to an open deck rather than popping the upgrade modal here.
-      // buildFlashcards() ends with a hard-coded fcLoad('chest'), which runs on
-      // page load — so this used to throw the "Upgrade To Unlock" overlay in an
-      // Explorer's face before they had touched anything, and (because
-      // showUpgrade() bails when an overlay already exists) that stale overlay
-      // then swallowed every legitimate upgrade prompt afterwards.
-      // Locked chips still show the upgrade on click — see buildFlashcards above.
-      key = EXPLORER_OPEN_KEYS[0];
-    }
-    return _fcLoad.call(this, key);
-  };
-})();
+/* Flashcards access control now lives in fcAllowed() (basic + explorer
+   whitelists) inside the listing-first engine — the old chip-decorating
+   wrapper that stood here targeted #fcchip- pills that no longer exist. */
 
 </script>
 
@@ -8708,7 +8757,18 @@ function _ttDownloadBlob(blob, filename){
       // plans instantly restores normal gating.
       fetch('/api/site-config', { credentials:'same-origin' })
         .then(function(r){ return r.json(); })
-        .then(function(cfg){ applyTier(cfg && cfg.plansEnabled === false ? 'lifetime' : serverTier); })
+        .then(function(cfg){
+          // New-plans flow: a signed-in account that hasn't picked Basic or
+          // Advanced yet (still on the signup default 'explorer') is sent to
+          // the plans page ONCE. Subscribing to free Basic — or an approved
+          // Advanced payment — changes the tier, and this gate never fires
+          // again. The kill-switch (plansEnabled false) bypasses everything.
+          if (cfg && cfg.plansEnabled !== false && cfg.newPlans === true && serverTier === 'explorer') {
+            window.location.replace('/plans.html?choose=1');
+            return;
+          }
+          applyTier(cfg && cfg.plansEnabled === false ? 'lifetime' : serverTier);
+        })
         .catch(function(){ applyTier(serverTier); });
       function applyTier(tier){
         try{
@@ -8820,7 +8880,8 @@ function ttLogout(){
   function finish(){
     try{
       ['tt_tier','tt_pro','tt_streak','tt_days','tt_time','tt_path','tt_solved',
-       'tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard']
+       'tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard',
+       'tt_fc','tt_qz','tt_last']
         .forEach(function(k){ localStorage.removeItem(k); });
       // Ad state is keyed per campaign (tt_ad_seen_<id> / tt_ad_notified_<id>),
       // so sweep by prefix rather than listing ids that change over time.
@@ -9017,6 +9078,14 @@ function startTour(level){
   ] : [
     { sel:'#tabbar .tab:nth-child(2)', txt:'🎓 Head straight into the Courses — guided study paths for every specialty, with subtests that unlock as you pass.' }
   ];
+  /* Every first-time user also gets the quick feature tutorial: patient
+     replies, bookmarking, streak and the weekly leaderboard. */
+  steps=steps.concat([
+    { sel:'#home-interaction .ix-box', txt:'💬 Every phrase has a patient reply — inside any lesson, swipe a phrase row to the RIGHT to pop up its trilingual response with voice.' },
+    { sel:'.bookmark-pill', txt:'🔖 Swipe a phrase row to the LEFT to bookmark it. Everything you save collects up here.' },
+    { sel:'.streak-pill', txt:'🔥 Your streak, study time and weekly score live here — a few minutes a day keeps them growing.' },
+    { sel:'#tabbar .tab[onclick*="page-leaderboard"]', txt:'🏆 The Weekly Leaderboard: studying and finishing tests earns points; the top 10 win league awards every Monday.' }
+  ]);
   if(!document.getElementById('tt-tour-style')){
     var st=document.createElement('style'); st.id='tt-tour-style';
     st.textContent='@keyframes ttArrowBob{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}'
@@ -9144,6 +9213,116 @@ window.fillStreakScore=fillStreakScore;
     window.navigate=function(id,nh){ _n(id,nh); if(id==='page-leaderboard'){ try{ renderLeaderboard(); }catch(e){ console.error('leaderboard',e); } } };
   }catch(e){}
 })();
+
+
+/* ==================== Premium navigation & progress module ==================== */
+/* Quiz resume: the whole round state (question order included) is saved after
+   every question and cleared when a round finishes, so an interrupted quiz can
+   be picked up on any device — like premium platforms do. */
+function saveQzState(){
+  try{
+    if(!window.QZ || !QZ.type || !Array.isArray(QZ.data) || !QZ.data.length) return;
+    if(QZ.pathMode) return;                 // course subtests stay short + gated; no resume
+    if(QZ.i >= QZ.data.length) return;      // finished
+    if(QZ.data.length > 120) return;        // keep the synced payload sane
+    _sj('tt_qz',{ type:QZ.type, ret:QZ.ret||'page-quiz-hub', label:QZ.label||'', qbank:!!QZ.qbank,
+                  i:QZ.i, score:QZ.score, data:QZ.data, at:Date.now() });
+  }catch(e){}
+}
+function resumeQuiz(){
+  var rz=_lj('tt_qz',null);
+  if(!rz || !Array.isArray(rz.data) || rz.i>=rz.data.length){ try{ buildQuizHub(); }catch(e){} return; }
+  QZ.type=rz.type; QZ.ret=rz.ret||'page-quiz-hub'; QZ.label=rz.label||''; QZ.qbank=!!rz.qbank;
+  QZ.pathMode=null; QZ.data=rz.data; QZ.i=rz.i; QZ.score=rz.score||0; QZ.log=QZ.log||[];
+  var sd=document.getElementById('score-display'); if(sd) sd.style.display='none';
+  var rb=document.getElementById('quiz-return-btn'); if(rb) rb.setAttribute('onclick', "navigate('"+(QZ.ret||'page-quiz-hub')+"')");
+  var qc=document.getElementById('quiz-context'); if(qc) qc.innerText=String(QZ.label||subjLabel(QZ.type)||'').toUpperCase();
+  navigate('page-quiz'); loadQuestion();
+  try{ toast('Resumed at question '+(QZ.i+1), 2200); }catch(e){}
+}
+window.resumeQuiz=resumeQuiz;
+(function(){
+  var _lq=window.loadQuestion;
+  window.loadQuestion=function(){ _lq(); saveQzState(); };
+  var _sr=window.showResults;
+  window.showResults=function(){ try{ localStorage.removeItem('tt_qz'); }catch(e){} _sr(); };
+})();
+
+/* ---------- Continue where you left (course) ---------- */
+function ttMarkLast(key, cat){
+  try{
+    var cats=catsOf(key)||[]; var total=cats.length+1; // sections + final
+    var lesson=(cat===undefined||cat===null) ? 'Study path'
+      : (cat==='final' ? 'Final test' : (cats[cat]?cats[cat].title:('Section '+(Number(cat)+1))));
+    _sj('tt_last',{ key:key, label:subjLabel(key), lesson:lesson, total:total, at:Date.now() });
+  }catch(e){}
+}
+function renderContinueHome(){
+  var el=document.getElementById('continue-learning'); if(!el) return;
+  var l=_lj('tt_last',null);
+  if(!l||!l.key){ el.innerHTML=''; return; } // never started: section stays hidden
+  var cats=catsOf(l.key)||[]; var total=cats.length+1;
+  var passed=((pathAll()[l.key]||{}).passed||[]).length;
+  var pct=Math.min(100,Math.round(passed/Math.max(1,total)*100));
+  el.innerHTML='<h2 class="section-h" style="margin-top:34px">Continue where you left</h2>'
+    +'<article class="lesson-card" style="cursor:pointer" onclick="openPath(\''+l.key+'\')">'
+    +'<h3 class="lesson-title" style="display:block;margin:0 0 6px">'+esc(l.label||'')+'</h3>'
+    +'<p class="lesson-desc" style="margin:0 0 10px">Course · '+esc(l.lesson||'Study path')+' · '+passed+' of '+total+' sections passed</p>'
+    +'<div class="prog"><div class="prog-bar" style="width:'+pct+'%"></div></div>'
+    +'<span class="lesson-open" style="margin-top:10px;display:inline-block">Continue &rarr;</span></article>';
+}
+/* ---------- Featured lessons (three levels; user's own level highlighted) ---------- */
+function renderFeaturedHome(){
+  var el=document.getElementById('featured-lessons'); if(!el) return;
+  var ob=_lj('tt_onboard',null)||{}; var lvl=ob.level||'';
+  var adv=SUBJECTS.filter(function(s){ return s.grp==='Internal Medicine'||s.grp==='Specialties'; })
+    .map(function(s){ return { label:s.label, act:"openPath('"+s.k+"')" }; });
+  var groups=[
+    ['beginner','Beginners',[
+      { label:'Franco (Arabizi)', act:"navigate('page-franco')" },
+      { label:'Medical Vocabulary', act:"openPath('vocab')" },
+      { label:'Investigations & Anatomy', act:"openPath('invest')" }]],
+    ['intermediate','Intermediate',[
+      { label:'Communication & Ethics', act:"openPath('ethics')" },
+      { label:'General History Taking', act:"openPath('history')" },
+      { label:'Medical Vocabulary', act:"openPath('vocab')" },
+      { label:'Investigations & Anatomy', act:"openPath('invest')" }]],
+    ['advanced','Advanced — Medical Specialties',adv]
+  ];
+  var h='<h2 class="section-h" style="margin-top:34px">Featured lessons</h2>';
+  groups.forEach(function(g){
+    h+='<h3 class="mini-h">'+g[1]+(lvl===g[0]?' <span class="mini-chip" style="margin-left:8px">For you ✨</span>':'')+'</h3><div class="chip-row">';
+    g[2].forEach(function(x){ h+='<button class="pill outline" onclick="'+x.act+'">'+x.label+'</button>'; });
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+/* Record the last course position AFTER every wrapper has had its say, so the
+   final gated openPath/startSubtest are what get instrumented. */
+(function(){
+  var _op=window.openPath;
+  window.openPath=function(k){ _op(k); try{ ttMarkLast(k); }catch(e){} };
+  var _ss=window.startSubtest;
+  window.startSubtest=function(i){ _ss(i); try{ ttMarkLast(PATH.key, i); }catch(e){} };
+})();
+/* Render the two new home sections on load + every return to Home. */
+(function(){
+  function paint(){ try{ renderContinueHome(); renderFeaturedHome(); }catch(e){} }
+  window.addEventListener('DOMContentLoaded', function(){ setTimeout(paint, 700); setTimeout(paint, 1800); });
+  try{
+    var _n=window.navigate;
+    window.navigate=function(id,nh){
+      _n(id,nh);
+      if(id==='page-main-menu'){ setTimeout(paint, 60); }
+      // These listing pages show per-tier locks, saved progress and resume
+      // cards — all of which change after the boot render (tier sync, new
+      // grades, an interrupted quiz) — so rebuild them on every entry.
+      if(id==='page-flashcards'){ try{ buildFlashcards(); }catch(e){} }
+      if(id==='page-quiz-hub'){ try{ buildQuizHub(); }catch(e){} }
+    };
+  }catch(e){}
+})();
+
 
 
 /* restore saved preferences (light is the default unless dark was explicitly chosen) */

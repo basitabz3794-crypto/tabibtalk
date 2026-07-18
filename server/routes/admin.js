@@ -161,6 +161,35 @@ router.get('/users', requireAdmin, async (req, res) => {
   res.json({ users });
 });
 
+// ---- One user, in depth: current plan with dates + full payment history ----
+// Powers the click-through detail modal in the Users tab.
+router.get('/users/:id/detail', requireAdmin, async (req, res) => {
+  const user = await store.findUserById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const [allProofs, devices, allAppeals] = await Promise.all([
+    store.listAllManualProofs(),
+    store.listDevicesForUser(user.id),
+    store.listDeviceAppeals(),
+  ]);
+  res.json({
+    user: {
+      id: user.id, name: user.name || '', email: user.email,
+      phone: user.phone || '', college: user.college || '',
+      nationality: user.nationality || '', grade: user.grade || '',
+      tier: user.tier, planId: user.planId || null,
+      planActivatedAt: user.planActivatedAt || null,
+      planExpiresAt: user.planExpiresAt || null,
+      subStatus: user.subStatus || null,
+      status: user.status || 'active',
+      maxDevices: Number(user.maxDevices) > 0 ? Number(user.maxDevices) : 3,
+      createdAt: user.createdAt,
+    },
+    proofs: allProofs.filter(p => p.userId === user.id),
+    deviceCount: devices.filter(d => !d.blocked).length,
+    appeals: allAppeals.filter(a => a.userId === user.id).length,
+  });
+});
+
 // ---- All proofs grouped by state, each with screenshot + plan + user info ----
 router.get('/subscriptions', requireAdmin, async (req, res) => {
   const [proofs, users] = await Promise.all([store.listAllManualProofs(), store.listAllUsers()]);

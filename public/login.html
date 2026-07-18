@@ -191,7 +191,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     // A brand-new account always starts every progress metric (streak, time
     // spent, course progress, bookmarks, saved questions) from zero — even
     // if this browser was used to poke around anonymously before signing up.
-    ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard'].forEach(function(k){
+    ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard','tt_fc','tt_qz','tt_last'].forEach(function(k){
       try { localStorage.removeItem(k); } catch(e){}
     });
     lastCredentials = { email, password };

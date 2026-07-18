@@ -107,7 +107,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 <div class="wrap">
   <header class="head">
     <h1>Plans &amp; Pricing</h1>
-    <p class="page-sub" style="margin:0 auto">Trilingual medical Arabic for students and practising clinicians. Every plan includes the full learning app.</p>
+    <p class="page-sub" style="margin:0 auto">Trilingual (ثلاثي اللغة) medical Arabic for students and practising clinicians. Every plan includes the full learning app.</p>
     <div class="launch-note">Launch offer — introductory pricing for early members</div>
   </header>
 
@@ -349,6 +349,21 @@ function openExplorer() {
 }
 window.openExplorer = openExplorer;
 
+// Free Basic: one click activates the subscription server-side, then straight
+// into the website. From then on "Open Website" never detours here again.
+async function subscribeBasic(btn) {
+  if (!currentUser) { window.location.href = '/login.html?next=' + encodeURIComponent('/plans.html'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Activating…'; }
+  try {
+    await api('/api/plans/subscribe-basic', { method: 'POST' });
+    window.location.href = '/app.html';
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Subscribe for Free'; }
+    showAlert(err.message || 'Could not activate the Basic plan right now.');
+  }
+}
+window.subscribeBasic = subscribeBasic;
+
 function choosePaid(planId, planName) {
   if (!currentUser) {
     window.location.href = `/login.html?next=${encodeURIComponent('/plans.html?plan=' + planId)}`;
@@ -497,7 +512,7 @@ function renderNewPlans() {
       </ul>
       <div class="btn-row">
         ${basicFree
-          ? `<button class="btn btn-primary" onclick="openExplorer()">Open Basic plan</button>`
+          ? `<button class="btn btn-primary" onclick="subscribeBasic(this)">Subscribe for Free</button>`
           : `<button class="btn btn-primary" onclick="choosePaid('basic-monthly','Basic (1 month)')">Choose Basic</button>`}
       </div>
     </div>
@@ -535,7 +550,17 @@ function renderNewPlans() {
     fetch('/api/site-config', { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
   ]);
   ALL_PLANS = plans;
+  // New-plans mode is account-first: visitors must sign in before seeing the
+  // pricing page at all (the signup flow lands them right back here).
+  if (siteCfg && siteCfg.newPlans === true && !currentUser) {
+    window.location.replace('/login.html?next=' + encodeURIComponent('/plans.html' + window.location.search));
+    return;
+  }
   if (siteCfg && siteCfg.newPlans === true) {
+    // Fresh signups arrive with ?choose=1 — one clear instruction, once.
+    if (new URLSearchParams(window.location.search).get('choose') === '1') {
+      showAlert('One last step — pick your plan below to enter the website. Basic is free.', 'success');
+    }
     renderNewPlans();
   } else {
     if (ALL_PLANS.lifetime) {

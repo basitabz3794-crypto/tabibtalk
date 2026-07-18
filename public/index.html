@@ -134,13 +134,13 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
      separate elements — scifi.js rewrites .depth's transform on every mouse
      move, which would wipe out any transform the reveal set. --d staggers them. -->
 <section class="hero">
-  <div class="r3d" style="--d:0"><span class="holo-badge depth" data-depth="8"><span class="dot"></span> Trilingual &middot; English &middot; Arabic &middot; Franco</span></div>
+  <div class="r3d" style="--d:0"><span class="holo-badge depth" data-depth="8"><span class="dot"></span> Trilingual (ثلاثي اللغة) &middot; English &middot; Arabic &middot; Franco</span></div>
   <div class="r3d" style="--d:1"><h1 class="depth" data-depth="16">Speak your Egyptian patient's <span class="grad">language.</span></h1></div>
   <div class="r3d" style="--d:2"><p class="depth" data-depth="10">A premium, dialect-first toolkit for medical students &mdash; from a first &ldquo;Ezzayak?&rdquo; to a full bedside history, in the words patients actually use.</p></div>
   <div class="r3d" style="--d:3">
   <div class="actions">
-    <a href="/app.html" class="btn btn-primary">Open the Website &rarr;</a>
-    <a href="/plans.html" class="btn btn-outline" data-plans-link>View Plans</a>
+    <a href="/app.html" class="btn btn-primary">Open Website &rarr;</a>
+    <a href="/plans.html" class="btn btn-outline" data-plans-link>Plans</a>
     <a href="/login.html" class="btn btn-outline" data-plans-off style="display:none">Sign up / Log in</a>
   </div>
   </div>
@@ -174,7 +174,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
   <div class="stats rise">
     <div class="stat"><div class="r3d" style="--d:0"><div class="n">17+</div><div class="l">Medical subjects</div></div></div>
-    <div class="stat"><div class="r3d" style="--d:1"><div class="n">3</div><div class="l">Languages, side by side</div></div></div>
+    <div class="stat"><div class="r3d" style="--d:1"><div class="n">2</div><div class="l">Languages in 3 Scripts</div></div></div>
     <div class="stat"><div class="r3d" style="--d:2"><div class="n">1</div><div class="l">Goal &mdash; be understood</div></div></div>
   </div>
 </section>
@@ -217,6 +217,15 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
       if (cfg && cfg.plansEnabled === false) {
         document.querySelectorAll('[data-plans-link]').forEach(function(el){ el.style.display='none'; });
         document.querySelectorAll('[data-plans-off]').forEach(function(el){ el.style.display=''; });
+      }
+      // New-plans mode: visitors who aren't signed in see just the two entry
+      // actions — Open Website and Plans. Account chrome appears once they
+      // have an account. Both actions land on sign-in first regardless.
+      if (cfg && cfg.plansEnabled !== false && cfg.newPlans === true) {
+        getCurrentUser().then(function(user){
+          if (user) return;
+          document.querySelectorAll('#site-header .account-pin, #drawer a[href="/account.html"]').forEach(function(el){ el.style.display='none'; });
+        }).catch(function(){});
       }
     })
     .catch(function(){});
