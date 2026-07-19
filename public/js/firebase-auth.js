@@ -66,6 +66,37 @@ const TTAuth = (function () {
     return { url: window.location.origin + '/login.html', handleCodeInApp: false };
   }
 
+  // Send a verification email that WORKS even before a new custom domain has
+  // been added to Firebase's Authorized domains. Passing a continue `url` on an
+  // un-authorized domain makes Firebase reject the whole call with
+  // auth/unauthorized-continue-uri — so the email silently never sends. We try
+  // with the nice same-domain continue URL first, and on that specific failure
+  // retry with NO continue URL, which uses Firebase's own hosted action page
+  // and always succeeds. (Add the domain in the console to get the nicer
+  // same-site landing — see the README's Firebase setup.)
+  async function sendVerification(user) {
+    try {
+      await user.sendEmailVerification(actionSettings());
+    } catch (err) {
+      if (err && (err.code === 'auth/unauthorized-continue-uri' || err.code === 'auth/invalid-continue-uri')) {
+        await user.sendEmailVerification(); // default hosted action page
+      } else {
+        throw err;
+      }
+    }
+  }
+  async function sendResetEmail(auth, email) {
+    try {
+      await auth.sendPasswordResetEmail(email, actionSettings());
+    } catch (err) {
+      if (err && (err.code === 'auth/unauthorized-continue-uri' || err.code === 'auth/invalid-continue-uri')) {
+        await auth.sendPasswordResetEmail(email); // default hosted action page
+      } else {
+        throw err;
+      }
+    }
+  }
+
   // ---- Sign up ----
   // Creates the Firebase account, sends the verification email, and registers
   // the profile with our server. Deliberately does NOT log the user in: they
@@ -77,7 +108,7 @@ const TTAuth = (function () {
     try {
       cred = await auth.createUserWithEmailAndPassword(email, password);
       // Send the verification email before anything else can fail.
-      try { await cred.user.sendEmailVerification(actionSettings()); } catch (e) { /* non-fatal; user can resend */ }
+      try { await sendVerification(cred.user); } catch (e) { /* non-fatal; user can resend */ }
     } catch (err) {
       if (err.code !== 'auth/email-already-in-use') throw err;
       // The Firebase account exists but our server may never have received the
@@ -91,7 +122,7 @@ const TTAuth = (function () {
         throw err; // wrong password — the address really is taken by someone else
       }
       if (!cred.user.emailVerified) {
-        try { await cred.user.sendEmailVerification(actionSettings()); } catch (e) {}
+        try { await sendVerification(cred.user); } catch (e) {}
       }
     }
 
@@ -166,7 +197,7 @@ const TTAuth = (function () {
     try {
       await cred.user.reload();
       if (cred.user.emailVerified) return { alreadyVerified: true };
-      await cred.user.sendEmailVerification(actionSettings());
+      await sendVerification(cred.user);
       return { sent: true };
     } finally {
       await auth.signOut();
@@ -180,7 +211,9 @@ const TTAuth = (function () {
   async function sendReset(email) {
     const auth = await ready();
     try {
-      await auth.sendPasswordResetEmail(email, actionSettings());
+      // Resilient send: falls back to Firebase's hosted page if the current
+      // domain isn't in Authorized domains yet (see sendResetEmail).
+      await sendResetEmail(auth, email);
     } catch (err) {
       if (err.code !== 'auth/user-not-found' && err.code !== 'auth/invalid-email') throw err;
     }

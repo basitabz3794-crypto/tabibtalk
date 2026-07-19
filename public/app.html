@@ -5184,15 +5184,38 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
         var target = map[kind] || 'page-smart-tools';
         if (typeof navigate === 'function') navigate(target);
     }
-    // keep Home tab in sync when returning to the main menu via other controls
+    // Keep the tab bar's highlight in sync with the page actually shown, no
+    // matter how it was reached (tab click, side menu, in-page button). Each
+    // tab-page maps to its tab; interior pages (lessons, paths, chapters) leave
+    // the highlight cleared so it never wrongly stays on Home.
     (function(){
-        if (typeof window.navigate === 'function'){
-            var _nav = window.navigate;
-            window.navigate = function(id){
-                _nav.apply(this, arguments);
-                if (id === 'page-main-menu'){ selectTab(document.querySelector('#tabbar .tab')); }
-            };
+        if (typeof window.navigate !== 'function') return;
+        var PAGE_TO_TAB = {
+            'page-main-menu': 'Home', 'page-course': 'Course',
+            'page-flashcards': 'Flashcards', 'page-quiz-hub': 'Quiz Hub',
+            'page-ai': 'AI Patient', 'page-translate': 'Translate',
+            'page-qbank': 'QBank', 'page-leaderboard': 'Leaderboard',
+            'page-conversations': 'Conversations'
+        };
+        function syncTab(id){
+            var label = PAGE_TO_TAB[id];
+            var tabs = document.querySelectorAll('#tabbar .tab');
+            var matched = null;
+            tabs.forEach(function(t){
+                // "contains" (not startsWith): the Leaderboard tab is prefixed
+                // with an emoji. Every label is unique, so this can't mismatch.
+                var isMatch = label && t.textContent.indexOf(label) >= 0;
+                t.classList.toggle('active', !!isMatch);
+                if (isMatch) matched = t;
+            });
+            // Interior page with no tab: clear all so Home doesn't stay lit.
+            if (!label) tabs.forEach(function(t){ t.classList.remove('active'); });
         }
+        var _nav = window.navigate;
+        window.navigate = function(id){
+            _nav.apply(this, arguments);
+            try{ syncTab(id); }catch(e){}
+        };
     })();
     </script>
     <div id="drawer-overlay" onclick="closeDrawer()"></div>
@@ -7142,8 +7165,8 @@ function renderConversationsHub(){
     h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
     groups[g].forEach(function(s){
       h+='<article class="lesson-card" style="cursor:default"><h3 class="lesson-title" style="display:block;margin:0 0 10px">'+s.label+'</h3>'
-        +'<div class="chip-row"><button class="pill" onclick="openConversation(\''+s.k+'\',\'page-path\')">\uD83D\uDCAC Conversation</button>'
-        +'<button class="pill outline" onclick="openPath(\''+s.k+'\')">\uD83D\uDCDA Study Path</button></div></article>';
+        +'<div class="chip-row"><button class="pill" onclick="openConversation(\''+s.k+'\',\'page-conversations\')">\uD83D\uDCAC Conversation</button>'
+        +'<button class="pill outline" onclick="openPath(\''+s.k+'\',\'page-conversations\')">\uD83D\uDCDA Study Path</button></div></article>';
     });
     h+='</div>';
   });
@@ -7166,12 +7189,15 @@ window.renderConversationsHub=renderConversationsHub; window.openConversation=op
 
 /* ---------- (2) Gated Study Path ---------- */
 var PATH={key:null,label:'',cat:0}; var PATHRET='page-main-menu'; var CONV_RET='page-conversations';
-function openPath(key){ PATH.key=key; PATH.label=subjLabel(key); navigate('page-path'); renderPathList(); }
+// openPath remembers where the study path was opened FROM (Home for featured
+// lessons / Continue, the Course hub for the Course tab), so its Back button
+// returns there instead of the old hardcoded Conversations page.
+function openPath(key, ret){ PATH.key=key; PATH.label=subjLabel(key); PATHRET=ret||'page-main-menu'; navigate('page-path'); renderPathList(); }
 function renderPathList(){
   var body=document.getElementById('path-body'); var key=PATH.key; var cats=catsOf(key);
   var done=0; cats.forEach(function(c,i){ if(pathPassed(key,i)) done++; });
   var pct=cats.length?Math.round(done/cats.length*100):0;
-  var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-conversations\')">&larr; Back</button><span class="ctx-chip">Study Path</span></div>';
+  var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\''+(PATHRET||'page-main-menu')+'\')">&larr; Back</button><span class="ctx-chip">Study Path</span></div>';
   h+='<h1 class="tool-title">'+PATH.label+'</h1><p class="tool-sub">Work through each section top to bottom. Finish a section\u2019s subtest with at least <b>70%</b> to unlock the next. Complete every section, then the conversation and final quiz.</p>';
   h+='<div class="prog" style="margin-bottom:6px"><div class="prog-bar" style="width:'+pct+'%"></div></div><div class="fc-count" style="margin-bottom:16px">'+done+' / '+cats.length+' sections passed</div>';
   cats.forEach(function(c,i){
@@ -7339,7 +7365,7 @@ function renderCourseHub(){
   Object.keys(groups).forEach(function(g){
     h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
     groups[g].forEach(function(s){
-      h+='<article class="lesson-card" onclick="openPath(\''+s.k+'\')"><h3 class="lesson-title" style="display:block;margin:0 0 8px">'+s.label+'</h3><p class="lesson-desc" style="margin:0 0 10px">'+catsOf(s.k).length+' sections</p><span class="lesson-open">\uD83D\uDCDA Begin Study Path &rarr;</span></article>';
+      h+='<article class="lesson-card" onclick="openPath(\''+s.k+'\',\'page-course\')"><h3 class="lesson-title" style="display:block;margin:0 0 8px">'+s.label+'</h3><p class="lesson-desc" style="margin:0 0 10px">'+catsOf(s.k).length+' sections</p><span class="lesson-open">\uD83D\uDCDA Begin Study Path &rarr;</span></article>';
     });
     h+='</div>';
   });
@@ -8296,10 +8322,12 @@ function buildQuizHub(){
   Object.keys(groups).forEach(function(g){
     h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
     groups[g].forEach(function(s){
-      var n=getItems(s.k).length;
+      // A Quiz Hub round is capped at 10 questions (unlike QBank, which uses the
+      // whole bank), so show the real round size, not the full item count.
+      var n=Math.min(10, getItems(s.k).length);
       h+='<article class="lesson-card" onclick="startQuiz(\''+s.k+'\',\'page-quiz-hub\')">'
         +'<h3 class="lesson-title" style="display:block;margin:0 0 6px">'+s.label+'</h3>'
-        +'<p class="lesson-desc" style="margin:0 0 10px">'+n+' questions</p>'
+        +'<p class="lesson-desc" style="margin:0 0 10px">'+n+'-question quiz</p>'
         +'<span class="lesson-open">Start quiz &rarr;</span></article>';
     });
     h+='</div>';
