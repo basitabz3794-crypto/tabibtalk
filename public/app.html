@@ -534,6 +534,8 @@
         .drawer-group { color: var(--muted); font-weight: 800; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; margin: 18px 10px 6px; }
         .drawer-link { display:flex; align-items:center; gap:10px; padding: 12px 12px; border-radius: 12px; cursor: pointer; color: var(--text-dark); font-weight: 600; }
         .drawer-link:hover { background: var(--secondary); color: var(--primary); }
+        .drawer-link.drawer-locked { color: var(--muted); }
+        .drawer-link .drawer-lock { margin-left: auto; font-size: .9rem; opacity: .75; }
 
         /* Back FAB */
         #back-fab { position: fixed; left: 18px; bottom: 18px; z-index: 400; width: 54px; height: 54px; border-radius: 50%;
@@ -8191,10 +8193,20 @@ function buildDrawer(){
     if(s.grp==='Reference') CATS['Dictionary'].push(s);
     else if(CATS[s.grp]) CATS[s.grp].push(s);
   });
+  // Basic subscribers see the "Unlocked Courses" study paths as locked (lock
+  // badge + upgrade-to-Advanced prompt) — same gating as the home lesson cards.
+  // Higher tiers get the normal navigable links.
+  var drawerBasic = (typeof ttTier==='function') && ttTier()==='basic';
   ['Foundations','Internal Medicine','Specialties','Dictionary'].forEach(function(g){
     if(!CATS[g].length) return;
     h+='<div class="drawer-subgroup">'+g+'</div>';
-    CATS[g].forEach(function(s){ h+='<div class="drawer-link sub" onclick="navigate(\''+s.page+'\')">'+s.label+'</div>'; });
+    CATS[g].forEach(function(s){
+      if(drawerBasic){
+        h+='<div class="drawer-link sub drawer-locked" onclick="drawerLockedLesson()">'+s.label+'<span class="drawer-lock" aria-hidden="true">🔒</span></div>';
+      } else {
+        h+='<div class="drawer-link sub" onclick="navigate(\''+s.page+'\')">'+s.label+'</div>';
+      }
+    });
   });
   h+='<div class="drawer-group">Account</div>';
   h+='<div class="drawer-link" onclick="ttGoAccount()">\uD83D\uDC64 My Account</div>';
@@ -8205,6 +8217,9 @@ function buildDrawer(){
   body.innerHTML=h;
 }
 window.buildDrawer=buildDrawer;
+/* Basic tapped a locked "Unlocked Courses" study path in the drawer. */
+function drawerLockedLesson(){ try{ closeDrawer(); }catch(e){} if(typeof showUpgrade==='function') showUpgrade(['Advanced']); }
+window.drawerLockedLesson=drawerLockedLesson;
 
 /* ---------- (5) Explanation wording: "phrasebook" -> "course" ---------- */
 (function(){
