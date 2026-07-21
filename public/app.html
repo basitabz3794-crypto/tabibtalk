@@ -832,6 +832,10 @@
         .streak-pill { margin-left: 8px; display: inline-flex; align-items: center; gap: 6px; background: #fbf1d6; color: #b8860b;
             border: 1px solid #eddba0; border-radius: 999px; padding: 9px 15px; font-weight: 800; cursor: pointer; transition: all .18s; }
         .streak-pill:hover { background: #f7e9c0; }
+        /* Locked lesson/deck cards (Basic tier) — mode-agnostic base so the
+           lock badge sits top-right in minimalist/default too, not only sci-fi. */
+        .lesson-card.qb-locked { position: relative; cursor: pointer; }
+        .lesson-card.qb-locked .qb-lock { position: absolute; top: 14px; right: 14px; font-size: 1rem; opacity: .8; }
         .pro-badge { display: inline-block; background: #c0392b; color: #fff; font-size: .6rem; font-weight: 800; letter-spacing: .08em;
             padding: 2px 6px; border-radius: 6px; vertical-align: middle; margin-left: 4px; }
         .ai-locked-chip { opacity: .55; cursor: pointer; }
@@ -1263,7 +1267,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
         <nav class="tabbar" id="tabbar">
             <button class="tab active" onclick="selectTab(this); navigate('page-main-menu')">Home</button>
             <button class="tab" onclick="selectTab(this); navigate('page-course')">Course</button>
-            <button class="tab" onclick="selectTab(this); goTool('flashcards')">Flashcards</button>
+            <button class="tab" onclick="selectTab(this); goTool('flashcards')">Flashcards <span class="pro-badge">PRO</span></button>
             <button class="tab" onclick="selectTab(this); goTool('quiz')">Quiz Hub</button>
             <button class="tab" onclick="selectTab(this); goTool('ai')">AI Patient <span class="pro-badge">PRO</span></button>
             <button class="tab" onclick="selectTab(this); goTool('translate')">Translate</button>
@@ -1298,42 +1302,42 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
             <h2 class="section-h">Lessons <span style="font-weight:600;color:var(--muted);font-size:.7em;display:block;margin-top:4px">(Fully Unlocked without any Subtests) — An effective Bedside History-taking companion and a reference tool.</span></h2>
             <div class="lessons" id="lessons">
-                <article class="lesson-card" onclick="navigate('page-franco')">
+                <article class="lesson-card" onclick="homeLesson('page-franco')">
                     <div class="lesson-num">01</div>
                     <div class="lesson-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg></div>
                     <h3 class="lesson-title">Franco (Arabizi)</h3>
                     <p class="lesson-desc">Master reading Arabic with English letters and numbers — your gateway to the throaty sounds.</p>
                     <span class="lesson-open">Open &rarr;</span>
                 </article>
-                <article class="lesson-card" onclick="navigate('page-ethics')">
+                <article class="lesson-card" onclick="homeLesson('page-ethics')">
                     <div class="lesson-num">02</div>
                     <div class="lesson-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg></div>
                     <h3 class="lesson-title">Communication &amp; Ethics</h3>
                     <p class="lesson-desc">Greetings, introductions, permissions, and bedside empathy for an authentic encounter.</p>
                     <span class="lesson-open">Open &rarr;</span>
                 </article>
-                <article class="lesson-card" onclick="navigate('page-history')">
+                <article class="lesson-card" onclick="homeLesson('page-history')">
                     <div class="lesson-num">03</div>
                     <div class="lesson-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg></div>
                     <h3 class="lesson-title">General History Taking</h3>
                     <p class="lesson-desc">A structured, top-down approach to personal history and the full medical complaint.</p>
                     <span class="lesson-open">Open &rarr;</span>
                 </article>
-                <article class="lesson-card" onclick="navigate('page-specialties-menu')">
+                <article class="lesson-card" onclick="homeLesson('page-specialties-menu')">
                     <div class="lesson-num">04</div>
                     <div class="lesson-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg></div>
                     <h3 class="lesson-title">Medical Specialties</h3>
                     <p class="lesson-desc">Detailed history taking across Internal Medicine, Surgery, Paediatrics, O&amp;G, ENT and Ophthalmology.</p>
                     <span class="lesson-open">Open &rarr;</span>
                 </article>
-                <article class="lesson-card" onclick="navigate('page-vocab')">
+                <article class="lesson-card" onclick="homeLesson('page-vocab')">
                     <div class="lesson-num">05</div>
                     <div class="lesson-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg></div>
                     <h3 class="lesson-title">Important Medical Vocabulary</h3>
                     <p class="lesson-desc">An A–Z trilingual medical dictionary with a doctor–patient conversation and quiz.</p>
                     <span class="lesson-open">Open &rarr;</span>
                 </article>
-                <article class="lesson-card" onclick="navigate('page-invest')">
+                <article class="lesson-card" onclick="homeLesson('page-invest')">
                     <div class="lesson-num">06</div>
                     <div class="lesson-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2z"/></svg></div>
                     <h3 class="lesson-title">Medical Investigations and Anatomy</h3>
@@ -8862,6 +8866,7 @@ function _ttDownloadBlob(blob, filename){
           else { localStorage.setItem('tt_tier', JSON.stringify(tier)); }
           var ov = document.getElementById('landing-overlay'); if(ov) ov.remove();
           if(typeof buildDrawer === 'function') buildDrawer();
+          if(typeof gateHomeLessons === 'function') gateHomeLessons();
           // First visit? Collect nickname/emoji/level, then run the guided
           // tour. Fires for plans-off (tier forced lifetime) and plans-on
           // (after the account's plan is resolved) alike.
@@ -9397,9 +9402,36 @@ function renderFeaturedHome(){
   var _ss=window.startSubtest;
   window.startSubtest=function(i){ _ss(i); try{ ttMarkLast(PATH.key, i); }catch(e){} };
 })();
+/* ---- Home "Fully Unlocked" lessons: gated for Basic subscribers ----
+   The six reference lessons in the "Lessons (Fully Unlocked…)" section double
+   as the paid bedside reference tool, so Basic sees them locked (lock badge +
+   upgrade prompt) while every higher tier opens them normally. */
+function homeLesson(pageId){
+  if(typeof ttTier==='function' && ttTier()==='basic'){
+    if(typeof showUpgrade==='function') showUpgrade(['Advanced']);
+    return;
+  }
+  navigate(pageId);
+}
+window.homeLesson=homeLesson;
+function gateHomeLessons(){
+  var basic = (typeof ttTier==='function') && ttTier()==='basic';
+  var cards = document.querySelectorAll('#lessons .lesson-card');
+  cards.forEach(function(card){
+    var lock = card.querySelector('.qb-lock');
+    if(basic){
+      card.classList.add('qb-locked');
+      if(!lock){ var s=document.createElement('span'); s.className='qb-lock'; s.setAttribute('aria-hidden','true'); s.textContent='🔒'; card.appendChild(s); }
+    } else {
+      card.classList.remove('qb-locked');
+      if(lock) lock.remove();
+    }
+  });
+}
+window.gateHomeLessons=gateHomeLessons;
 /* Render the two new home sections on load + every return to Home. */
 (function(){
-  function paint(){ try{ renderContinueHome(); renderFeaturedHome(); }catch(e){} }
+  function paint(){ try{ renderContinueHome(); renderFeaturedHome(); gateHomeLessons(); }catch(e){} }
   window.addEventListener('DOMContentLoaded', function(){ setTimeout(paint, 700); setTimeout(paint, 1800); });
   try{
     var _n=window.navigate;
@@ -9733,6 +9765,20 @@ html.tt-minimal #page-main-menu .ix-ar, html.tt-minimal #page-main-menu .wod-ar{
   color:transparent !important;
 }
 html.tt-minimal #page-main-menu .ix-fr, html.tt-minimal #page-main-menu .wod-fr{ color:var(--muted) !important; }
+/* Home "Doctor asks / Patient answers" speaker buttons: .ix-ar is gradient text
+   (color/-webkit-text-fill-color:transparent) and the plain .voice-btn inside it
+   inherits that transparent fill, so on the white minimalist card the icon was
+   invisible. Give it a real, visible colour — matching the Word-of-the-day
+   speaker directly below it. */
+html.tt-minimal #page-main-menu .ix-box .voice-btn,
+html.tt-minimal #page-main-menu .ix-ar .voice-btn{
+  color:var(--accent) !important;
+  -webkit-text-fill-color:var(--accent) !important;
+  opacity:.9;
+}
+html.tt-minimal #page-main-menu .ix-box .voice-btn:hover{
+  opacity:1; background:rgba(198,95,74,.14);
+}
 html.tt-minimal #page-main-menu .ix-pill{ background:var(--secondary) !important; color:var(--primary) !important; }
 html.tt-minimal #page-main-menu .wod-head{ color:var(--muted) !important; }
 html.tt-minimal #page-main-menu #analytics .stat-row b{ color:var(--text-dark) !important; }
