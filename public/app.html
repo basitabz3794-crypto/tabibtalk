@@ -1145,19 +1145,25 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   var served = (location.protocol === 'http:' || location.protocol === 'https:');
   if (!served) return; // standalone/offline file — nothing to sync with
 
-  // Keys that must stay device/browser-specific and are never synced.
-  var EXCLUDE = { tt_tier: 1, tt_device_id: 1 };
+  // Keys that must stay device/browser-specific and are never synced. tt_tier
+  // is re-synced from the server by the tier block; tt_display_mode is a
+  // per-device look; tt_device_id / tt_progress_owner are local bookkeeping.
+  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1 };
+  // Keys kept when wiping a previous account's data on account switch.
+  var KEEP_ON_WIPE = { tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1 };
 
   function getDeviceId(){
     try{ var id=localStorage.getItem('tt_device_id'); if(!id){ id='dev-'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('tt_device_id',id);} return id; }catch(e){ return 'dev-unknown'; }
   }
 
-  // Synchronous XHR: deliberately blocking so this finishes before the
-  // rest of the page's scripts run and read localStorage for first paint.
-  // Progress/analytics keys the app tracks per account.
-  var PROGRESS_KEYS = ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores'];
-  window.__ttProgressKeys = PROGRESS_KEYS; // exposed so the signup flow can reset these at account creation
+  // Progress/analytics keys the app tracks per account (kept for the signup
+  // reset helper; the wipe below is broader and covers everything).
+  var PROGRESS_KEYS = ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_fc','tt_qz','tt_last','tt_onboard'];
+  window.__ttProgressKeys = PROGRESS_KEYS;
 
+  // Synchronous XHR: deliberately blocking so this finishes before the rest of
+  // the page's scripts read localStorage for first paint.
+  var _origSetItem = localStorage.setItem.bind(localStorage);
   try {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/progress/me', false); // false = synchronous
@@ -1166,43 +1172,74 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
     if (xhr.status === 200) {
       var data = JSON.parse(xhr.responseText);
       var state = (data && data.state) || {};
-      // Restore whatever this account has saved server-side. If nothing has
-      // been saved yet (e.g. right after signup, or an existing account's
-      // very first sync), we deliberately do NOT touch localStorage here —
-      // signup explicitly zeroes these keys itself (see login.html), so an
-      // existing user's not-yet-synced local progress is never wiped.
+      var owner = (data && data.userId) ? String(data.userId) : '';
+      var localOwner = '';
+      try { localOwner = localStorage.getItem('tt_progress_owner') || ''; } catch(e){}
+
+      // ACCOUNT SWITCH GUARD: if the signed-in account differs from whoever the
+      // local progress belongs to, wipe every synced tt_ key BEFORE hydrating.
+      // Without this, a second account opened in the same browser inherits the
+      // first account's leftover streak/scores and then uploads them. Uses the
+      // original (un-wrapped) setItem so wiping doesn't trigger a sync-up.
+      if (owner && owner !== localOwner) {
+        try {
+          Object.keys(localStorage).forEach(function(k){
+            if (String(k).indexOf('tt_') === 0 && !KEEP_ON_WIPE[k]) localStorage.removeItem(k);
+          });
+          _origSetItem('tt_progress_owner', owner);
+        } catch(e){}
+      }
+
+      // Hydrate from this account's server state. The server is the source of
+      // truth: keys it holds overwrite local. (For a brand-new account the
+      // state is empty and the wipe above already cleared the slate.)
       Object.keys(state).forEach(function(k){
         if (EXCLUDE[k]) return;
-        try { localStorage.setItem(k, state[k]); } catch(e){}
+        try { _origSetItem(k, state[k]); } catch(e){}
       });
     }
   } catch (e) { /* offline or first run — fall through with local/default state */ }
 
-  // From now on, mirror every relevant localStorage write to the account
-  // server-side too, so progress/streak/bookmarks follow the user across
-  // devices and survive plan upgrades. Debounced + batched to avoid spam.
+  // Mirror every relevant localStorage write to the account server-side, so
+  // progress follows the user across devices and survives refresh/logout.
   var pending = {}; var flushTimer = null;
-  function flush(){
-    var patch = pending; pending = {}; flushTimer = null;
-    var keys = Object.keys(patch);
+  function doFlush(useBeacon){
+    var keys = Object.keys(pending);
     if (!keys.length) return;
+    var patch = pending; pending = {};
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    var body = JSON.stringify({ patch: patch });
+    // On page-hide/unload, a normal fetch is cancelled by the browser before it
+    // sends — which is exactly why progress was being LOST on refresh/logout.
+    // sendBeacon (and keepalive) are designed to survive unload. The save route
+    // authenticates by session cookie, which beacon sends, so no header needed.
+    if (useBeacon && navigator.sendBeacon) {
+      try {
+        var blob = new Blob([body], { type: 'application/json' });
+        if (navigator.sendBeacon('/api/progress/save', blob)) return;
+      } catch(e){ /* fall through to fetch */ }
+    }
     try {
       fetch('/api/progress/save', {
-        method: 'POST', credentials: 'same-origin',
+        method: 'POST', credentials: 'same-origin', keepalive: true,
         headers: { 'Content-Type': 'application/json', 'x-device-id': getDeviceId() },
-        body: JSON.stringify({ patch: patch }),
+        body: body,
       }).catch(function(){});
     } catch(e){}
   }
-  var _origSetItem = localStorage.setItem.bind(localStorage);
+  function flush(){ doFlush(false); }
+  window.__ttFlushProgress = function(){ doFlush(true); }; // used by logout to persist before wiping
   localStorage.setItem = function(key, value){
     _origSetItem(key, value);
     if (EXCLUDE[key] || String(key).indexOf('tt_') !== 0) return;
     pending[key] = value;
     if (flushTimer) clearTimeout(flushTimer);
-    flushTimer = setTimeout(flush, 1200);
+    flushTimer = setTimeout(flush, 900);
   };
-  window.addEventListener('beforeunload', flush);
+  // Flush reliably whenever the page is being backgrounded or left.
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') doFlush(true); });
+  window.addEventListener('pagehide', function(){ doFlush(true); });
+  window.addEventListener('beforeunload', function(){ doFlush(true); });
 })();
 </script>
 
@@ -7192,7 +7229,13 @@ var PATH={key:null,label:'',cat:0}; var PATHRET='page-main-menu'; var CONV_RET='
 // openPath remembers where the study path was opened FROM (Home for featured
 // lessons / Continue, the Course hub for the Course tab), so its Back button
 // returns there instead of the old hardcoded Conversations page.
-function openPath(key, ret){ PATH.key=key; PATH.label=subjLabel(key); PATHRET=ret||'page-main-menu'; navigate('page-path'); renderPathList(); }
+function openPath(key, ret){
+  // The Franco course path is built lazily (buildFrancoDb runs ~750ms after
+  // load) — build it on demand so a quick click from Featured still opens a
+  // populated path instead of an empty one.
+  if(key==='franco'){ try{ if((!db['franco']||!db['franco'].length) && typeof buildFrancoDb==='function'){ buildFrancoDb(); registerFrancoCourse(); } }catch(e){} }
+  PATH.key=key; PATH.label=subjLabel(key); PATHRET=ret||'page-main-menu'; navigate('page-path'); renderPathList();
+}
 function renderPathList(){
   var body=document.getElementById('path-body'); var key=PATH.key; var cats=catsOf(key);
   var done=0; cats.forEach(function(c,i){ if(pathPassed(key,i)) done++; });
@@ -8922,23 +8965,27 @@ function ttLogout(){
   if(btn){ btn.disabled = true; btn.textContent = 'Logging out…'; }
   function finish(){
     try{
-      ['tt_tier','tt_pro','tt_streak','tt_days','tt_time','tt_path','tt_solved',
-       'tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard',
-       'tt_fc','tt_qz','tt_last']
-        .forEach(function(k){ localStorage.removeItem(k); });
-      // Ad state is keyed per campaign (tt_ad_seen_<id> / tt_ad_notified_<id>),
-      // so sweep by prefix rather than listing ids that change over time.
+      // Wipe every synced tt_ key (not just a fixed list — anything the app
+      // stored), plus the progress-owner marker, so the next account that
+      // signs in on this browser starts from its OWN server data, never this
+      // one's leftovers. Device id and display mode are kept.
       Object.keys(localStorage)
-        .filter(function(k){ return k.indexOf('tt_ad_') === 0 || k === 'tt_german_notify'; })
+        .filter(function(k){ return k.indexOf('tt_') === 0 && k !== 'tt_device_id' && k !== 'tt_display_mode'; })
         .forEach(function(k){ localStorage.removeItem(k); });
     }catch(e){}
     window.location.href = '/index.html';
   }
-  try{
-    fetch('/api/auth/logout', { method:'POST', credentials:'same-origin' })
-      .then(finish)
-      .catch(finish);   // still clear locally even if the request fails
-  }catch(e){ finish(); }
+  // Persist any not-yet-saved progress to THIS account before the session is
+  // destroyed, so nothing typed in the last second is lost.
+  try{ if(window.__ttFlushProgress) window.__ttFlushProgress(); }catch(e){}
+  // Small delay lets the beacon leave before we tear down the session.
+  setTimeout(function(){
+    try{
+      fetch('/api/auth/logout', { method:'POST', credentials:'same-origin' })
+        .then(finish)
+        .catch(finish);   // still clear locally even if the request fails
+    }catch(e){ finish(); }
+  }, 250);
 }
 window.ttLogout = ttLogout;
 </script>
@@ -9322,10 +9369,9 @@ function renderFeaturedHome(){
     .map(function(s){ return { label:s.label, act:"openPath('"+s.k+"')" }; });
   var groups=[
     ['beginner','Beginners',[
-      // Franco has no course study path (it's a single lesson, excluded from
-      // the Course hub) — so its featured card opens the Franco lesson page,
-      // which IS its course content. The others open their study paths.
-      { label:'Franco (Arabizi)', act:"navigate('page-franco')" },
+      // Franco opens its COURSE study path (db['franco'], the version that
+      // lives in the Course hub) — not the standalone page-franco lesson.
+      { label:'Franco (Arabizi)', act:"openPath('franco','page-main-menu')" },
       { label:'Medical Vocabulary', act:"openPath('vocab')" },
       { label:'Investigations & Anatomy', act:"openPath('invest')" }]],
     ['intermediate','Intermediate',[

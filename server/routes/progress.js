@@ -37,13 +37,17 @@ async function writeProgress(userId, patch) {
 
 // ---- Get the signed-in user's saved app state (streak, progress, bookmarks, etc.) ----
 router.get('/me', requireLogin, async (req, res) => {
+  // userId is returned so the browser can tell WHOSE progress this is and wipe
+  // a previous account's leftover localStorage before hydrating — otherwise a
+  // second account opened in the same browser inherits (and then re-uploads)
+  // the first account's streak/scores/etc.
   try {
-    res.json({ state: await readProgress(req.session.userId) });
+    res.json({ state: await readProgress(req.session.userId), userId: req.session.userId });
   } catch (err) {
     // Never hard-fail the app over a progress read — the page still hydrates
     // from localStorage and will sync again on the next write.
     console.error('[progress] read failed:', err.message);
-    res.json({ state: {} });
+    res.json({ state: {}, userId: req.session.userId });
   }
 });
 
