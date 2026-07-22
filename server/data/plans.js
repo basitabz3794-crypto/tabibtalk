@@ -133,6 +133,16 @@ function accessTierForPlan(planId) {
   return plan ? plan.accessTier : 'explorer';
 }
 
+// The free "baseline" tier a user sits on when they have no active paid plan.
+// It follows whichever plans page the admin has live: the new Basic/Advanced
+// page makes Basic the baseline (nobody should be on Explorer while it's live);
+// the classic page makes Explorer the baseline. Used for new-signup defaults,
+// for normalising users who never picked a plan, and for the tier a paid
+// subscription falls back to when it expires.
+function baselineTier(siteConfig) {
+  return (siteConfig && siteConfig.newPlans === true) ? 'basic' : 'explorer';
+}
+
 // How many days each plan lasts from activation. Lifetime never expires (null).
 const PLAN_DURATION_DAYS = {
   'student-monthly': 30, 'student-6m': 180, 'student-12m': 365,
@@ -189,4 +199,4 @@ async function getEffectivePlans() {
   return { plans, durationsDays, fx };
 }
 
-module.exports = { PLANS, getFxRates, FULL_ACCESS_TIERS, isFullAccess, accessTierForPlan, PLAN_DURATION_DAYS, computeExpiry, isExpired, convert, roundUpNice, USD_TO_INR, USD_TO_EGP, getEffectivePlans };
+module.exports = { PLANS, getFxRates, FULL_ACCESS_TIERS, isFullAccess, accessTierForPlan, baselineTier, PLAN_DURATION_DAYS, computeExpiry, isExpired, convert, roundUpNice, USD_TO_INR, USD_TO_EGP, getEffectivePlans };

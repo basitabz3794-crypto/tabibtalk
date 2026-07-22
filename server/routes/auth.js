@@ -2,7 +2,7 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const firebase = require('../data/firebase');
-const { computeExpiry, isExpired, accessTierForPlan } = require('../data/plans');
+const { computeExpiry, isExpired, accessTierForPlan, baselineTier } = require('../data/plans');
 
 const router = express.Router();
 const MAX_DEVICES = 3;
@@ -20,18 +20,33 @@ function publicUser(user) {
   };
 }
 
-// Re-evaluate a user's effective state: expire subscriptions whose time is up.
-async function reconcileUser(user) {
+// Re-evaluate a user's effective state against the plans mode the admin has
+// live. Two jobs: (1) expire subscriptions whose time is up, and (2) keep every
+// no-plan user on the CURRENT mode's free baseline — Basic while the new
+// Basic/Advanced page is live, Explorer under the classic page — so nobody is
+// left on Explorer once new-plans is on (and vice-versa). `cfg` may be passed in
+// to avoid re-reading the site config in a batch.
+async function reconcileUser(user, cfg) {
   if (!user) return user;
-  // Lifetime, explorer and (free) basic never expire. Paid tiers expire to
-  // their mode's free tier: Advanced falls back to Basic, the classic paid
-  // tiers fall back to Explorer.
+  cfg = cfg || await store.getSiteConfig();
+  const baseline = baselineTier(cfg);
+
+  // Paid tiers whose time is up fall back to the current mode's free baseline.
+  // (Lifetime never expires; the free baselines have no expiry to begin with.)
   if (user.planExpiresAt && isExpired(user.planExpiresAt)
       && user.tier !== 'explorer' && user.tier !== 'lifetime' && user.tier !== 'basic') {
-    const fallbackTier = user.tier === 'advanced' ? 'basic' : 'explorer';
-    const updated = await store.updateUser(user.id, { tier: fallbackTier, subStatus: 'expired' });
-    return updated;
+    return await store.updateUser(user.id, { tier: baseline, subStatus: 'expired' });
   }
+
+  // Normalise a free-baseline user to match the live mode. Only touches users
+  // with no paid plan on file (planId null) who sit on a free baseline tier —
+  // an explicit Basic subscription, or any paid/lifetime tier, is left alone.
+  if (!user.planId
+      && (user.tier === 'explorer' || user.tier === 'basic')
+      && user.tier !== baseline) {
+    return await store.updateUser(user.id, { tier: baseline });
+  }
+
   return user;
 }
 
@@ -40,8 +55,9 @@ async function reconcileUser(user) {
 // reconcile. Idempotent: users already on the correct tier are untouched.
 async function reconcileAllUsers(users) {
   if (!users || !users.length) return users || [];
+  const cfg = await store.getSiteConfig(); // read once for the whole batch
   const out = [];
-  for (const u of users) out.push(await reconcileUser(u));
+  for (const u of users) out.push(await reconcileUser(u, cfg));
   return out;
 }
 
@@ -127,6 +143,11 @@ router.post('/firebase-session', async (req, res) => {
     for (const [field, label] of Object.entries(required)) {
       if (!p[field] || !String(p[field]).trim()) return res.status(400).json({ error: `Please enter ${label}.` });
     }
+    // Start every signup on the CURRENT mode's free baseline: Basic while the
+    // new Basic/Advanced page is live, Explorer under the classic page. Basic is
+    // granted automatically — no manual "subscribe" step required — so nobody
+    // lands on Explorer while new-plans is enabled.
+    const signupBaseline = baselineTier(await store.getSiteConfig());
     user = await store.createUser({
       id: nanoid(),
       firebaseUid: decoded.uid,
@@ -136,7 +157,7 @@ router.post('/firebase-session', async (req, res) => {
       college: String(p.college).trim(),
       nationality: String(p.nationality).trim(),
       grade: String(p.grade).trim(),
-      tier: 'explorer', // signing up grants the free Explorer tier (prerequisite for buying any plan)
+      tier: signupBaseline,
       planId: null, planActivatedAt: null, planExpiresAt: null,
       status: 'active',
       createdAt: new Date().toISOString(),

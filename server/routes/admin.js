@@ -4,7 +4,7 @@ const store = require('../data/store');
 const firebase = require('../data/firebase');
 const { requireAdmin } = require('./manual-payments');
 const { reconcileAllUsers } = require('./auth');
-const { isExpired, PLANS, accessTierForPlan, computeExpiry } = require('../data/plans');
+const { isExpired, PLANS, accessTierForPlan, computeExpiry, baselineTier } = require('../data/plans');
 
 const router = express.Router();
 
@@ -363,6 +363,9 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
   const now = new Date().toISOString();
+  // Revoking a plan (suspend/expire) drops the user to the CURRENT mode's free
+  // baseline — Basic under new-plans, Explorer under the classic page.
+  const revokeTier = baselineTier(await store.getSiteConfig());
 
   async function setPlan(newPlanId, activatedAt) {
     const start = activatedAt || now;
@@ -384,7 +387,7 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
 
   switch (action) {
     case 'suspend': // stop access now, but remember the plan so it can be reactivated
-      await store.updateUser(user.id, { tier: 'explorer', subStatus: 'suspended', suspendedAt: now });
+      await store.updateUser(user.id, { tier: revokeTier, subStatus: 'suspended', suspendedAt: now });
       break;
     case 'reactivate': // restore access to the plan on file (if any)
       if (user.planId) await store.updateUser(user.id, { tier: accessTierForPlan(user.planId), subStatus: 'active', suspendedAt: null });
@@ -403,8 +406,8 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
     case 'reduce':
       await shiftExpiry(-Math.abs(Number(days) || 0));
       break;
-    case 'expire': // force the plan to end right now -> revert to explorer
-      await store.updateUser(user.id, { tier: 'explorer', subStatus: 'expired', planExpiresAt: now });
+    case 'expire': // force the plan to end right now -> revert to the free baseline
+      await store.updateUser(user.id, { tier: revokeTier, subStatus: 'expired', planExpiresAt: now });
       break;
     case 'ban':
       await store.updateUser(user.id, { status: 'banned', bannedAt: now });

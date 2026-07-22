@@ -8863,16 +8863,17 @@ function _ttDownloadBlob(blob, filename){
       fetch('/api/site-config', { credentials:'same-origin' })
         .then(function(r){ return r.json(); })
         .then(function(cfg){
-          // New-plans flow: a signed-in account that hasn't picked Basic or
-          // Advanced yet (still on the signup default 'explorer') is sent to
-          // the plans page ONCE. Subscribing to free Basic — or an approved
-          // Advanced payment — changes the tier, and this gate never fires
-          // again. The kill-switch (plansEnabled false) bypasses everything.
-          if (cfg && cfg.plansEnabled !== false && cfg.newPlans === true && serverTier === 'explorer') {
-            window.location.replace('/plans.html?choose=1');
-            return;
+          // New-plans mode: Basic is the automatic free baseline — nobody sits
+          // on Explorer while it's live. The server already normalises this, but
+          // treat any stale 'explorer' as 'basic' here too so access is right
+          // even before that write lands. No forced trip to the plans page:
+          // Basic is granted whether or not they ever tap "subscribe". The
+          // kill-switch (plansEnabled false) still grants full (lifetime) access.
+          var effTier = serverTier;
+          if (cfg && cfg.plansEnabled !== false && cfg.newPlans === true && effTier === 'explorer') {
+            effTier = 'basic';
           }
-          applyTier(cfg && cfg.plansEnabled === false ? 'lifetime' : serverTier);
+          applyTier(cfg && cfg.plansEnabled === false ? 'lifetime' : effTier);
         })
         .catch(function(){ applyTier(serverTier); });
       function applyTier(tier){
