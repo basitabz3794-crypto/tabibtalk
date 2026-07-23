@@ -171,6 +171,18 @@ router.get('/users/:id/detail', requireAdmin, async (req, res) => {
     store.listDevicesForUser(user.id),
     store.listDeviceAppeals(),
   ]);
+  // Pull the live email-verification status from Firebase so the admin can see
+  // who is stuck (registered but never verified) and act on it. Non-fatal: if
+  // Firebase is unavailable we just report it as unknown rather than 500.
+  let emailVerified = null; // null = unknown
+  try {
+    if (firebase.isEnabled()) {
+      const fbUser = user.firebaseUid
+        ? await firebase.getAuthUser(user.firebaseUid)
+        : await firebase.getAuthUserByEmail(user.email);
+      if (fbUser) emailVerified = fbUser.emailVerified === true;
+    }
+  } catch (err) { console.error('[admin] email-verified lookup failed:', err.message); }
   res.json({
     user: {
       id: user.id, name: user.name || '', email: user.email,
@@ -181,6 +193,7 @@ router.get('/users/:id/detail', requireAdmin, async (req, res) => {
       planExpiresAt: user.planExpiresAt || null,
       subStatus: user.subStatus || null,
       status: user.status || 'active',
+      emailVerified,
       maxDevices: Number(user.maxDevices) > 0 ? Number(user.maxDevices) : 3,
       createdAt: user.createdAt,
     },
@@ -188,6 +201,31 @@ router.get('/users/:id/detail', requireAdmin, async (req, res) => {
     deviceCount: devices.filter(d => !d.blocked).length,
     appeals: allAppeals.filter(a => a.userId === user.id).length,
   });
+});
+
+// ---- Admin: unblock a student whose verification email never arrived ----
+// Firebase's Admin SDK cannot SEND the verification email (only the browser can,
+// and that's the throttled path that's failing), so this marks the account
+// verified directly — a one-click, delivery-independent way to let a trusted
+// student in. It also returns a fresh verification link the admin can forward
+// (e.g. over WhatsApp) if they'd rather the student confirm it themselves.
+router.post('/users/:id/verify-email', requireAdmin, async (req, res) => {
+  if (!firebase.isEnabled()) return res.status(503).json({ error: 'Firebase is not configured, so email verification cannot be changed here.' });
+  const user = await store.findUserById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  try {
+    const fbUser = user.firebaseUid
+      ? await firebase.getAuthUser(user.firebaseUid)
+      : await firebase.getAuthUserByEmail(user.email);
+    if (!fbUser) return res.status(404).json({ error: 'No Firebase account found for this email.' });
+    await firebase.setEmailVerified(fbUser.uid);
+    let link = null;
+    try { link = await firebase.generateVerificationLink(user.email); } catch (e) { /* link is a bonus; verify already succeeded */ }
+    res.json({ ok: true, emailVerified: true, email: user.email, link });
+  } catch (err) {
+    console.error('[admin] verify-email failed:', err.message);
+    res.status(500).json({ error: 'Could not verify this account right now. Please try again.' });
+  }
 });
 
 // ---- All proofs grouped by state, each with screenshot + plan + user info ----

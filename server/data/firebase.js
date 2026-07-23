@@ -86,6 +86,36 @@ async function getAuthUserByEmail(email) {
   }
 }
 
+// Look up a Firebase Auth user by uid. Returns null if they no longer exist.
+async function getAuthUser(uid) {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  try {
+    return await getAuth(init()).getUser(uid);
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') return null;
+    throw err;
+  }
+}
+
+// Admin override: mark a Firebase account's email as verified. Used by the
+// admin "Verify email" action to unblock a student whose verification email
+// never arrived (Firebase's default sender throttles/drops mail). The Admin SDK
+// cannot SEND the verification email — only the browser SDK can — so verifying
+// directly is the reliable way to let a trusted student in without waiting on
+// email delivery.
+async function setEmailVerified(uid) {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  return getAuth(init()).updateUser(uid, { emailVerified: true });
+}
+
+// Generate a one-time verification link the admin can hand to the student
+// directly (e.g. over WhatsApp) instead of relying on the throttled auto-mailer.
+// This does NOT send anything — it just mints the link.
+async function generateVerificationLink(email) {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  return getAuth(init()).generateEmailVerificationLink(email);
+}
+
 // The Realtime Database handle. store.js builds the rest of the app's
 // collections on top of this.
 function database() {
@@ -125,6 +155,6 @@ async function getAllProgress() {
 
 module.exports = {
   isEnabled, whyDisabled, database,
-  verifyIdToken, getAuthUserByEmail, revokeTokens,
+  verifyIdToken, getAuthUserByEmail, getAuthUser, setEmailVerified, generateVerificationLink, revokeTokens,
   getProgress, mergeProgress, getAllProgress,
 };

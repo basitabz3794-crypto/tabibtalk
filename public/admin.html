@@ -368,6 +368,15 @@ async function userDetail(id){
         ${row('College', esc(u.college||'—'))}
         ${row('Nationality / Grade', esc(u.nationality||'—')+' · '+esc(u.grade||'—'))}
         ${row('Joined', fmtD(u.createdAt))}
+        ${row('Email verified', u.emailVerified===true
+            ? '<span style="color:var(--accent)">✓ Verified</span>'
+            : (u.emailVerified===false
+                ? '<span style="color:var(--gold)">✗ Not verified — can\'t sign in</span>'
+                : '<span style="color:var(--muted)">unknown</span>'))}
+        ${u.emailVerified===false ? `<div class="row-actions" style="margin:6px 0 4px">
+          <button class="btn btn-primary" onclick="verifyEmail('${u.id}')">✓ Verify email now — unblock sign-in</button>
+        </div>
+        <p style="color:var(--muted);font-size:.78rem;margin:2px 0 0">Their verification email didn't arrive. This confirms the address for them so they can log in right away — use it for students you trust. You'll also get a link you can send them.</p>` : ''}
         ${row('Devices', d.deviceCount+' active / limit '+u.maxDevices+(d.appeals?' · '+d.appeals+' appeal(s)':''))}
         <h3 class="sec" style="margin-top:20px">Current plan</h3>
         ${row('Plan', esc(PLAN_NAMES2[u.planId]||u.planId||'None — free tier'))}
@@ -385,6 +394,26 @@ async function userDetail(id){
   document.body.insertAdjacentHTML('beforeend', html);
 }
 window.userDetail=userDetail;
+
+// Admin unblock: mark a stuck student's email verified so they can sign in now.
+// (Firebase can't be made to re-send the mail from the server; verifying
+// directly is the reliable stopgap until a custom SMTP sender is configured.)
+async function verifyEmail(id){
+  if(!confirm('Mark this student\'s email as verified so they can sign in immediately?\n\nUse this only for students you trust — it confirms the address on their behalf, without them clicking an email link.')) return;
+  try{
+    const r = await adminPost(`/api/admin/users/${id}/verify-email`, {});
+    if(r && r.ok){
+      if(r.link){
+        window.prompt('Verified — this student can sign in now.\n\nOptional: you can also send them this personal verification link (e.g. on WhatsApp) so they confirm it themselves. Copy it below:', r.link);
+      } else {
+        alert('Verified — this student can sign in now.');
+      }
+      const m=document.getElementById('user-detail-modal'); if(m) m.remove();
+      userDetail(id);   // reopen with refreshed status
+    }
+  }catch(e){ alert('Could not verify this account right now. Please try again.'); }
+}
+window.verifyEmail=verifyEmail;
 
 // Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
 function manageSub(userId, currentPlan, subState){
