@@ -31,6 +31,16 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
   <div id="alert-box"></div>
 
+  <div id="google-block" class="reveal d1">
+    <button type="button" id="google-btn" class="btn btn-block" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;font-weight:650">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div style="display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--muted);font-size:.82rem">
+      <span style="flex:1;height:1px;background:var(--border)"></span> or use email <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+  </div>
+
   <div class="tab-row reveal d1">
     <button class="active" data-panel="login">Log in</button>
     <button data-panel="signup">Create account</button>
@@ -101,6 +111,25 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
     <button class="btn btn-primary btn-block" id="resend-btn">Resend verification email</button>
     <p style="text-align:center;margin-top:14px"><a href="#" onclick="showLogin();return false;" style="color:var(--accent);font-size:.88rem">&larr; Back to log in</a></p>
   </div>
+
+  <!-- New Google user: collect the few extra details the account needs.
+       (Google already proved the email, so there's no verification step.) -->
+  <div class="card form-panel reveal d2" id="panel-google-profile">
+    <h3 style="font-family:var(--font-display);margin:0 0 6px">Almost there</h3>
+    <p style="color:var(--muted);font-size:.9rem;margin-top:0">You're signed in with Google — no email verification needed. Just a few details to finish setting up your account.</p>
+    <form id="google-profile-form">
+      <div class="field"><label for="gp-name">Full name</label><input type="text" id="gp-name" required placeholder="Your name"></div>
+      <div class="field"><label for="gp-phone">Phone number</label><input type="tel" id="gp-phone" required placeholder="e.g. +20 1XX XXX XXXX"></div>
+      <div class="field"><label for="gp-college">College name</label><input type="text" id="gp-college" required placeholder="e.g. Cairo University Faculty of Medicine"></div>
+      <div class="field"><label for="gp-nationality">Nationality</label><input type="text" id="gp-nationality" required placeholder="e.g. Egyptian, Indian"></div>
+      <div class="field"><label for="gp-grade">Year / grade in college</label><input type="text" id="gp-grade" required placeholder="e.g. 3rd year MBBS"></div>
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:.85rem;color:var(--text-dim);margin-bottom:14px;cursor:pointer">
+        <input type="checkbox" id="gp-terms" style="width:auto;margin-top:3px" required>
+        <span>I agree to the <a href="#" onclick="openTerms();return false;" style="color:var(--accent);font-weight:600">Terms &amp; Conditions</a> — no refunds, no auto-renewal, and no account or device sharing.</span>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Finish &amp; enter</button>
+    </form>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -148,7 +177,13 @@ function busy(btn, on, label) {
   if (on) { btn.dataset.label = btn.textContent; btn.textContent = label; }
   else if (btn.dataset.label) { btn.textContent = btn.dataset.label; }
 }
-function panelTo(id){ document.querySelectorAll('.form-panel').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function panelTo(id){
+  document.querySelectorAll('.form-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  // The "Continue with Google" block belongs only to the login/signup views.
+  var gb=document.getElementById('google-block');
+  if(gb) gb.style.display=(id==='panel-login'||id==='panel-signup')?'':'none';
+}
 function showForgot(){ panelTo('panel-forgot'); document.querySelectorAll('.tab-row button').forEach(b=>b.classList.remove('active')); }
 function showLogin(){ panelTo('panel-login'); document.querySelectorAll('.tab-row button').forEach(b=>b.classList.toggle('active', b.dataset.panel==='login')); }
 
@@ -158,6 +193,55 @@ document.querySelectorAll('.tab-row button').forEach(btn => btn.addEventListener
 }));
 
 function nextUrl(){ return new URLSearchParams(window.location.search).get('next') || '/account.html'; }
+
+// ---- Continue with Google ----
+// Existing users sign straight in; new users are sent to the short details form.
+document.getElementById('google-btn').addEventListener('click', async () => {
+  clearAlert();
+  const btn = document.getElementById('google-btn');
+  busy(btn, true, 'Opening Google…');
+  try {
+    const r = await TTAuth.signInWithGoogle();
+    if (r.cancelled) return;
+    if (r.deviceBlocked) { showDeviceAppeal(r.error, r.idToken); return; }
+    if (r.ok) { window.location.href = nextUrl(); return; }
+    if (r.needsProfile) {
+      document.getElementById('gp-name').value = r.name || '';
+      panelTo('panel-google-profile');
+      document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('active'));
+      showAlert('You’re signed in with Google! Just add a few details to finish.', 'success');
+    }
+  } catch (err) {
+    showAlert(err.message || 'Could not sign in with Google.');
+  } finally { busy(btn, false); }
+});
+
+document.getElementById('google-profile-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearAlert();
+  if (!document.getElementById('gp-terms').checked) { showAlert('Please agree to the Terms & Conditions to continue.'); return; }
+  const btn = e.target.querySelector('button[type=submit]');
+  busy(btn, true, 'Finishing…');
+  try {
+    const r = await TTAuth.completeGoogleProfile({
+      name: document.getElementById('gp-name').value,
+      phone: document.getElementById('gp-phone').value,
+      college: document.getElementById('gp-college').value,
+      nationality: document.getElementById('gp-nationality').value,
+      grade: document.getElementById('gp-grade').value,
+    });
+    if (r.deviceBlocked) { showDeviceAppeal(r.error, r.idToken); return; }
+    if (r.ok) {
+      // Fresh account: wipe any anonymous pre-signup progress in this browser.
+      ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard','tt_fc','tt_qz','tt_last'].forEach(function(k){ try { localStorage.removeItem(k); } catch(e){} });
+      window.location.href = nextUrl();
+      return;
+    }
+    showAlert('Could not finish setting up your account.');
+  } catch (err) {
+    showAlert(err.message);
+  } finally { busy(btn, false); }
+});
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();

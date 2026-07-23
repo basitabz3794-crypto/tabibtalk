@@ -248,11 +248,77 @@ const TTAuth = (function () {
     return { ok: true };
   }
 
+  // ---- Continue with Google ----
+  // Google accounts arrive already email-verified, so this sidesteps the
+  // verification-email problem entirely. Existing users sign straight in; a
+  // brand-new Google user has no profile yet (phone/college/year), so the
+  // server answers 409 needsProfile and the caller collects those fields, then
+  // calls completeGoogleProfile() to finish creating the account.
+  async function signInWithGoogle() {
+    const auth = await ready();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    let cred;
+    try {
+      cred = await auth.signInWithPopup(provider);
+    } catch (err) {
+      const code = err && err.code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request' || code === 'auth/user-cancelled') {
+        return { cancelled: true };
+      }
+      if (code === 'auth/operation-not-allowed') {
+        throw new Error('Google sign-in isn’t switched on for this site yet. Please use email sign-up for now.');
+      }
+      if (code === 'auth/account-exists-with-different-credential') {
+        throw new Error('This email already has a password account here. Please log in with your email and password instead.');
+      }
+      if (code === 'auth/popup-blocked') {
+        throw new Error('Your browser blocked the Google pop-up. Please allow pop-ups for this site and try again.');
+      }
+      if (code === 'auth/unauthorized-domain') {
+        throw new Error('This web address isn’t authorised for Google sign-in yet. Please try again shortly or use email sign-up.');
+      }
+      throw new Error(friendlyError(err));
+    }
+
+    const idToken = await cred.user.getIdToken();
+    const r = await postSession(idToken);
+    if (r.ok) return { ok: true, user: r.data };
+
+    // New Google user: the server has no profile for them yet.
+    if (r.status === 409 || (r.data && r.data.needsProfile)) {
+      return { needsProfile: true, email: cred.user.email || '', name: cred.user.displayName || '' };
+    }
+    // Blocked by the device limit — hand the token back for the appeal form.
+    if (r.data && r.data.deviceBlocked) {
+      await auth.signOut();
+      return { deviceBlocked: true, error: r.data.error, idToken: idToken };
+    }
+    await auth.signOut();
+    throw new Error((r.data && r.data.error) || 'Could not sign you in with Google.');
+  }
+
+  // Finish a brand-new Google signup once the extra profile fields are filled.
+  // Reads a fresh ID token from the still-signed-in Google user, so it works
+  // however long the person spent on the details form.
+  async function completeGoogleProfile(profile) {
+    const auth = await ready();
+    const user = auth.currentUser;
+    if (!user) throw new Error('Your Google sign-in timed out. Please tap “Continue with Google” again.');
+    const idToken = await user.getIdToken(true);
+    const r = await postSession(idToken, profile);
+    if (r.ok) return { ok: true, user: r.data };
+    if (r.data && r.data.deviceBlocked) return { deviceBlocked: true, error: r.data.error, idToken: idToken };
+    await auth.signOut();
+    throw new Error((r.data && r.data.error) || 'Could not finish setting up your account.');
+  }
+
   // ---- Log out ----
   async function logOut() {
     try { const auth = await ready(); await auth.signOut(); } catch (e) {}
     try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
   }
 
-  return { ready, signUp, logIn, resendVerification, sendReset, sendDeviceAppeal, logOut, friendlyError };
+  return { ready, signUp, logIn, signInWithGoogle, completeGoogleProfile, resendVerification, sendReset, sendDeviceAppeal, logOut, friendlyError };
 })();
