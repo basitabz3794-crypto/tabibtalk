@@ -94,7 +94,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   <!-- Email-verification panel -->
   <div class="card form-panel reveal d2" id="panel-verify">
     <h3 style="font-family:var(--font-display);margin:0 0 6px">Verify your email</h3>
-    <p style="color:var(--muted);font-size:.9rem;margin-top:0">
+    <p style="color:var(--muted);font-size:.9rem;margin-top:0" id="verify-sub">
       We've sent a verification link to <b id="verify-email-label"></b>. Open it, then come back and log in.
     </p>
     <p style="color:var(--muted);font-size:.85rem">Can't find it? Check your spam folder.</p>
@@ -116,8 +116,20 @@ function clearAlert(){ document.getElementById('alert-box').innerHTML = ''; }
 // sign back in to Firebase to ask for another email. Never persisted.
 let lastCredentials = { email: '', password: '' };
 
-function showVerify(email) {
-  document.getElementById('verify-email-label').textContent = email;
+function showVerify(email, sent) {
+  // Keep the panel copy in step with reality: only say "we've sent it" when we
+  // actually did. When the send failed/throttled, point straight at Resend.
+  // (This rewrites verify-sub entirely — including the email — so we no longer
+  // depend on the nested verify-email-label span.)
+  var safe = String(email || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var sub = document.getElementById('verify-sub');
+  if (sub) {
+    if (sent === false) {
+      sub.innerHTML = 'Your account for <b>' + safe + '</b> is ready, but the verification email hasn\'t gone out yet. Tap <b>Resend verification email</b> below, then check your inbox and your spam/junk folder.';
+    } else {
+      sub.innerHTML = 'We\'ve sent a verification link to <b>' + safe + '</b>. Open it, then come back and log in.';
+    }
+  }
   panelTo('panel-verify');
   document.querySelectorAll('.tab-row button').forEach(b => b.classList.remove('active'));
 }
@@ -158,8 +170,12 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     const r = await TTAuth.logIn(email, password);
     if (r.needsVerification) {
       lastCredentials = { email, password };
-      showAlert('Please verify your email first — we\'ve sent you a link.', 'error');
-      showVerify(email);
+      if (r.emailSent) {
+        showAlert('Please verify your email first — we\'ve just sent you a fresh link. Check your inbox and your spam/junk folder.', 'error');
+      } else {
+        showAlert(r.emailError || 'Please verify your email first. Tap "Resend verification email" below to get a new link.', 'error');
+      }
+      showVerify(email, r.emailSent);
       return;
     }
     if (r.deviceBlocked) {
@@ -197,8 +213,15 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     lastCredentials = { email, password };
     // Completing an already-verified account signs straight in.
     if (r.ok) { window.location.href = nextUrl(); return; }
-    showAlert('Verification email sent! Check your inbox, then log in.', 'success');
-    showVerify(email);
+    // Only claim "sent" when it actually was. If Firebase throttled/dropped the
+    // send, say so and point at the Resend button instead of leaving the student
+    // waiting for an email that never comes.
+    if (r.emailSent) {
+      showAlert('Verification email sent! Check your inbox and your spam/junk folder, then log in.', 'success');
+    } else {
+      showAlert(r.emailError || 'Account created, but the verification email didn\'t go out. Tap "Resend verification email" below to try again.', 'error');
+    }
+    showVerify(email, r.emailSent);
   } catch (err) {
     showAlert(TTAuth.friendlyError(err));
   } finally { busy(btn, false); }

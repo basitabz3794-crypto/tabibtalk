@@ -66,6 +66,21 @@ const TTAuth = (function () {
     return { url: window.location.origin + '/login.html', handleCodeInApp: false };
   }
 
+  // A student-readable reason a verification email failed to send, so we never
+  // claim "email sent" when it wasn't. Firebase throttles verification sends
+  // per project, so a burst of sign-ups can hit auth/too-many-requests — the
+  // single most common cause of "registered but never got the email".
+  function friendlyVerificationError(err) {
+    var code = err && err.code;
+    if (code === 'auth/too-many-requests') {
+      return 'Too many verification emails were requested at once. Please wait 1–2 minutes, then tap “Resend verification email”.';
+    }
+    if (code === 'auth/network-request-failed') {
+      return 'Network problem while sending the verification email — check your connection and tap “Resend verification email”.';
+    }
+    return 'Your account was created, but the verification email didn’t go out. Tap “Resend verification email” to try again.';
+  }
+
   // Send a verification email that WORKS even before a new custom domain has
   // been added to Firebase's Authorized domains. Passing a continue `url` on an
   // un-authorized domain makes Firebase reject the whole call with
@@ -104,11 +119,16 @@ const TTAuth = (function () {
   async function signUp(email, password, profile) {
     const auth = await ready();
     let cred;
+    // Track whether the verification email actually went out, so the UI can tell
+    // the truth instead of always saying "email sent" even when it failed.
+    let emailSent = false;
+    let emailError = null;
 
     try {
       cred = await auth.createUserWithEmailAndPassword(email, password);
       // Send the verification email before anything else can fail.
-      try { await sendVerification(cred.user); } catch (e) { /* non-fatal; user can resend */ }
+      try { await sendVerification(cred.user); emailSent = true; }
+      catch (e) { emailError = friendlyVerificationError(e); }
     } catch (err) {
       if (err.code !== 'auth/email-already-in-use') throw err;
       // The Firebase account exists but our server may never have received the
@@ -122,7 +142,8 @@ const TTAuth = (function () {
         throw err; // wrong password — the address really is taken by someone else
       }
       if (!cred.user.emailVerified) {
-        try { await sendVerification(cred.user); } catch (e) {}
+        try { await sendVerification(cred.user); emailSent = true; }
+        catch (e) { emailError = friendlyVerificationError(e); }
       }
     }
 
@@ -140,7 +161,7 @@ const TTAuth = (function () {
     if (!r.data.needsVerification) {
       throw new Error(r.data.error || 'Could not finish creating your account.');
     }
-    return { needsVerification: true, email: email };
+    return { needsVerification: true, email: email, emailSent: emailSent, emailError: emailError };
   }
 
   // ---- Log in ----
@@ -154,7 +175,14 @@ const TTAuth = (function () {
     // fresh token so its email_verified claim is up to date for the server.
     await cred.user.reload();
     if (!cred.user.emailVerified) {
-      return { needsVerification: true, email: email };
+      // They're blocked on verification — so send a FRESH link right now. This
+      // is the recovery path for anyone whose original signup email was dropped
+      // or throttled: just try to log in and a new one goes out. Report whether
+      // it actually sent so the page can say the truth.
+      let emailSent = false, emailError = null;
+      try { await sendVerification(cred.user); emailSent = true; }
+      catch (e) { emailError = friendlyVerificationError(e); }
+      return { needsVerification: true, email: email, emailSent: emailSent, emailError: emailError };
     }
 
     const idToken = await cred.user.getIdToken(true);
