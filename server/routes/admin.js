@@ -203,6 +203,58 @@ router.get('/users/:id/detail', requireAdmin, async (req, res) => {
   });
 });
 
+// ---- Every sign-in account (Firebase Auth roster) + analytics ----
+// The admin hub's normal Users tab only shows accounts that finished the app-side
+// profile. This reads the full Firebase Auth list — the real record of everyone
+// who ever authenticated (email OR Google) — so nobody is invisible, including
+// Google users who signed in but didn't finish the "Almost there" details form.
+router.get('/auth-users', requireAdmin, async (req, res) => {
+  if (!firebase.isEnabled()) return res.status(503).json({ error: 'Firebase is not configured.' });
+  try {
+    const [authUsers, dbUsers] = await Promise.all([firebase.listAuthUsers(), store.listAllUsers()]);
+    const byUid = {}, byEmail = {};
+    dbUsers.forEach((u) => {
+      if (u.firebaseUid) byUid[u.firebaseUid] = u;
+      if (u.email) byEmail[String(u.email).toLowerCase()] = u;
+    });
+    const rows = authUsers.map((a) => {
+      const rec = byUid[a.uid] || byEmail[String(a.email || '').toLowerCase()] || null;
+      const isGoogle = a.providers.includes('google.com');
+      const isPassword = a.providers.includes('password');
+      const method = isGoogle ? (isPassword ? 'google + email' : 'google') : 'email';
+      return {
+        email: a.email,
+        method,
+        emailVerified: a.emailVerified,
+        // Who can actually get in: Google users are auto-verified; email users
+        // must have verified their address.
+        canSignIn: a.emailVerified || isGoogle,
+        signedIn: !!a.lastSignInTime,
+        inAdminHub: !!rec,          // has a completed app-side record
+        tier: rec ? rec.tier : null,
+        name: rec ? (rec.name || '') : '',
+        createdAt: a.creationTime,
+        lastSignIn: a.lastSignInTime,
+      };
+    });
+    // Newest sign-in first.
+    rows.sort((x, y) => new Date(y.lastSignIn || y.createdAt || 0) - new Date(x.lastSignIn || x.createdAt || 0));
+    const stats = {
+      total: rows.length,
+      signedIn: rows.filter((r) => r.signedIn).length,
+      google: rows.filter((r) => r.method.indexOf('google') === 0).length,
+      email: rows.filter((r) => r.method === 'email').length,
+      canSignIn: rows.filter((r) => r.canSignIn).length,
+      verified: rows.filter((r) => r.emailVerified).length,
+      notInHub: rows.filter((r) => !r.inAdminHub).length,
+    };
+    res.json({ stats, users: rows });
+  } catch (err) {
+    console.error('[admin] auth-users failed:', err.message);
+    res.status(500).json({ error: 'Could not load the sign-in accounts right now.' });
+  }
+});
+
 // ---- Admin: unblock a student whose verification email never arrived ----
 // Firebase's Admin SDK cannot SEND the verification email (only the browser can,
 // and that's the throttled path that's failing), so this marks the account

@@ -117,6 +117,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
     <div class="tabs" id="tabs">
       <button class="on" data-tab="subs">Subscriptions</button>
       <button data-tab="users">Users</button>
+      <button data-tab="signins">Sign-ins</button>
       <button data-tab="resets">Password resets</button>
       <button data-tab="recs">Recommendations</button>
       <button data-tab="devices">Devices &amp; violations</button>
@@ -128,6 +129,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
     </div>
     <div class="panel on" id="panel-subs"></div>
     <div class="panel" id="panel-users"></div>
+    <div class="panel" id="panel-signins"></div>
     <div class="panel" id="panel-resets"></div>
     <div class="panel" id="panel-recs"></div>
     <div class="panel" id="panel-devices"></div>
@@ -173,7 +175,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click
   b.classList.add('on'); document.getElementById('panel-'+b.dataset.tab).classList.add('on');
 }));
 
-async function loadAll(){ await Promise.all([loadStats(), loadSubs(), loadUsers(), loadResets(), loadRecs(), loadDevices(), loadNotify(), loadShares(), loadInterests(), loadDev(), loadAccounts()]); }
+async function loadAll(){ await Promise.all([loadStats(), loadSubs(), loadUsers(), loadSignins(), loadResets(), loadRecs(), loadDevices(), loadNotify(), loadShares(), loadInterests(), loadDev(), loadAccounts()]); }
 
 document.getElementById('refresh-btn').addEventListener('click', async () => {
   const btn = document.getElementById('refresh-btn');
@@ -414,6 +416,67 @@ async function verifyEmail(id){
   }catch(e){ alert('Could not verify this account right now. Please try again.'); }
 }
 window.verifyEmail=verifyEmail;
+
+// ---- Sign-ins: everyone who ever authenticated (Firebase Auth roster) ----
+let SIGNIN_DATA = null;
+async function loadSignins(){
+  try { SIGNIN_DATA = await adminGet('/api/admin/auth-users'); }
+  catch(e){ document.getElementById('panel-signins').innerHTML = '<div class="card"><div class="empty">Could not load sign-in accounts.</div></div>'; return; }
+  renderSignins();
+}
+function signinFilter(){ renderSignins(); }
+window.signinFilter=signinFilter;
+function renderSignins(){
+  if(!SIGNIN_DATA) return;
+  const s = SIGNIN_DATA.stats;
+  const q = ((document.getElementById('signin-search')||{}).value||'').toLowerCase().trim();
+  let rows = SIGNIN_DATA.users;
+  if(q) rows = rows.filter(u => (u.email||'').toLowerCase().includes(q));
+  const tiles = [
+    ['Total accounts', s.total, true, 'every identity in Firebase — email + Google'],
+    ['Signed in ≥ once', s.signedIn, true, 'authenticated on at least one device'],
+    ['Can sign in', s.canSignIn, true, 'Google (auto-verified) + verified email users'],
+    ['Via Google', s.google, false],
+    ['Via email', s.email, false],
+    ['Email verified', s.verified, false],
+    ['Not in Users tab', s.notInHub, false, 'signed in but never finished the profile — mostly Google'],
+  ];
+  const tbl = rows.map(u => {
+    const badge = u.method.indexOf('google')===0
+      ? '<span class="pill" style="background:rgba(66,133,244,.15);color:#4285F4">Google</span>'
+      : '<span class="pill" style="background:var(--border);color:var(--text-dim)">Email</span>';
+    const verified = u.canSignIn ? '<span style="color:var(--accent)">✓</span>' : '<span style="color:var(--gold)">✗</span>';
+    const hub = u.inAdminHub
+      ? '<span style="color:var(--accent)">✓ yes</span>'
+      : '<span style="color:var(--gold)" title="Signed in but never finished the profile form">✗ no</span>';
+    return `<tr${u.inAdminHub?'':' style="background:rgba(245,181,68,.06)"'}>
+      <td style="word-break:break-all">${esc(u.email||'—')}</td>
+      <td>${badge}</td>
+      <td style="text-align:center">${verified}</td>
+      <td style="text-align:center">${hub}</td>
+      <td>${u.tier?('<span style="text-transform:capitalize">'+esc(u.tier)+'</span>'):'—'}</td>
+      <td>${fmtD(u.createdAt)}</td>
+      <td>${fmtD(u.lastSignIn)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="empty">No accounts match.</td></tr>';
+  document.getElementById('panel-signins').innerHTML = `
+    <div class="stat-grid">
+      ${tiles.map(([l,n,a,hint])=>`<div class="card stat-card ${a?'accent':''}"><div class="n">${n}</div><div class="l">${l}${hint?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">${hint}</div>`:''}</div></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+        <h3 class="sec" style="margin:0">All sign-in accounts <span style="color:var(--muted);font-weight:500">(${rows.length}${q?(' of '+SIGNIN_DATA.users.length):''})</span></h3>
+        <input id="signin-search" type="search" placeholder="Search email…" value="${esc(q)}" oninput="signinFilter()" style="padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;min-width:200px">
+      </div>
+      <p style="color:var(--muted);font-size:.82rem;margin:0 0 12px">Highlighted rows signed in but never finished the profile form (so they don't appear in the Users tab). Google accounts are verified automatically.</p>
+      <div class="table-scroll"><table class="data">
+        <thead><tr><th>Email</th><th>Method</th><th>Can sign in</th><th>In Users tab</th><th>Tier</th><th>Created</th><th>Last sign-in</th></tr></thead>
+        <tbody>${tbl}</tbody>
+      </table></div>
+    </div>`;
+  // keep focus + caret in the search box across re-render
+  const sb=document.getElementById('signin-search'); if(sb && q){ sb.focus(); sb.setSelectionRange(sb.value.length, sb.value.length); }
+}
 
 // Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
 function manageSub(userId, currentPlan, subState){

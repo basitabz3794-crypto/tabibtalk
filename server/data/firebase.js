@@ -97,6 +97,34 @@ async function getAuthUser(uid) {
   }
 }
 
+// List every Firebase Auth account (paginated, up to `max`). This is the true
+// roster of everyone who has an identity — email/password AND Google — including
+// people who signed in but never finished the app-side profile, so the admin
+// hub can show a complete "who ever signed in" picture. Returns a lean shape.
+async function listAuthUsers(max = 2000) {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  const auth = getAuth(init());
+  const out = [];
+  let pageToken;
+  do {
+    const res = await auth.listUsers(1000, pageToken);
+    for (const u of res.users) {
+      out.push({
+        uid: u.uid,
+        email: u.email || '',
+        emailVerified: u.emailVerified === true,
+        disabled: u.disabled === true,
+        providers: (u.providerData || []).map((p) => p.providerId),
+        creationTime: (u.metadata && u.metadata.creationTime) || null,
+        lastSignInTime: (u.metadata && u.metadata.lastSignInTime) || null,
+      });
+      if (out.length >= max) return out;
+    }
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return out;
+}
+
 // Admin override: mark a Firebase account's email as verified. Used by the
 // admin "Verify email" action to unblock a student whose verification email
 // never arrived (Firebase's default sender throttles/drops mail). The Admin SDK
@@ -155,6 +183,6 @@ async function getAllProgress() {
 
 module.exports = {
   isEnabled, whyDisabled, database,
-  verifyIdToken, getAuthUserByEmail, getAuthUser, setEmailVerified, generateVerificationLink, revokeTokens,
+  verifyIdToken, getAuthUserByEmail, getAuthUser, listAuthUsers, setEmailVerified, generateVerificationLink, revokeTokens,
   getProgress, mergeProgress, getAllProgress,
 };
