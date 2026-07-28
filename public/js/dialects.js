@@ -25,12 +25,12 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 8,
+    batch: 9,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
     reviewedThrough: 7,            // ← raise this as each batch is reviewed
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
-    note: 'Batches 1-7 reviewed & approved. Batch 8 (abdomen) awaiting review.',
+    note: 'Batches 1-7 reviewed & approved. Batches 8-9 (abdomen) awaiting review.',
   },
 
   /* ---------------- Saudi — Hejazi ---------------- */
@@ -508,6 +508,47 @@ window.TT_DIALECT_PACK = {
     'yes bloating':                 { ar: 'أيوه، انتفاخ',              fr: 'Aywa, intifakh' },
     'is there any worm in the stool': { ar: 'في ديدان في البراز؟',     fr: 'Fee deedan fil-baraz?' },
     'is there any blood passing with the stool': { ar: 'في دم مع البراز؟', fr: 'Fee dam ma3 al-baraz?' },
+
+    /* ===== Batch 9 — Abdomen pt.2: jaundice, urogenital, investigations.
+       Completes the abdomen subject. ===== */
+    // Hepatobiliary — jaundice
+    'do you have yellowish discolouration over your body': { ar: 'عندك اصفرار في جسمك؟', fr: '3indak isfirar fi jismak?' },
+    'yes im yellow':                { ar: 'أيوه، مصفرّ',               fr: 'Aywa, musaffar' },
+    'how rapid did the jaundice develop': { ar: 'الاصفرار ظهر في كم يوم؟', fr: 'Al-isfirar dhahar fi kam yom?' },
+    'over a few days':              { ar: 'في كم يوم',                 fr: 'Fi kam yom' },
+    'how long does it last':        { ar: 'كم صار له؟',                fr: 'Kam sar lah?' },
+    'about a week':                 { ar: 'حوالي أسبوع',               fr: 'Hawali usboo3' },
+    'has the jaundice increased decreased or is it constant in intensity': { ar: 'الاصفرار يزيد ولا يقل ولا ثابت؟', fr: 'Al-isfirar yizeed wala yigill wala thabit?' },
+    'its increasing':               { ar: 'يزيد',                      fr: 'Yizeed' },
+    'is there any change in the colour of urine or stool': { ar: 'في تغيّر في لون البول أو البراز؟', fr: 'Fee taghayyur fi lon al-bol aw al-baraz?' },
+    'my urine is dark':             { ar: 'بولي غامق',                 fr: 'Boli ghamig' },
+    'is there fever with chills':   { ar: 'تحس برعشة مع الحرارة؟',     fr: 'Tihiss bi-ra3sha ma3 al-harara?' },
+    'yes with shivering':           { ar: 'أيوه، مع رعشة',             fr: 'Aywa, ma3 ra3sha' },
+    'is there itching':             { ar: 'في حكة؟',                   fr: 'Fee hakka?' },
+    'yes itching':                  { ar: 'أيوه، حكة',                 fr: 'Aywa, hakka' },
+    'is there abdominal pain':      { ar: 'في ألم في البطن؟',          fr: 'Fee alam fil-batn?' },
+    'is there abdominal swelling':  { ar: 'في انتفاخ في البطن؟',       fr: 'Fee intifakh fil-batn?' },
+    'is there weight loss':         { ar: 'وزنك نقص؟',                 fr: 'Waznak nagas?' },
+    'is there bleeding from nose and gum bleeding tendency': { ar: 'في نزيف من أنفك أو لثتك؟', fr: 'Fee nazeef min anfak aw lithatak?' },
+    'sometimes my gums bleed':      { ar: 'أحياناً لثتي تنزف',         fr: 'Ahyanan lithati tinzif' },
+    'is there anorexia and vomiting': { ar: 'في فقدان شهية واستفراغ؟', fr: 'Fee fugdan shahiya wa istifragh?' },
+    'was there loss of consciousness hepatic encephalopathy': { ar: 'صار عندك غيبوبة؟', fr: 'Sar 3indak ghaiboba?' },
+    'do you have any history of injections operations or blood transfusions': { ar: 'أخذت حقن أو سويت عملية أو نقل دم قبل؟', fr: 'Akhadht hiqan aw sawwait 3amaliya aw nagl dam gabl?' },
+    'yes i had surgery before':     { ar: 'أيوه، سويت عملية قبل',      fr: 'Aywa, sawwait 3amaliya gabl' },
+    'did you have any dental treatments tattooing acupuncture or ear piercings before': { ar: 'عالجت أسنانك أو سويت وشم أو إبر صينية أو خرم أذن قبل؟', fr: '3alajt asnanak aw sawwait washm aw ibar seeniya aw kharm udhun gabl?' },
+    'yes dental work':              { ar: 'أيوه، علاج أسنان',          fr: 'Aywa, 3ilaj asnan' },
+
+    // Urogenital
+    'do you feel pain during micturition': { ar: 'تحس بألم لما تبول؟', fr: 'Tihiss bi-alam lamma tbool?' },
+    'yes burning':                  { ar: 'أيوه، حرقان',               fr: 'Aywa, hargan' },
+    'what is the urine colour':     { ar: 'وش لون البول؟',             fr: 'Wesh lon al-bol?' },
+    'dark yellow':                  { ar: 'أصفر غامق',                 fr: 'Asfar ghamig' },
+    'is there any sign of thirst or dry skintongue': { ar: 'تحس بعطش أو جلدك ولسانك ناشف؟', fr: 'Tihiss bi-3atash aw jildak wa lisanak nashif?' },
+    'yes im thirsty':               { ar: 'أيوه، عطشان',               fr: 'Aywa, 3atshan' },
+    'is there any sexual disorder': { ar: 'في مشاكل جنسية؟',           fr: 'Fee mashakil jinsiya?' },
+
+    // Reply to proposed investigations
+    'ill do it':                    { ar: 'بسوّيها',                   fr: 'Basawweeha' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -981,5 +1022,46 @@ window.TT_DIALECT_PACK = {
     'yes bloating':                 { ar: 'إي، انتفاخ',                fr: 'Ee, intifakh' },
     'is there any worm in the stool': { ar: 'في ديدان بالبراز؟',       fr: 'Fee deedan bil-baraz?' },
     'is there any blood passing with the stool': { ar: 'في دم مع البراز؟', fr: 'Fee dam ma3 al-baraz?' },
+
+    /* ===== Batch 9 — Abdomen pt.2: jaundice, urogenital, investigations.
+       Completes the abdomen subject. ===== */
+    // Hepatobiliary — jaundice
+    'do you have yellowish discolouration over your body': { ar: 'عندك اصفرار بجسمك؟', fr: '3indik isfirar b-jismik?' },
+    'yes im yellow':                { ar: 'إي، مصفرّ',                 fr: 'Ee, musaffar' },
+    'how rapid did the jaundice develop': { ar: 'الاصفرار ظهر بكم يوم؟', fr: 'Al-isfirar dhahar b-kam yom?' },
+    'over a few days':              { ar: 'بكم يوم',                   fr: 'B-kam yom' },
+    'how long does it last':        { ar: 'كم صار له؟',                fr: 'Kam sar la?' },
+    'about a week':                 { ar: 'حوالي أسبوع',               fr: 'Hawali usboo3' },
+    'has the jaundice increased decreased or is it constant in intensity': { ar: 'الاصفرار يزيد ولا يقل ولا ثابت؟', fr: 'Al-isfirar yzeed wala ygill wala thabit?' },
+    'its increasing':               { ar: 'يزيد',                      fr: 'Yzeed' },
+    'is there any change in the colour of urine or stool': { ar: 'في تغيّر بلون البول ولا البراز؟', fr: 'Fee taghayyur b-lon al-bol wala al-baraz?' },
+    'my urine is dark':             { ar: 'بولي غامق',                 fr: 'Boli ghamig' },
+    'is there fever with chills':   { ar: 'تحس برعشة مع الحرارة؟',     fr: 'Tihiss bi-ra3sha ma3 al-harara?' },
+    'yes with shivering':           { ar: 'إي، مع رعشة',               fr: 'Ee, ma3 ra3sha' },
+    'is there itching':             { ar: 'في حكة؟',                   fr: 'Fee hakka?' },
+    'yes itching':                  { ar: 'إي، حكة',                   fr: 'Ee, hakka' },
+    'is there abdominal pain':      { ar: 'في وجع بالبطن؟',            fr: 'Fee waja3 bil-batn?' },
+    'is there abdominal swelling':  { ar: 'في انتفاخ بالبطن؟',         fr: 'Fee intifakh bil-batn?' },
+    'is there weight loss':         { ar: 'وزنك نقص؟',                 fr: 'Waznik nagas?' },
+    'is there bleeding from nose and gum bleeding tendency': { ar: 'في نزيف من خشمك ولا لثتك؟', fr: 'Fee nazeef min khashmik wala lithatik?' },
+    'sometimes my gums bleed':      { ar: 'أحياناً لثتي تنزف',         fr: 'Ahyanan lithati tinzif' },
+    'is there anorexia and vomiting': { ar: 'في فقدان شهية واستفراغ؟', fr: 'Fee fugdan shahiya w istifragh?' },
+    'was there loss of consciousness hepatic encephalopathy': { ar: 'صار عندك غيبوبة؟', fr: 'Sar 3indik ghaiboba?' },
+    'do you have any history of injections operations or blood transfusions': { ar: 'أخذت حقن ولا سويت عملية ولا نقل دم قبل؟', fr: 'Akhadht hiqan wala sawwait 3amaliya wala nagl dam gabl?' },
+    'yes i had surgery before':     { ar: 'إي، سويت عملية قبل',        fr: 'Ee, sawwait 3amaliya gabl' },
+    'did you have any dental treatments tattooing acupuncture or ear piercings before': { ar: 'عالجت أسنانك ولا سويت وشم ولا إبر صينية ولا خرم أذن قبل؟', fr: '3alajt asnanik wala sawwait washm wala ibar seeniya wala kharm udhun gabl?' },
+    'yes dental work':              { ar: 'إي، علاج أسنان',            fr: 'Ee, 3ilaj asnan' },
+
+    // Urogenital
+    'do you feel pain during micturition': { ar: 'تحس بوجع لمن تبول؟', fr: 'Tihiss bi-waja3 liman tbool?' },
+    'yes burning':                  { ar: 'إي، حرقان',                 fr: 'Ee, hargan' },
+    'what is the urine colour':     { ar: 'شنو لون البول؟',            fr: 'Shino lon al-bol?' },
+    'dark yellow':                  { ar: 'أصفر غامق',                 fr: 'Asfar ghamig' },
+    'is there any sign of thirst or dry skintongue': { ar: 'تحس بعطش ولا جلدك ولسانك ناشف؟', fr: 'Tihiss bi-3atash wala jildik w lisanik nashif?' },
+    'yes im thirsty':               { ar: 'إي، عطشان',                 fr: 'Ee, 3atshan' },
+    'is there any sexual disorder': { ar: 'في مشاكل جنسية؟',           fr: 'Fee mashakil jinsiya?' },
+
+    // Reply to proposed investigations
+    'ill do it':                    { ar: 'بسوّيها',                   fr: 'Basawweeha' },
   },
 };
