@@ -25,10 +25,12 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 2,
-    reviewed: false,               // ← flip to true only after a native speaker checks it
-    covers: ['Communication & Ethics', 'General History Taking'],
-    note: 'Draft batches 1-2 — greetings/permission/empathy, then personal, present, past, family history.',
+    batch: 3,
+    // Batches are signed off individually — reviewedThrough is the highest batch
+    // a human has actually checked. Anything above it is still an AI draft.
+    reviewedThrough: 2,            // ← raise this as each batch is reviewed
+    covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)'],
+    note: 'Batches 1-2 reviewed & approved by the product owner. Batch 3 (chest) awaiting review.',
   },
 
   /* ---------------- Saudi — Hejazi ---------------- */
@@ -125,6 +127,65 @@ window.TT_DIALECT_PACK = {
     'yes my father':                { ar: 'أيوه، أبوي',                fr: 'Aywa, abooy' },
     'are your parents still alive': { ar: 'أبوك وأمك لسّه عايشين؟',    fr: 'Abook wa ummak lissa 3aysheen?' },
     'yes thank god':                { ar: 'أيوه، الحمد لله',           fr: 'Aywa, al-hamdulillah' },
+
+    /* ===== Batch 3 — Chest (Respiratory) =====
+       Investigation NAMES (chest x-ray, pleural biopsy…) are MSA medical terms
+       that read the same in every dialect, so they're deliberately left alone —
+       only the patient's replies change. */
+    // Productive cough
+    'does the cough come with sputum or not': { ar: 'الكحة ناشفة ولا فيها بلغم؟', fr: 'Al-kahha nashfa wala feeha balgham?' },
+    'yes with sputum':              { ar: 'أيوه، فيها بلغم',           fr: 'Aywa, feeha balgham' },
+    'what is the amount of the expectoration': { ar: 'كم كمية البلغم؟', fr: 'Kam kimmiyat al-balgham?' },
+    'a moderate amount':            { ar: 'كمية متوسطة',               fr: 'Kimmiya mutawassita' },
+    'what is the colour of the sputum': { ar: 'وش لون البلغم؟',        fr: 'Wesh lon al-balgham?' },
+    'yellowish':                    { ar: 'مصفرّ',                     fr: 'Musaffar' },
+    'is it clear white or grayish':  { ar: 'أبيض ولا رمادي؟',          fr: 'Abyad wala ramadi?' },
+    'no its yellow':                { ar: 'لا، أصفر',                  fr: 'La, asfar' },
+    'is it foamy pink':             { ar: 'زي الرغوة ووردي شوي؟',      fr: 'Zay ar-raghwa wa wardi shway?' },
+    'is it greenish or yellowish':  { ar: 'أصفر ولا أخضر؟',            fr: 'Asfar wala akhdar?' },
+    'what does the sputum look like consistency': { ar: 'وش شكل البلغم؟', fr: 'Wesh shakl al-balgham?' },
+    'its thick':                    { ar: 'لزج',                       fr: 'Lazij' },
+    'is it watery':                 { ar: 'سائل زي الماي؟',            fr: 'Sa\'il zay al-may?' },
+    'is it frothy':                 { ar: 'زي الرغوة؟',                fr: 'Zay ar-raghwa?' },
+    'is it thick':                  { ar: 'لزج؟',                      fr: 'Lazij?' },
+    'yes thick':                    { ar: 'أيوه، لزج',                 fr: 'Aywa, lazij' },
+    'does it smell offensive':      { ar: 'ريحته كريهة؟',              fr: 'Reehtu kareeha?' },
+    'yes a bad smell':              { ar: 'أيوه، ريحته كريهة',         fr: 'Aywa, reehtu kareeha' },
+    'postural variation  does it increase when you lie in lateral position': { ar: 'تزيد لما تنام على جنبك؟', fr: 'Tizeed lamma tnam 3ala jambak?' },
+    'yes on my side':               { ar: 'أيوه، على جنبي',            fr: 'Aywa, 3ala jambi' },
+    'does it increase on stooping forward': { ar: 'تزيد لما تنحني قدام؟', fr: 'Tizeed lamma tinhani guddam?' },
+    'diurnal variation  does it come throughout the day': { ar: 'الكحة تجيك طول اليوم؟', fr: 'Al-kahha tjeek tool al-yom?' },
+    'its more in the morning':      { ar: 'أكثر الصبح',                fr: 'Akthar as-subh' },
+    'or is it more in the morning or at night': { ar: 'ولا تزيد الصبح ولا بالليل؟', fr: 'Wala tizeed as-subh wala bil-lail?' },
+    'in the morning':               { ar: 'الصبح',                     fr: 'As-subh' },
+    'seasonal variation  does it come throughout the year': { ar: 'الكحة تجيك طول السنة؟', fr: 'Al-kahha tjeek tool as-sana?' },
+    'its worse in winter':          { ar: 'تزيد في الشتا',             fr: 'Tizeed fish-shita' },
+    'or is it more during winter or spring': { ar: 'ولا تزيد في الشتا ولا الربيع؟', fr: 'Wala tizeed fish-shita wala ar-rabee3?' },
+    'in winter':                    { ar: 'في الشتا',                  fr: 'Fish-shita' },
+
+    // Wheezes
+    'do you have chest wheezes':    { ar: 'عندك صفير في صدرك؟',        fr: '3indak safeer fi sadrak?' },
+    'yes wheezing':                 { ar: 'أيوه، صفير',                fr: 'Aywa, safeer' },
+    'when does the wheezing occur': { ar: 'متى يجيك الصفير؟',          fr: 'Mata yjeek as-safeer?' },
+    'at night':                     { ar: 'بالليل',                    fr: 'Bil-lail' },
+
+    // Constitutional / 'toxic' symptoms
+    'do you have night fevers':     { ar: 'عندك حرارة بالليل؟',        fr: '3indak harara bil-lail?' },
+    'yes at night':                 { ar: 'أيوه، بالليل',              fr: 'Aywa, bil-lail' },
+    'do you sweat excessively during night': { ar: 'تعرق كثير بالليل؟', fr: 'Ti3rag katheer bil-lail?' },
+    'yes a lot':                    { ar: 'أيوه، كثير',                fr: 'Aywa, katheer' },
+    'is there any weight loss':     { ar: 'وزنك ناقص؟',                fr: 'Waznak nagis?' },
+    'yes i lost weight':            { ar: 'أيوه، وزني نقص',            fr: 'Aywa, wazni nagas' },
+    'is there any loss of appetite': { ar: 'في تغيّر في شهيتك؟',       fr: 'Fee taghayyur fi shahiyyatak?' },
+    'yes no appetite':              { ar: 'أيوه، ما لي نفس',           fr: 'Aywa, ma li nafs' },
+
+    // Replies to proposed investigations
+    'okay ill do it':               { ar: 'طيب، بسوّيها',              fr: 'Tayyib, basawweeha' },
+    'okay doctor':                  { ar: 'طيب يا دكتور',              fr: 'Tayyib ya doktor' },
+    'alright':                      { ar: 'طيب',                       fr: 'Tayyib' },
+    'okay':                         { ar: 'طيب',                       fr: 'Tayyib' },
+    'ill give a sample':            { ar: 'بجيب عينة',                 fr: 'Bajeeb 3ayyina' },
+    'okay if needed':               { ar: 'طيب، لو لازم',              fr: 'Tayyib, law lazim' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -221,5 +282,63 @@ window.TT_DIALECT_PACK = {
     'yes my father':                { ar: 'إي، أبوي',                  fr: 'Ee, abooy' },
     'are your parents still alive': { ar: 'أبوك وأمك بعدهم عايشين؟',   fr: 'Abook w ummik ba3adhum 3aysheen?' },
     'yes thank god':                { ar: 'إي، الحمد لله',             fr: 'Ee, al-hamdulillah' },
+
+    /* ===== Batch 3 — Chest (Respiratory) =====
+       Investigation NAMES are MSA medical terms, identical across dialects, so
+       only the patient's replies are translated here. */
+    // Productive cough
+    'does the cough come with sputum or not': { ar: 'الكحة ناشفة ولا فيها بلغم؟', fr: 'Al-kahha nashfa wala feeha balgham?' },
+    'yes with sputum':              { ar: 'إي، فيها بلغم',             fr: 'Ee, feeha balgham' },
+    'what is the amount of the expectoration': { ar: 'كم كمية البلغم؟', fr: 'Kam kimmiyat al-balgham?' },
+    'a moderate amount':            { ar: 'كمية متوسطة',               fr: 'Kimmiya mutawassita' },
+    'what is the colour of the sputum': { ar: 'شنو لون البلغم؟',       fr: 'Shino lon al-balgham?' },
+    'yellowish':                    { ar: 'مصفرّ',                     fr: 'Musaffar' },
+    'is it clear white or grayish':  { ar: 'أبيض ولا رمادي؟',          fr: 'Abyadh wala ramadi?' },
+    'no its yellow':                { ar: 'لا، أصفر',                  fr: 'La, asfar' },
+    'is it foamy pink':             { ar: 'مثل الرغوة ووردي شوي؟',     fr: 'Mithl ar-raghwa w wardi shway?' },
+    'is it greenish or yellowish':  { ar: 'أصفر ولا أخضر؟',            fr: 'Asfar wala akhdhar?' },
+    'what does the sputum look like consistency': { ar: 'شنو شكل البلغم؟', fr: 'Shino shakl al-balgham?' },
+    'its thick':                    { ar: 'لزج',                       fr: 'Lazij' },
+    'is it watery':                 { ar: 'سائل مثل الماي؟',           fr: 'Sa\'il mithl al-may?' },
+    'is it frothy':                 { ar: 'مثل الرغوة؟',               fr: 'Mithl ar-raghwa?' },
+    'is it thick':                  { ar: 'لزج؟',                      fr: 'Lazij?' },
+    'yes thick':                    { ar: 'إي، لزج',                   fr: 'Ee, lazij' },
+    'does it smell offensive':      { ar: 'ريحته كريهة؟',              fr: 'Reehta kareeha?' },
+    'yes a bad smell':              { ar: 'إي، ريحته كريهة',           fr: 'Ee, reehta kareeha' },
+    'postural variation  does it increase when you lie in lateral position': { ar: 'تزيد لمن تنام على جنبك؟', fr: 'Tzeed liman tnam 3ala jambik?' },
+    'yes on my side':               { ar: 'إي، على جنبي',              fr: 'Ee, 3ala jambi' },
+    'does it increase on stooping forward': { ar: 'تزيد لمن تنحني قدام؟', fr: 'Tzeed liman tinhani giddam?' },
+    'diurnal variation  does it come throughout the day': { ar: 'الكحة تجيك طول اليوم؟', fr: 'Al-kahha tjeek tool al-yom?' },
+    'its more in the morning':      { ar: 'أكثر الصبح',                fr: 'Akthar as-subh' },
+    'or is it more in the morning or at night': { ar: 'ولا تزيد الصبح ولا بالليل؟', fr: 'Wala tzeed as-subh wala bil-lail?' },
+    'in the morning':               { ar: 'الصبح',                     fr: 'As-subh' },
+    'seasonal variation  does it come throughout the year': { ar: 'الكحة تجيك طول السنة؟', fr: 'Al-kahha tjeek tool as-sana?' },
+    'its worse in winter':          { ar: 'تزيد بالشتا',               fr: 'Tzeed bish-shita' },
+    'or is it more during winter or spring': { ar: 'ولا تزيد بالشتا ولا الربيع؟', fr: 'Wala tzeed bish-shita wala ar-rabee3?' },
+    'in winter':                    { ar: 'بالشتا',                    fr: 'Bish-shita' },
+
+    // Wheezes
+    'do you have chest wheezes':    { ar: 'عندك صفير بصدرك؟',          fr: '3indik safeer b-sadrik?' },
+    'yes wheezing':                 { ar: 'إي، صفير',                  fr: 'Ee, safeer' },
+    'when does the wheezing occur': { ar: 'متى يجيك الصفير؟',          fr: 'Mita yjeek as-safeer?' },
+    'at night':                     { ar: 'بالليل',                    fr: 'Bil-lail' },
+
+    // Constitutional / 'toxic' symptoms
+    'do you have night fevers':     { ar: 'عندك حرارة بالليل؟',        fr: '3indik harara bil-lail?' },
+    'yes at night':                 { ar: 'إي، بالليل',                fr: 'Ee, bil-lail' },
+    'do you sweat excessively during night': { ar: 'تعرق وايد بالليل؟', fr: 'Ti3rag wayid bil-lail?' },
+    'yes a lot':                    { ar: 'إي، وايد',                  fr: 'Ee, wayid' },
+    'is there any weight loss':     { ar: 'وزنك ناقص؟',                fr: 'Waznik nagis?' },
+    'yes i lost weight':            { ar: 'إي، وزني نقص',              fr: 'Ee, wazni nagas' },
+    'is there any loss of appetite': { ar: 'في تغيّر بشهيتك؟',         fr: 'Fee taghayyur b-shahiyyatik?' },
+    'yes no appetite':              { ar: 'إي، ما لي نفس',             fr: 'Ee, ma li nafs' },
+
+    // Replies to proposed investigations
+    'okay ill do it':               { ar: 'زين، بسوّيها',              fr: 'Zain, basawweeha' },
+    'okay doctor':                  { ar: 'زين يا دكتور',              fr: 'Zain ya doktor' },
+    'alright':                      { ar: 'زين',                       fr: 'Zain' },
+    'okay':                         { ar: 'زين',                       fr: 'Zain' },
+    'ill give a sample':            { ar: 'بجيب عينة',                 fr: 'Bajeeb 3ayyina' },
+    'okay if needed':               { ar: 'زين، إذا لازم',             fr: 'Zain, idha lazim' },
   },
 };
