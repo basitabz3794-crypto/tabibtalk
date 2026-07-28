@@ -25,12 +25,12 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 9,
+    batch: 10,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 7,            // ← raise this as each batch is reviewed
+    reviewedThrough: 10,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
-    note: 'Batches 1-7 reviewed & approved. Batches 8-9 (abdomen) awaiting review.',
+    note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
 
   /* ---------------- Saudi — Hejazi ---------------- */
@@ -549,6 +549,51 @@ window.TT_DIALECT_PACK = {
 
     // Reply to proposed investigations
     'ill do it':                    { ar: 'بسوّيها',                   fr: 'Basawweeha' },
+
+    /* ===== Batch 10 — Neurology pt.1: cranial nerves =====
+       Hejazi كويس vs Khaleeji زين for "well/properly" runs through this whole
+       section, since almost every question asks whether a function works well. */
+    'i olfactory can you smell well': { ar: 'تشم كويس؟',               fr: 'Tshimm kwayyis?' },
+    'no my smell is weak':          { ar: 'لا، شمي ضعيف',              fr: 'La, shammi da3eef' },
+    'ii optic can you see clearly': { ar: 'تشوف كويس؟',                fr: 'Tshoof kwayyis?' },
+    'no my vision is blurred':      { ar: 'لا، نظري مغبش',             fr: 'La, nadhari mghabbash' },
+    'iii iv vi does your eyelid droop': { ar: 'جفنك ساقط؟',            fr: 'Jafnak sagit?' },
+    'yes the right one':            { ar: 'أيوه، اليمين',              fr: 'Aywa, al-yameen' },
+    'is there any squint':          { ar: 'في حول في عينك؟',           fr: 'Fee hawal fi 3ainak?' },
+    'are you seeing double':        { ar: 'تشوف الشي اثنين؟',          fr: 'Tshoof ash-shai ithnain?' },
+    'v trigeminal do you feel any tingling sensations on your face': { ar: 'تحس بوخز في وجهك؟', fr: 'Tihiss bi-wakhz fi wajhak?' },
+    'yes on one side':              { ar: 'أيوه، في جنب',              fr: 'Aywa, fi jamb' },
+    'do you feel any numbness on your face': { ar: 'تحس بتنميل في وجهك؟', fr: 'Tihiss bi-tanmeel fi wajhak?' },
+    'is there any difficulty in mastication': { ar: 'في صعوبة في المضغ؟', fr: 'Fee su3ooba fil-madgh?' },
+    'yes chewing is hard':          { ar: 'أيوه، المضغ صعب',           fr: 'Aywa, al-madgh sa3b' },
+    'is there any drooping or deviation of your lower jaw': { ar: 'فكك مايل أو ساقط؟', fr: 'Fakkak mayil aw sagit?' },
+    'vii facial can you close your eyes forcibly': { ar: 'تقدر تغمض عينك بقوة؟', fr: 'Tigdar tghammidh 3ainak bi-guwwa?' },
+    'no not fully':                 { ar: 'لا، مو كامل',               fr: 'La, mu kamil' },
+    'can you wash your face properly without soap entering your eyes': { ar: 'تقدر تغسل وجهك بدون ما يدخل الصابون في عينك؟', fr: 'Tigdar tighsil wajhak bidoon ma yidkhul as-saboon fi 3ainak?' },
+    'no soap gets in':              { ar: 'لا، الصابون يدخل',          fr: 'La, as-saboon yidkhul' },
+    'when you eat does the food accumulate in any side of your mouth': { ar: 'لما تاكل، الأكل يتجمع في جنب من فمك؟', fr: 'Lamma takul, al-akl yitjamma3 fi jamb min fammak?' },
+    'yes on the left':              { ar: 'أيوه، على الشمال',          fr: 'Aywa, 3ala ash-shimal' },
+    'can you gurgle properly from both sides': { ar: 'تقدر تتمضمض كويس من الجهتين؟', fr: 'Tigdar titmadhmadh kwayyis min al-jihatain?' },
+    'do you notice any deviation of your mouth on which side': { ar: 'تحس فمك مايل؟ لأي جهة؟', fr: 'Tihiss fammak mayil? Li-ay jiha?' },
+    'yes to the right':             { ar: 'أيوه، لليمين',              fr: 'Aywa, lil-yameen' },
+    'can you taste your food well': { ar: 'تحس بطعم الأكل كويس؟',      fr: 'Tihiss bi-ta3m al-akl kwayyis?' },
+    'no taste is reduced':          { ar: 'لا، الطعم قليل',            fr: 'La, at-ta3m galeel' },
+    'viii vestibulocochlear can you hear properly': { ar: 'تسمع كويس؟', fr: 'Tisma3 kwayyis?' },
+    'no hearing is weak':           { ar: 'لا، سمعي ضعيف',             fr: 'La, sam3i da3eef' },
+    'do you feel as if the world is spinning': { ar: 'تحس الدنيا تلف فيك؟', fr: 'Tihiss ad-dinya tliff feek?' },
+    'yes dizzy':                    { ar: 'أيوه، دايخ',                fr: 'Aywa, dayikh' },
+    'ix x xii is there any difficulty in swallowing': { ar: 'في صعوبة في البلع؟', fr: 'Fee su3ooba fil-bal3?' },
+    'is there any food regurgitation from your nose': { ar: 'الأكل يرجع من أنفك؟', fr: 'Al-akl yirja3 min anfak?' },
+    'are there any voice changes':  { ar: 'صوتك تغيّر؟',               fr: 'Sotak taghayyar?' },
+    'yes nasal voice':              { ar: 'أيوه، صوت أخنف',            fr: 'Aywa, sot akhnaf' },
+    'do you have any difficulty in speech': { ar: 'في صعوبة في الكلام؟', fr: 'Fee su3ooba fil-kalam?' },
+    'yes slurred':                  { ar: 'أيوه، كلامي متلعثم',        fr: 'Aywa, kalami mutla3thim' },
+    'xi accessory does your shoulder drop': { ar: 'كتفك ساقط؟',        fr: 'Katfak sagit?' },
+    'yes the right':                { ar: 'أيوه، اليمين',              fr: 'Aywa, al-yameen' },
+    'can you elevate your shoulder': { ar: 'تقدر ترفع كتفك؟',          fr: 'Tigdar tirfa3 katfak?' },
+    'with difficulty':              { ar: 'بصعوبة',                    fr: 'Bi-su3ooba' },
+    'can you move your head to the right and to the left': { ar: 'تقدر تلف راسك يمين وشمال؟', fr: 'Tigdar tliff rasak yameen wa shimal?' },
+    'yes but weakly':               { ar: 'أيوه، بس بضعف',             fr: 'Aywa, bass bi-du3f' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1063,5 +1108,49 @@ window.TT_DIALECT_PACK = {
 
     // Reply to proposed investigations
     'ill do it':                    { ar: 'بسوّيها',                   fr: 'Basawweeha' },
+
+    /* ===== Batch 10 — Neurology pt.1: cranial nerves =====
+       زين replaces Hejazi كويس for "well/properly" throughout this section. */
+    'i olfactory can you smell well': { ar: 'تشم زين؟',                fr: 'Tshimm zain?' },
+    'no my smell is weak':          { ar: 'لا، شمي ضعيف',              fr: 'La, shammi dha3eef' },
+    'ii optic can you see clearly': { ar: 'تشوف زين؟',                 fr: 'Tshoof zain?' },
+    'no my vision is blurred':      { ar: 'لا، نظري مغبش',             fr: 'La, nadhari mghabbash' },
+    'iii iv vi does your eyelid droop': { ar: 'جفنك ساقط؟',            fr: 'Jafnik sagit?' },
+    'yes the right one':            { ar: 'إي، اليمين',                fr: 'Ee, al-yameen' },
+    'is there any squint':          { ar: 'في حول بعينك؟',             fr: 'Fee hawal b-3ainik?' },
+    'are you seeing double':        { ar: 'تشوف الشي ثنين؟',           fr: 'Tshoof ash-shay thnain?' },
+    'v trigeminal do you feel any tingling sensations on your face': { ar: 'تحس بوخز بوجهك؟', fr: 'Tihiss bi-wakhz b-wajhik?' },
+    'yes on one side':              { ar: 'إي، بجنب',                  fr: 'Ee, b-jamb' },
+    'do you feel any numbness on your face': { ar: 'تحس بتنميل بوجهك؟', fr: 'Tihiss bi-tanmeel b-wajhik?' },
+    'is there any difficulty in mastication': { ar: 'في صعوبة بالمضغ؟', fr: 'Fee su3ooba bil-madgh?' },
+    'yes chewing is hard':          { ar: 'إي، المضغ صعب',             fr: 'Ee, al-madgh sa3b' },
+    'is there any drooping or deviation of your lower jaw': { ar: 'فكك مايل ولا ساقط؟', fr: 'Fakkik mayil wala sagit?' },
+    'vii facial can you close your eyes forcibly': { ar: 'تقدر تغمض عينك بقوة؟', fr: 'Tigdar tghammidh 3ainik bi-guwwa?' },
+    'no not fully':                 { ar: 'لا، مو كامل',               fr: 'La, mu kamil' },
+    'can you wash your face properly without soap entering your eyes': { ar: 'تقدر تغسل وجهك بدون ما يدخل الصابون بعينك؟', fr: 'Tigdar tighsil wajhik bidoon ma yidkhul as-saboon b-3ainik?' },
+    'no soap gets in':              { ar: 'لا، الصابون يدخل',          fr: 'La, as-saboon yidkhul' },
+    'when you eat does the food accumulate in any side of your mouth': { ar: 'لمن تاكل، الأكل يتجمع بجنب من فمك؟', fr: 'Liman takil, al-akil yitjamma3 b-jamb min fammik?' },
+    'yes on the left':              { ar: 'إي، على اليسار',            fr: 'Ee, 3ala al-yasar' },
+    'can you gurgle properly from both sides': { ar: 'تقدر تتمضمض زين من الجهتين؟', fr: 'Tigdar titmadhmadh zain min al-jihatain?' },
+    'do you notice any deviation of your mouth on which side': { ar: 'تحس فمك مايل؟ لأي جهة؟', fr: 'Tihiss fammik mayil? Li-ay jiha?' },
+    'yes to the right':             { ar: 'إي، لليمين',                fr: 'Ee, lil-yameen' },
+    'can you taste your food well': { ar: 'تحس بطعم الأكل زين؟',       fr: 'Tihiss bi-ta3m al-akil zain?' },
+    'no taste is reduced':          { ar: 'لا، الطعم قليل',            fr: 'La, at-ta3m galeel' },
+    'viii vestibulocochlear can you hear properly': { ar: 'تسمع زين؟', fr: 'Tisma3 zain?' },
+    'no hearing is weak':           { ar: 'لا، سمعي ضعيف',             fr: 'La, sam3i dha3eef' },
+    'do you feel as if the world is spinning': { ar: 'تحس الدنيا تلف فيك؟', fr: 'Tihiss ad-dinya tliff feek?' },
+    'yes dizzy':                    { ar: 'إي، دايخ',                  fr: 'Ee, dayikh' },
+    'ix x xii is there any difficulty in swallowing': { ar: 'في صعوبة بالبلع؟', fr: 'Fee su3ooba bil-bal3?' },
+    'is there any food regurgitation from your nose': { ar: 'الأكل يرجع من خشمك؟', fr: 'Al-akil yirja3 min khashmik?' },
+    'are there any voice changes':  { ar: 'صوتك تغيّر؟',               fr: 'Sotik taghayyar?' },
+    'yes nasal voice':              { ar: 'إي، صوت أخنف',              fr: 'Ee, sot akhnaf' },
+    'do you have any difficulty in speech': { ar: 'في صعوبة بالكلام؟', fr: 'Fee su3ooba bil-kalam?' },
+    'yes slurred':                  { ar: 'إي، كلامي متلعثم',          fr: 'Ee, kalami mutla3thim' },
+    'xi accessory does your shoulder drop': { ar: 'كتفك ساقط؟',        fr: 'Katfik sagit?' },
+    'yes the right':                { ar: 'إي، اليمين',                fr: 'Ee, al-yameen' },
+    'can you elevate your shoulder': { ar: 'تقدر ترفع كتفك؟',          fr: 'Tigdar tirfa3 katfik?' },
+    'with difficulty':              { ar: 'بصعوبة',                    fr: 'Bi-su3ooba' },
+    'can you move your head to the right and to the left': { ar: 'تقدر تلف راسك يمين ويسار؟', fr: 'Tigdar tliff rasik yameen w yasar?' },
+    'yes but weakly':               { ar: 'إي، بس بضعف',               fr: 'Ee, bass bi-dhu3f' },
   },
 };
