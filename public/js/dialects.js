@@ -25,12 +25,12 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 7,
+    batch: 8,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
     reviewedThrough: 7,            // ← raise this as each batch is reviewed
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
-    note: 'All batches 1-7 reviewed & approved by the product owner.',
+    note: 'Batches 1-7 reviewed & approved. Batch 8 (abdomen) awaiting review.',
   },
 
   /* ---------------- Saudi — Hejazi ---------------- */
@@ -443,6 +443,71 @@ window.TT_DIALECT_PACK = {
     'is there any fever':           { ar: 'في أي حرارة؟',              fr: 'Fee ay harara?' },
     'yes a mild fever':             { ar: 'أيوه، حرارة خفيفة',         fr: 'Aywa, harara khafeefa' },
     'alright doctor':               { ar: 'طيب يا دكتور',              fr: 'Tayyib ya doktor' },
+
+    /* ===== Batch 8 — Abdomen pt.1: pain, swelling, upper & lower GIT ===== */
+    // Abdominal pain
+    'where is the site of pain':    { ar: 'وين مكان الألم؟',           fr: 'Wain makan al-alam?' },
+    'in my upper abdomen':          { ar: 'في أعلى بطني',              fr: 'Fi a3la batni' },
+    'does it radiate to any part where is it': { ar: 'ينتشر لمكان ثاني؟ وين؟', fr: 'Yintashir li-makan thani? Wain?' },
+    'yes to my back':               { ar: 'أيوه، لظهري',               fr: 'Aywa, li-dhahri' },
+    'what is the character':        { ar: 'وش شكل الألم؟',             fr: 'Wesh shakl al-alam?' },
+    'a colicky pain':               { ar: 'مغص',                       fr: 'Maghas' },
+    'is the pain severe or tolerable': { ar: 'الألم شديد ولا محتمل؟',  fr: 'Al-alam shadeed wala muhtamal?' },
+    'its severe':                   { ar: 'شديد',                      fr: 'Shadeed' },
+    'does it restrict your daily activity': { ar: 'يمنعك عن نشاطك اليومي؟', fr: 'Yimna3ak 3an nashatak al-yomi?' },
+    'yes it does':                  { ar: 'أيوه',                      fr: 'Aywa' },
+    'does it allow you to sit comfortably': { ar: 'يخليك تقعد مرتاح؟', fr: 'Ykhalleek tig3ud murtah?' },
+    'no i cant settle':             { ar: 'لا، ما أقدر أستقر',         fr: 'La, ma agdar astaqirr' },
+    'does it wake you up from sleep': { ar: 'يصحّيك من النوم؟',        fr: 'Ysahheek min an-nom?' },
+    'does it start suddenly or gradually': { ar: 'يبدأ فجأة ولا بالتدريج؟', fr: 'Yibda faj\'a wala bit-tadreej?' },
+    'suddenly':                     { ar: 'فجأة',                      fr: 'Faj\'a' },
+    'is the condition progressive regressive or stationary': { ar: 'يزيد ولا يقل ولا ثابت؟', fr: 'Yizeed wala yigill wala thabit?' },
+    'its getting worse':            { ar: 'يزيد',                      fr: 'Yizeed' },
+    'when did it start':            { ar: 'متى بدأ؟',                  fr: 'Mata bada?' },
+    'since yesterday':              { ar: 'من أمس',                    fr: 'Min ams' },
+    'is there any specific factor that may aggravate the condition': { ar: 'في شي معين يزيده؟', fr: 'Fee shai mu3ayyan yizeedu?' },
+    'eating makes it worse':        { ar: 'الأكل يزيده',               fr: 'Al-akl yizeedu' },
+    'is there any specific factor that may improve the condition': { ar: 'في شي معين يخففه؟', fr: 'Fee shai mu3ayyan ykhaffifu?' },
+    'resting helps':                { ar: 'الراحة تريحني',             fr: 'Ar-raha treehni' },
+    'what is the duration of the attack': { ar: 'النوبة كم تستمر؟',    fr: 'An-nawba kam tistamirr?' },
+    'about half an hour':           { ar: 'حوالي نص ساعة',             fr: 'Hawali nuss sa3a' },
+    'is there any associated symptom': { ar: 'تحس بشي ثاني معه؟',      fr: 'Tihiss bi-shai thani ma3u?' },
+    'yes nausea':                   { ar: 'أيوه، غثيان',               fr: 'Aywa, ghathayan' },
+
+    // Abdominal swelling
+    'is it a generalized distension or a localized swelling': { ar: 'انتفاخ عام ولا كتلة في مكان؟', fr: 'Intifakh 3am wala kutla fi makan?' },
+    'a localized swelling':         { ar: 'كتلة في مكان',              fr: 'Kutla fi makan' },
+    'where is the specific site':   { ar: 'وين بالضبط؟',               fr: 'Wain bidh-dhabt?' },
+    'below my navel':               { ar: 'تحت سرتي',                  fr: 'Taht surrati' },
+    'is there any history of trauma': { ar: 'انضربت فيها؟',            fr: 'Indharabt feeha?' },
+    'is it painful':                { ar: 'معها ألم؟',                 fr: 'Ma3ha alam?' },
+    'when did it start is it getting bigger or smaller or constant': { ar: 'من متى بدأت؟ تكبر ولا تصغر ولا زي ما هي؟', fr: 'Min mata bidat? Tikbar wala tisghar wala zay ma hiya?' },
+    'its getting bigger':           { ar: 'تكبر',                      fr: 'Tikbar' },
+
+    // Upper GIT
+    'is there any change in your appetite': { ar: 'في تغيّر في شهيتك؟', fr: 'Fee taghayyur fi shahiyyatak?' },
+    'yes less appetite':            { ar: 'أيوه، شهيتي قلّت',          fr: 'Aywa, shahiyyati gallat' },
+    'is there any bad odour from your mouth': { ar: 'في ريحة كريهة من فمك؟', fr: 'Fee reeha kareeha min fammak?' },
+    'is there any salivation disturbance': { ar: 'في مشكلة في اللعاب؟', fr: 'Fee mushkila fil-lu3ab?' },
+    'is there any hiccup':          { ar: 'يجيك فواق؟',                fr: 'Yjeek fuwag?' },
+    'sometimes':                    { ar: 'أحياناً',                   fr: 'Ahyanan' },
+    'is there any nauseavomiting':  { ar: 'في غثيان ولا استفراغ؟',     fr: 'Fee ghathayan wala istifragh?' },
+    'do you feel any burning sensation heartburn': { ar: 'تحس بحرقان في صدرك؟', fr: 'Tihiss bi-hargan fi sadrak?' },
+    'yes heartburn':                { ar: 'أيوه، حرقان',               fr: 'Aywa, hargan' },
+    'is there any vomiting of blood': { ar: 'تستفرغ دم؟',              fr: 'Tastafrigh dam?' },
+    'is there any change in the colour of stool': { ar: 'في تغيّر في لون البراز؟', fr: 'Fee taghayyur fi lon al-baraz?' },
+    'its dark':                     { ar: 'لونه غامق',                 fr: 'Lonu ghamig' },
+    'is there any change in your weight': { ar: 'في تغيّر في وزنك؟',   fr: 'Fee taghayyur fi waznak?' },
+    'i lost weight':                { ar: 'وزني نقص',                  fr: 'Wazni nagas' },
+    'do you feel any discomfort due to meal intake': { ar: 'تحس بانزعاج بعد أكلة معينة؟', fr: 'Tihiss bi-inzi3aj ba3d akla mu3ayyana?' },
+
+    // Lower GIT
+    'is there any constipation':    { ar: 'عندك إمساك؟',               fr: '3indak imsak?' },
+    'is there any diarrhoea':       { ar: 'عندك إسهال؟',               fr: '3indak is-hal?' },
+    'do you feel any sense of abdominal distension or flatulence': { ar: 'تحس بانتفاخ أو غازات؟', fr: 'Tihiss bi-intifakh aw ghazat?' },
+    'yes bloating':                 { ar: 'أيوه، انتفاخ',              fr: 'Aywa, intifakh' },
+    'is there any worm in the stool': { ar: 'في ديدان في البراز؟',     fr: 'Fee deedan fil-baraz?' },
+    'is there any blood passing with the stool': { ar: 'في دم مع البراز؟', fr: 'Fee dam ma3 al-baraz?' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -851,5 +916,70 @@ window.TT_DIALECT_PACK = {
     'is there any fever':           { ar: 'في أي حرارة؟',              fr: 'Fee ay harara?' },
     'yes a mild fever':             { ar: 'إي، حرارة خفيفة',           fr: 'Ee, harara khafeefa' },
     'alright doctor':               { ar: 'زين يا دكتور',              fr: 'Zain ya doktor' },
+
+    /* ===== Batch 8 — Abdomen pt.1: pain, swelling, upper & lower GIT ===== */
+    // Abdominal pain
+    'where is the site of pain':    { ar: 'وين مكان الوجع؟',           fr: 'Wain makan al-waja3?' },
+    'in my upper abdomen':          { ar: 'بأعلى بطني',                fr: 'B-a3la batni' },
+    'does it radiate to any part where is it': { ar: 'ينتشر لمكان ثاني؟ وين؟', fr: 'Yintashir li-makan thani? Wain?' },
+    'yes to my back':               { ar: 'إي، لظهري',                 fr: 'Ee, li-dhahri' },
+    'what is the character':        { ar: 'شنو شكل الوجع؟',            fr: 'Shino shakl al-waja3?' },
+    'a colicky pain':               { ar: 'مغص',                       fr: 'Maghas' },
+    'is the pain severe or tolerable': { ar: 'الوجع شديد ولا محتمل؟',  fr: 'Al-waja3 shadeed wala muhtamal?' },
+    'its severe':                   { ar: 'شديد',                      fr: 'Shadeed' },
+    'does it restrict your daily activity': { ar: 'يمنعك عن نشاطك اليومي؟', fr: 'Yimna3ik 3an nashatik al-yomi?' },
+    'yes it does':                  { ar: 'إي',                        fr: 'Ee' },
+    'does it allow you to sit comfortably': { ar: 'يخليك تقعد مرتاح؟', fr: 'Ykhalleek tig3ud murtah?' },
+    'no i cant settle':             { ar: 'لا، ما أقدر أستقر',         fr: 'La, ma agdar astaqirr' },
+    'does it wake you up from sleep': { ar: 'يصحّيك من النوم؟',        fr: 'Ysahheek min an-nom?' },
+    'does it start suddenly or gradually': { ar: 'يبدا فجأة ولا بالتدريج؟', fr: 'Yibda faj\'a wala bit-tadreej?' },
+    'suddenly':                     { ar: 'فجأة',                      fr: 'Faj\'a' },
+    'is the condition progressive regressive or stationary': { ar: 'يزيد ولا يقل ولا ثابت؟', fr: 'Yzeed wala ygill wala thabit?' },
+    'its getting worse':            { ar: 'يزيد',                      fr: 'Yzeed' },
+    'when did it start':            { ar: 'متى بدا؟',                  fr: 'Mita bada?' },
+    'since yesterday':              { ar: 'من أمس',                    fr: 'Min ams' },
+    'is there any specific factor that may aggravate the condition': { ar: 'في شي معين يزيده؟', fr: 'Fee shay mu3ayyan yzeeda?' },
+    'eating makes it worse':        { ar: 'الأكل يزيده',               fr: 'Al-akil yzeeda' },
+    'is there any specific factor that may improve the condition': { ar: 'في شي معين يخففه؟', fr: 'Fee shay mu3ayyan ykhaffifa?' },
+    'resting helps':                { ar: 'الراحة تريحني',             fr: 'Ar-raha treehni' },
+    'what is the duration of the attack': { ar: 'النوبة كم تستمر؟',    fr: 'An-nawba kam tistamirr?' },
+    'about half an hour':           { ar: 'حوالي نص ساعة',             fr: 'Hawali nuss sa3a' },
+    'is there any associated symptom': { ar: 'تحس بشي ثاني معه؟',      fr: 'Tihiss bi-shay thani ma3a?' },
+    'yes nausea':                   { ar: 'إي، غثيان',                 fr: 'Ee, ghathayan' },
+
+    // Abdominal swelling
+    'is it a generalized distension or a localized swelling': { ar: 'انتفاخ عام ولا كتلة بمكان؟', fr: 'Intifakh 3am wala kutla b-makan?' },
+    'a localized swelling':         { ar: 'كتلة بمكان',                fr: 'Kutla b-makan' },
+    'where is the specific site':   { ar: 'وين بالضبط؟',               fr: 'Wain bidh-dhabt?' },
+    'below my navel':               { ar: 'تحت سرتي',                  fr: 'Taht surrati' },
+    'is there any history of trauma': { ar: 'انضربت فيها؟',            fr: 'Indharabt feeha?' },
+    'is it painful':                { ar: 'معها وجع؟',                 fr: 'Ma3ha waja3?' },
+    'when did it start is it getting bigger or smaller or constant': { ar: 'من متى بدت؟ تكبر ولا تصغر ولا مثل ما هي؟', fr: 'Min mita bidat? Tikbar wala tisghar wala mithl ma hiya?' },
+    'its getting bigger':           { ar: 'تكبر',                      fr: 'Tikbar' },
+
+    // Upper GIT
+    'is there any change in your appetite': { ar: 'في تغيّر بشهيتك؟',  fr: 'Fee taghayyur b-shahiyyatik?' },
+    'yes less appetite':            { ar: 'إي، شهيتي قلّت',            fr: 'Ee, shahiyyati gallat' },
+    'is there any bad odour from your mouth': { ar: 'في ريحة كريهة من فمك؟', fr: 'Fee reeha kareeha min fammik?' },
+    'is there any salivation disturbance': { ar: 'في مشكلة باللعاب؟',  fr: 'Fee mushkila bil-lu3ab?' },
+    'is there any hiccup':          { ar: 'يجيك فواق؟',                fr: 'Yjeek fuwag?' },
+    'sometimes':                    { ar: 'أحياناً',                   fr: 'Ahyanan' },
+    'is there any nauseavomiting':  { ar: 'في غثيان ولا استفراغ؟',     fr: 'Fee ghathayan wala istifragh?' },
+    'do you feel any burning sensation heartburn': { ar: 'تحس بحرقان بصدرك؟', fr: 'Tihiss bi-hargan b-sadrik?' },
+    'yes heartburn':                { ar: 'إي، حرقان',                 fr: 'Ee, hargan' },
+    'is there any vomiting of blood': { ar: 'تستفرغ دم؟',              fr: 'Tastafrigh dam?' },
+    'is there any change in the colour of stool': { ar: 'في تغيّر بلون البراز؟', fr: 'Fee taghayyur b-lon al-baraz?' },
+    'its dark':                     { ar: 'لونه غامق',                 fr: 'Lona ghamig' },
+    'is there any change in your weight': { ar: 'في تغيّر بوزنك؟',     fr: 'Fee taghayyur b-waznik?' },
+    'i lost weight':                { ar: 'وزني نقص',                  fr: 'Wazni nagas' },
+    'do you feel any discomfort due to meal intake': { ar: 'تحس بانزعاج بعد أكلة معينة؟', fr: 'Tihiss bi-inzi3aj ba3d akla mu3ayyana?' },
+
+    // Lower GIT
+    'is there any constipation':    { ar: 'عندك إمساك؟',               fr: '3indik imsak?' },
+    'is there any diarrhoea':       { ar: 'عندك إسهال؟',               fr: '3indik is-hal?' },
+    'do you feel any sense of abdominal distension or flatulence': { ar: 'تحس بانتفاخ ولا غازات؟', fr: 'Tihiss bi-intifakh wala ghazat?' },
+    'yes bloating':                 { ar: 'إي، انتفاخ',                fr: 'Ee, intifakh' },
+    'is there any worm in the stool': { ar: 'في ديدان بالبراز؟',       fr: 'Fee deedan bil-baraz?' },
+    'is there any blood passing with the stool': { ar: 'في دم مع البراز؟', fr: 'Fee dam ma3 al-baraz?' },
   },
 };
