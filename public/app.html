@@ -6068,27 +6068,89 @@ window.addEventListener('DOMContentLoaded', function(){
 
 <script>
 /* ============ TABIB TALK v4 — English (US) + Franco→Arabic table voices + Day streak ============ */
-function pickVoice(lang){
+/* ---- Arabic dialects (voice + locale). Content itself is Egyptian today;
+   this table is what the voice layer and the dialect switch read from. ---- */
+var AR_DIALECTS = {
+  eg:       { label:'Egyptian',        lang:'ar-EG', match:/ar[-_]?eg|egypt|hoda|salma/i },
+  hejazi:   { label:'Saudi (Hejazi)',  lang:'ar-SA', match:/ar[-_]?sa|saudi|hejaz|naayf|maged/i },
+  khaleeji: { label:'Gulf (Khaleeji)', lang:'ar-AE', match:/ar[-_]?(ae|kw|qa|bh|om)|gulf|khalij|emirat/i }
+};
+function ttDialect(){
+  try{ var d=JSON.parse(localStorage.getItem('tt_dialect')||'null'); if(d && AR_DIALECTS[d]) return d; }catch(e){}
+  return 'eg';
+}
+window.ttDialect=ttDialect;
+
+/* Voice selection.
+   The old code fell back to "any ar-* voice" on the first miss, which on almost
+   every device is the generic Saudi/MSA voice — that's why Egyptian phrases were
+   being read as MSA. Now we SCORE the voices so a real dialect voice always wins
+   over a generic one, honour a voice the user picked themselves, and never settle
+   for a generic voice while a matching one exists.
+   Hard limit worth knowing: if the device has no Egyptian voice installed at all
+   (common on iPhone/Android, which ship one generic Arabic voice), no code can
+   conjure one — we then tag the utterance ar-EG so the OS picks its closest match. */
+function arVoices(){
   var vs = (window.speechSynthesis ? (window.speechSynthesis.getVoices()||[]) : []);
+  return vs.filter(function(v){ return /^ar/i.test(v.lang) || /arab/i.test(v.name); });
+}
+window.ttArabicVoices=function(){ return arVoices().map(function(v){ return { name:v.name, lang:v.lang }; }); };
+
+function pickVoice(lang, dialect){
+  var vs = (window.speechSynthesis ? (window.speechSynthesis.getVoices()||[]) : []);
+  if(!vs.length) return null;
   if(lang==='en'){
     return vs.filter(function(x){return /en[-_]?us/i.test(x.lang);})[0]
         || vs.filter(function(x){return /^en/i.test(x.lang);})[0] || null;
   }
-  return vs.filter(function(x){return /ar[-_]?eg/i.test(x.lang) || /egypt/i.test(x.name);})[0]
-      || vs.filter(function(x){return /^ar/i.test(x.lang);})[0]
-      || vs.filter(function(x){return /arab/i.test(x.name);})[0] || null;
+  var d   = AR_DIALECTS[dialect || ttDialect()] || AR_DIALECTS.eg;
+  var ars = arVoices();
+  if(!ars.length) return null;
+  // A voice the user chose by hand always wins — it's the only reliable escape
+  // hatch when a device labels its voices oddly.
+  try{
+    var pref=JSON.parse(localStorage.getItem('tt_ar_voice')||'null');
+    if(pref){ var hit=ars.filter(function(v){ return v.name===pref; })[0]; if(hit) return hit; }
+  }catch(e){}
+  function score(v){
+    var tag=(v.lang||'')+' '+(v.name||'')+' '+(v.voiceURI||'');
+    if(d.match.test(tag)) return 100;                       // exact dialect match
+    for(var k in AR_DIALECTS){                              // a DIFFERENT dialect's
+      if(k!==dialect && AR_DIALECTS[k].match.test(tag)) return 20;  // voice — poor fit
+    }
+    return 10;                                              // generic/MSA — last resort
+  }
+  return ars.slice().sort(function(a,b){ return score(b)-score(a); })[0] || null;
 }
-function speak(text, lang){
+
+function speakNow(text, lang, dialect){
+  var s=window.speechSynthesis; s.cancel();
+  var u=new SpeechSynthesisUtterance(text);
+  var d=AR_DIALECTS[dialect || ttDialect()] || AR_DIALECTS.eg;
+  var v=pickVoice(lang, dialect);
+  if(v){ u.voice=v; u.lang=v.lang; }
+  else { u.lang = (lang==='en' ? 'en-US' : d.lang); }
+  // Dialect speech is quicker and flatter than MSA recitation; a slightly faster
+  // rate reads far less like a newsreader.
+  u.rate = (lang==='en' ? 0.95 : 0.92); u.pitch=1;
+  s.speak(u);
+}
+function speak(text, lang, dialect){
   try{
     if(!text) return;
     if(!('speechSynthesis' in window)){ if(window.toast) toast('Voice Not Supported Here'); return; }
     lang = lang || 'ar';
-    var s=window.speechSynthesis; s.cancel();
-    var u=new SpeechSynthesisUtterance(text);
-    var v=pickVoice(lang);
-    if(v){ u.voice=v; u.lang=v.lang; } else { u.lang = (lang==='en' ? 'en-US' : 'ar-EG'); }
-    u.rate = (lang==='en' ? 0.95 : 0.88); u.pitch=1;
-    s.speak(u);
+    // getVoices() is async in Chrome and returns [] on the very first call. The old
+    // code spoke anyway and got the OS default (MSA). Wait for the list once, then
+    // speak with a properly chosen voice.
+    if(!(window.speechSynthesis.getVoices()||[]).length){
+      var done=false;
+      var go=function(){ if(done) return; done=true; try{ speakNow(text, lang, dialect); }catch(e){} };
+      try{ window.speechSynthesis.addEventListener('voiceschanged', go, { once:true }); }catch(e){}
+      setTimeout(go, 250);   // belt-and-braces: some browsers never fire the event
+      return;
+    }
+    speakNow(text, lang, dialect);
   }catch(e){ console.error('speak', e); }
 }
 window.speak=speak;
