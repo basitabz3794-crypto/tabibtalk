@@ -96,6 +96,13 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
     </div>
 
     <div class="card reveal d3" style="margin-top:18px">
+      <h3 class="sec">Learning dialect</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-top:-8px">Choose which Arabic you want to learn. Every phrase and the voice follow your choice. Your progress, streak and leaderboard place stay exactly the same &mdash; there is one shared leaderboard for all dialects.</p>
+      <div id="dialect-picker" style="display:grid;gap:10px;margin-top:14px"></div>
+      <div id="dialect-status" style="margin-top:10px;font-size:.85rem;color:var(--accent)"></div>
+    </div>
+
+    <div class="card reveal d3" style="margin-top:18px">
       <h3 class="sec">Suggest something to us</h3>
       <p style="color:var(--muted);font-size:.9rem;margin-top:-8px">Ideas, topics you'd like added, or anything that would make Tabib Talk better for you. We read every note.</p>
       <form id="rec-form">
@@ -116,6 +123,44 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
 
     <div style="margin-top:22px"><button class="btn btn-ghost" id="logout-btn">Log out</button></div>
   `;
+
+  /* ---- Learning dialect ----
+     Stored in the same tt_dialect key the app reads, so switching here changes
+     every phrase and the voice the next time the app is opened. Progress and
+     the leaderboard are dialect-independent and are never touched. */
+  (function(){
+    const DIALECTS = [
+      ['eg',       '🇪🇬 Egyptian',        'Masri — the original course'],
+      ['hejazi',   '🇸🇦 Saudi (Hejazi)',  'Western Saudi — Jeddah, Makkah, Madinah'],
+      ['khaleeji', '🌊 Gulf (Khaleeji)',  'Kuwait, UAE, Qatar, Bahrain, eastern Saudi'],
+    ];
+    function current(){
+      try { const d = JSON.parse(localStorage.getItem('tt_dialect')||'null');
+            return DIALECTS.some(x=>x[0]===d) ? d : 'eg'; } catch(e){ return 'eg'; }
+    }
+    function render(){
+      const cur = current();
+      document.getElementById('dialect-picker').innerHTML = DIALECTS.map(d=>`
+        <button type="button" data-d="${d[0]}" style="text-align:left;padding:13px 15px;border-radius:12px;cursor:pointer;font:inherit;color:var(--text);
+          background:${d[0]===cur?'var(--accent-soft, rgba(45,212,191,.10))':'var(--surface)'};
+          border:1.5px solid ${d[0]===cur?'var(--accent)':'var(--border)'}">
+          <b>${d[1]}</b>${d[0]===cur?' <span style="color:var(--accent);font-size:.8rem">&#10003; current</span>':''}
+          <br><small style="color:var(--muted)">${d[2]}</small>
+        </button>`).join('');
+      document.querySelectorAll('#dialect-picker button').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const pick = b.dataset.d;
+          if (pick === current()) return;
+          try { localStorage.setItem('tt_dialect', JSON.stringify(pick)); } catch(e){}
+          render();
+          const name = (DIALECTS.find(x=>x[0]===pick)||[])[1] || '';
+          document.getElementById('dialect-status').innerHTML =
+            `Switched to <b>${name}</b>. <a href="/app.html" style="color:var(--accent)">Open the website</a> to see it applied.`;
+        });
+      });
+    }
+    render();
+  })();
 
   document.getElementById('rec-form').addEventListener('submit', async (e)=>{
     e.preventDefault();

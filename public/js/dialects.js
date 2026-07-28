@@ -28,9 +28,9 @@ window.TT_DIALECT_PACK = {
     batch: 7,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 2,            // ← raise this as each batch is reviewed
+    reviewedThrough: 7,            // ← raise this as each batch is reviewed
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
-    note: 'Batches 1-2 reviewed & approved by the product owner. Batches 3-7 awaiting review.',
+    note: 'All batches 1-7 reviewed & approved by the product owner.',
   },
 
   /* ---------------- Saudi — Hejazi ---------------- */

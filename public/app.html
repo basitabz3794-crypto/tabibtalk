@@ -6030,7 +6030,7 @@ var VSEL='.qa-text-ar,.opt-ar,.option-arabic,.fc-back-ar,.tr-ar,.b-ar,.ix-ar,.bm
 function hasArabic(s){ return /[\u0600-\u06FF]/.test(s||''); }
 function makeVoiceBtn(text){
   var b=document.createElement('button'); b.className='voice-btn'; b.type='button';
-  b.setAttribute('aria-label','Play Egyptian Arabic voice'); b.title='Play Egyptian Arabic';
+  b.setAttribute('aria-label','Play Arabic voice'); b.title='Play '+(typeof ttDialectLabel==='function'?ttDialectLabel():'Egyptian')+' Arabic';
   b.innerHTML=SPKICON;
   b.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); speak(text); });
   b.addEventListener('mousedown', function(ev){ ev.stopPropagation(); });
@@ -6083,6 +6083,9 @@ function ttDialect(){
   return 'eg';
 }
 window.ttDialect=ttDialect;
+/* Short label for branding ("Egyptian Medical Arabic", "New to Gulf Arabic"…). */
+function ttDialectLabel(d){ var x=AR_DIALECTS[d||ttDialect()]||AR_DIALECTS.eg; return x.label; }
+window.ttDialectLabel=ttDialectLabel;
 
 /* Swap the built-in Egyptian phrases for the chosen dialect.
    Keyed on the ENGLISH text so the pack file stays readable for a reviewer.
@@ -6198,7 +6201,7 @@ window.speak=speak;
 
 function makeVoiceBtnLang(text, lang){
   var b=document.createElement('button'); b.className='voice-btn voice-'+lang; b.type='button';
-  b.title = (lang==='en' ? 'Play English (US)' : 'Play Egyptian Arabic');
+  b.title = (lang==='en' ? 'Play English (US)' : 'Play '+(typeof ttDialectLabel==='function'?ttDialectLabel():'Egyptian')+' Arabic');
   b.setAttribute('aria-label', b.title);
   b.innerHTML = SPKICON;   /* reuse icon from v3 */
   b.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); speak(text, lang); });
@@ -9238,7 +9241,14 @@ function openOnboardModal(editMode){
     +';border-radius:20px;padding:26px;max-width:420px;width:calc(100vw - 36px);max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5)';
   var chip='border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;border-radius:12px;cursor:pointer;font:inherit';
   var emojis=TT_EMOJIS.map(function(e,i){ return '<button type="button" class="tt-ob-emoji" data-e="'+e+'" style="'+chip+';font-size:1.4rem;padding:8px 0'+(e===curEmoji?';outline:2px solid #f5b544':'')+'">'+e+'</button>'; }).join('');
-  var lvls=[['beginner','🌱 Beginner','New to Egyptian Arabic'],['intermediate','🌿 Intermediate','I can hold simple conversations'],['advanced','🌳 Advanced','I want to polish clinical fluency']]
+  // Dialect is asked BEFORE the level question: the level copy ("New to X
+  // Arabic") and every phrase in the app follow from it.
+  var curDia=ttDialect();
+  var dias=[['eg','🇪🇬 Egyptian','Masri — the original course'],
+            ['hejazi','🇸🇦 Saudi (Hejazi)','Western Saudi — Jeddah, Makkah, Madinah'],
+            ['khaleeji','🌊 Gulf (Khaleeji)','Kuwait, UAE, Qatar, Bahrain, eastern Saudi']]
+    .map(function(d){ return '<button type="button" class="tt-ob-dia" data-d="'+d[0]+'" style="'+chip+';display:block;width:100%;text-align:left;padding:12px 14px;margin-top:8px'+(d[0]===curDia?';outline:2px solid #f5b544':'')+'"><b>'+d[1]+'</b><br><small style="opacity:.7">'+d[2]+'</small></button>'; }).join('');
+  var lvls=[['beginner','🌱 Beginner','New to '+ttDialectLabel()+' Arabic'],['intermediate','🌿 Intermediate','I can hold simple conversations'],['advanced','🌳 Advanced','I want to polish clinical fluency']]
     .map(function(l,i){ return '<button type="button" class="tt-ob-lvl" data-l="'+l[0]+'" style="'+chip+';display:block;width:100%;text-align:left;padding:12px 14px;margin-top:8px'+(l[0]===curLvl?';outline:2px solid #f5b544':'')+'"><b>'+l[1]+'</b><br><small style="opacity:.7">'+l[2]+'</small></button>'; }).join('');
   var ov=document.createElement('div');
   ov.id='tt-onboard-overlay';
@@ -9254,19 +9264,32 @@ function openOnboardModal(editMode){
     +'<input id="tt-ob-nick" maxlength="24" placeholder="e.g. Dr. Nadia" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;font:inherit">'
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 6px">Choose your profile emoji</label>'
     +'<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px">'+emojis+'</div>'
+    +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Which Arabic dialect do you want to learn?</label>'
+    +'<small style="display:block;opacity:.65;font-size:.78rem;margin-bottom:2px">Every phrase, and the voice, will be in the dialect you pick. You can change this any time in My Account.</small>'
+    +dias
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Your Arabic level</label>'
     +lvls
     +'<button id="tt-ob-go" class="btn-primary" style="width:100%;margin-top:18px;padding:13px;border-radius:12px;border:none;cursor:pointer;font:inherit;font-weight:700;background:var(--accent-grad);color:#fff">'+(editMode?'Save changes':'Start learning →')+'</button>'
     +'</div>';
   document.body.appendChild(ov);
   if(editMode&&ob0.nick){ try{ document.getElementById('tt-ob-nick').value=ob0.nick; }catch(e){} }
-  var pickedEmoji=curEmoji, pickedLvl=curLvl;
+  var pickedEmoji=curEmoji, pickedLvl=curLvl, pickedDia=curDia;
+  ov.querySelectorAll('.tt-ob-dia').forEach(function(b){ b.onclick=function(){
+    pickedDia=b.dataset.d;
+    ov.querySelectorAll('.tt-ob-dia').forEach(function(x){x.style.outline='';});
+    b.style.outline='2px solid #f5b544';
+    // Keep the level copy honest the moment the dialect changes.
+    try{ var lb=ov.querySelectorAll('.tt-ob-lvl b'); if(lb.length){ lb[0].parentNode.querySelector('small').textContent='New to '+ttDialectLabel(pickedDia)+' Arabic'; } }catch(e){}
+  }; });
   ov.querySelectorAll('.tt-ob-emoji').forEach(function(b){ b.onclick=function(){ pickedEmoji=b.dataset.e; ov.querySelectorAll('.tt-ob-emoji').forEach(function(x){x.style.outline='';}); b.style.outline='2px solid #f5b544'; }; });
   ov.querySelectorAll('.tt-ob-lvl').forEach(function(b){ b.onclick=function(){ pickedLvl=b.dataset.l; ov.querySelectorAll('.tt-ob-lvl').forEach(function(x){x.style.outline='';}); b.style.outline='2px solid #f5b544'; }; });
   document.getElementById('tt-ob-go').onclick=function(){
     var nick=(document.getElementById('tt-ob-nick').value||'').trim();
     if(!nick){ document.getElementById('tt-ob-nick').style.borderColor='#d1373d'; document.getElementById('tt-ob-nick').focus(); return; }
     _sj('tt_onboard',{ nick:nick.slice(0,24), emoji:pickedEmoji, level:pickedLvl, done:true, at:(ob0.at||Date.now()) });
+    // A dialect change rewrites content that's already on screen, so save it and
+    // reload — ttApplyDialect() runs before any renderer on the next load.
+    if(pickedDia!==curDia){ ov.remove(); ttSetDialect(pickedDia); return; }
     ov.remove();
     try{ if(typeof buildDrawer==='function') buildDrawer(); }catch(e){}
     if(editMode){ try{ toast('Profile updated ✓', 2500); }catch(e){} }
