@@ -10,6 +10,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Arabic dialect packs (Hejazi / Khaleeji). Defines window.TT_DIALECT_PACK,
+         which ttApplyDialect() layers over the built-in Egyptian content. -->
+    <script src="/js/dialects.js"></script>
     <style>
         :root {
             --primary: #0f9c8c;        /* clinical teal (accent) */
@@ -6080,6 +6083,44 @@ function ttDialect(){
   return 'eg';
 }
 window.ttDialect=ttDialect;
+
+/* Swap the built-in Egyptian phrases for the chosen dialect.
+   Keyed on the ENGLISH text so the pack file stays readable for a reviewer.
+   Anything the pack doesn't cover simply stays Egyptian, so shipping a partial
+   batch is safe. This runs at parse time — after db is defined (line ~4856) but
+   before DOMContentLoaded fires — so every builder sees the translated data. */
+function ttDialectKey(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim(); }
+function ttApplyDialect(){
+  var out={applied:0,total:0};
+  try{
+    var d=ttDialect();
+    if(d==='eg' || typeof db==='undefined') return out;
+    var pack=(window.TT_DIALECT_PACK||{})[d];
+    if(!pack) return out;
+    Object.keys(db).forEach(function(subj){
+      (db[subj]||[]).forEach(function(cat){
+        (cat.items||[]).forEach(function(it){
+          [['q_en','q_ar','q_fr'],['a_en','a_ar','a_fr']].forEach(function(f){
+            if(!it[f[0]]) return;
+            out.total++;
+            var hit=pack[ttDialectKey(it[f[0]])];
+            if(hit){ if(hit.ar) it[f[1]]=hit.ar; if(hit.fr) it[f[2]]=hit.fr; out.applied++; }
+          });
+        });
+      });
+    });
+  }catch(e){ console.error('dialect', e); }
+  return out;
+}
+window.ttApplyDialect=ttApplyDialect;
+/* Changing dialect rewrites content that's already rendered, so reload. */
+window.ttSetDialect=function(d){
+  if(!AR_DIALECTS[d]) return;
+  try{ localStorage.setItem('tt_dialect', JSON.stringify(d)); }catch(e){}
+  location.reload();
+};
+window.ttDialectCoverage=function(){ return ttApplyDialect(); };
+ttApplyDialect();
 
 /* Voice selection.
    The old code fell back to "any ar-* voice" on the first miss, which on almost
