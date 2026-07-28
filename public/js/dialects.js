@@ -25,12 +25,12 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 6,
+    batch: 7,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
     reviewedThrough: 2,            // ← raise this as each batch is reviewed
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
-    note: 'Batches 1-2 reviewed & approved by the product owner. Batches 3-6 awaiting review.',
+    note: 'Batches 1-2 reviewed & approved by the product owner. Batches 3-7 awaiting review.',
   },
 
   /* ---------------- Saudi — Hejazi ---------------- */
@@ -422,6 +422,27 @@ window.TT_DIALECT_PACK = {
     'yes even at rest':             { ar: 'أيوه، حتى وأنا مرتاح',      fr: 'Aywa, hatta wa ana murtah' },
     'does the cyanosis decrease during squatting': { ar: 'الزرقان يقل لما تقرفص؟', fr: 'Az-zurgan yigill lamma tgarfis?' },
     'yes when i squat':             { ar: 'أيوه، لما أقرفص',           fr: 'Aywa, lamma agarfis' },
+
+    /* ===== Batch 7 — Cardiology pt.4: pressure/BP, embolisation, PVD, fever.
+       Completes cardiology. Investigation names (ECG, echo, catheterisation)
+       are MSA and identical across dialects, so only replies are translated. */
+    'do you have difficulty in swallowing': { ar: 'عندك صعوبة في البلع؟', fr: '3indak su3ooba fil-bal3?' },
+    'do you have difficulty in breathing': { ar: 'عندك صعوبة في التنفس؟', fr: '3indak su3ooba fit-tanaffus?' },
+    'is there any change in your voice': { ar: 'في تغيّر في صوتك؟',    fr: 'Fee taghayyur fi sotak?' },
+    'yes its hoarse':               { ar: 'أيوه، مبحوح',               fr: 'Aywa, mabhooh' },
+    'do you have bleeding per nose': { ar: 'يجيك نزيف من أنفك؟',       fr: 'Yjeek nazeef min anfak?' },
+    'is there any chest pain embolization': { ar: 'في أي ألم في صدرك؟', fr: 'Fee ay alam fi sadrak?' },
+    'is there any abdominal pain':  { ar: 'في أي ألم في بطنك؟',        fr: 'Fee ay alam fi batnak?' },
+    'is there any sudden blindness': { ar: 'صار عندك فقدان نظر فجأة؟', fr: 'Sar 3indak fugdan nadhar faj\'a?' },
+    'is there any swelling of the calves': { ar: 'في انتفاخ في بطة رجلك؟', fr: 'Fee intifakh fi battat rijlak?' },
+    'yes my calf is swollen':       { ar: 'أيوه، بطة رجلي منتفخة',     fr: 'Aywa, battat rijli muntafkha' },
+    'is there any loss of hair':    { ar: 'شعرك يتساقط؟',              fr: 'Sha3rak yitsagat?' },
+    'yes on my legs':               { ar: 'أيوه، في رجلي',             fr: 'Aywa, fi rijli' },
+    'do you have leg ulcers':       { ar: 'عندك قرحة في رجلك؟',        fr: '3indak gurha fi rijlak?' },
+    'yes a small ulcer':            { ar: 'أيوه، قرحة صغيرة',          fr: 'Aywa, gurha sagheera' },
+    'is there any fever':           { ar: 'في أي حرارة؟',              fr: 'Fee ay harara?' },
+    'yes a mild fever':             { ar: 'أيوه، حرارة خفيفة',         fr: 'Aywa, harara khafeefa' },
+    'alright doctor':               { ar: 'طيب يا دكتور',              fr: 'Tayyib ya doktor' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -810,5 +831,25 @@ window.TT_DIALECT_PACK = {
     'yes even at rest':             { ar: 'إي، حتى وأنا مرتاح',        fr: 'Ee, hatta w ana murtah' },
     'does the cyanosis decrease during squatting': { ar: 'الزرقان يقل لمن تقرفص؟', fr: 'Az-zurgan ygill liman tgarfis?' },
     'yes when i squat':             { ar: 'إي، لمن أقرفص',             fr: 'Ee, liman agarfis' },
+
+    /* ===== Batch 7 — Cardiology pt.4: pressure/BP, embolisation, PVD, fever.
+       Note خشم rather than أنف for nose — it is the everyday Gulf word. */
+    'do you have difficulty in swallowing': { ar: 'عندك صعوبة بالبلع؟', fr: '3indik su3ooba bil-bal3?' },
+    'do you have difficulty in breathing': { ar: 'عندك صعوبة بالتنفس؟', fr: '3indik su3ooba bit-tanaffus?' },
+    'is there any change in your voice': { ar: 'في تغيّر بصوتك؟',      fr: 'Fee taghayyur b-sotik?' },
+    'yes its hoarse':               { ar: 'إي، مبحوح',                 fr: 'Ee, mabhooh' },
+    'do you have bleeding per nose': { ar: 'يجيك نزيف من خشمك؟',       fr: 'Yjeek nazeef min khashmik?' },
+    'is there any chest pain embolization': { ar: 'في أي وجع بصدرك؟',  fr: 'Fee ay waja3 b-sadrik?' },
+    'is there any abdominal pain':  { ar: 'في أي وجع ببطنك؟',          fr: 'Fee ay waja3 b-batnik?' },
+    'is there any sudden blindness': { ar: 'صار عندك فقدان نظر فجأة؟', fr: 'Sar 3indik fugdan nadhar faj\'a?' },
+    'is there any swelling of the calves': { ar: 'في انتفاخ ببطة رجلك؟', fr: 'Fee intifakh b-battat rijlik?' },
+    'yes my calf is swollen':       { ar: 'إي، بطة رجلي منتفخة',       fr: 'Ee, battat rijli muntafkha' },
+    'is there any loss of hair':    { ar: 'شعرك يتساقط؟',              fr: 'Sha3rik yitsagat?' },
+    'yes on my legs':               { ar: 'إي، برجلي',                 fr: 'Ee, b-rijli' },
+    'do you have leg ulcers':       { ar: 'عندك قرحة برجلك؟',          fr: '3indik gurha b-rijlik?' },
+    'yes a small ulcer':            { ar: 'إي، قرحة صغيرة',            fr: 'Ee, gurha sagheera' },
+    'is there any fever':           { ar: 'في أي حرارة؟',              fr: 'Fee ay harara?' },
+    'yes a mild fever':             { ar: 'إي، حرارة خفيفة',           fr: 'Ee, harara khafeefa' },
+    'alright doctor':               { ar: 'زين يا دكتور',              fr: 'Zain ya doktor' },
   },
 };
