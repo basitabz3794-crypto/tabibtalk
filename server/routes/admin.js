@@ -296,6 +296,13 @@ router.get('/subscriptions', requireAdmin, async (req, res) => {
       status: p.status, transactionId: p.transactionId || '', referenceNote: p.referenceNote || '',
       submittedAt: p.submittedAt, reviewedAt: p.reviewedAt || null,
       userEmail: user.email || '(deleted user)', userName: user.name || '',
+      // What was ACTUALLY paid: the dialect the student learns in, the currency
+      // they paid in, and the amount in that currency — all captured at
+      // submission time. Proofs predating this carry none, so the hub shows a
+      // dash rather than guessing.
+      dialect: p.dialect || user.dialect || 'eg',
+      paidCurrency: p.currency || null,
+      paidAmount: (p.amount === 0 || p.amount) ? p.amount : null,
       planExpiresAt: user.planExpiresAt || null,
       expired: !!expired,
     };
@@ -734,6 +741,13 @@ router.get('/accounts', requireAdmin, async (req, res) => {
       planName: plan.name ? `${plan.name}${plan.period ? ' · ' + plan.period : ''}` : p.planId,
       userName: user.name || '',
       userEmail: user.email || '(deleted user)',
+      // What was ACTUALLY paid: the dialect the student learns in, the currency
+      // they paid in, and the amount in that currency — all captured at
+      // submission time. Proofs predating this carry none, so the hub shows a
+      // dash rather than guessing.
+      dialect: p.dialect || user.dialect || 'eg',
+      paidCurrency: p.currency || null,
+      paidAmount: (p.amount === 0 || p.amount) ? p.amount : null,
       paidAt: p.reviewedAt || p.submittedAt, // approval time = when the money was confirmed
       transactionId: p.transactionId || '',
       usd: money.usd, inr: money.inr, egp: money.egp,

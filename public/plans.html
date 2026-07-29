@@ -440,6 +440,10 @@ document.querySelectorAll('.proof-form').forEach(form => form.addEventListener('
       planId: selectedPlanId,
       transactionId,
       referenceNote: form.querySelector('.reference-input').value,
+      // Each method is paid in one currency, so the method determines it:
+      // PayPal in USD, InstaPay in EGP, UPI in INR. Sent so the admin hub can
+      // report what was actually paid rather than inferring it later.
+      currency: method === 'instapay' ? 'egp' : method === 'upi' ? 'inr' : 'usd',
     }});
     statusEl.innerHTML = '<div class="alert alert-success">Thanks! Your transaction ID was submitted and is pending review. We\'ll activate your plan as soon as we\'ve matched it against our account.</div>';
     form.reset();
@@ -548,9 +552,14 @@ function renderNewPlans() {
   // visible and functional in the same position as on the landing page, so we
   // deliberately do NOT swap it for a "← Back" button.
   currentUser = await getCurrentUser();
+  // Which dialect's plans page to show. The signed-in account is
+  // authoritative; a visitor who has not signed in yet falls back to the
+  // choice they made on the landing page, which lives in localStorage.
+  const dialect = (currentUser && currentUser.dialect)
+    || (function(){ try { return JSON.parse(localStorage.getItem('tt_dialect')||'null') || 'eg'; } catch(e){ return 'eg'; } })();
   const [{ plans }, siteCfg] = await Promise.all([
     api('/api/plans/config'),
-    fetch('/api/site-config', { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
+    fetch('/api/site-config?dialect=' + encodeURIComponent(dialect), { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
   ]);
   ALL_PLANS = plans;
   // New-plans mode is account-first: visitors must sign in before seeing the

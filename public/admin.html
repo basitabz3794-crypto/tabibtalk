@@ -149,6 +149,18 @@ function ah(){ return { 'x-admin-key': KEY }; }
 async function adminGet(path){ const r = await fetch(path, { headers: ah() }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
 async function adminPost(path, body){ const r = await fetch(path, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, ah()), body: JSON.stringify(body||{}) }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
 function fmt(iso){ if(!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
+// Dialect labels for the admin tables. Accounts predating dialects report
+// 'eg', which is all there was when they signed up.
+const DIALECT_LABEL = { eg:'🇪🇬 Egyptian', hejazi:'🇸🇦 Hejazi', khaleeji:'🌊 Khaleeji' };
+function dialectLabel(d){ return DIALECT_LABEL[d] || DIALECT_LABEL.eg; }
+// What the student actually handed over, in the currency they paid in.
+// Payments taken before this was recorded have neither, so they show a dash
+// rather than a converted guess.
+const PAID_SYMBOL = { usd:'$', inr:'₹', egp:'E£' };
+function paidAs(r){
+  if (!r || !r.paidCurrency || r.paidAmount === null || r.paidAmount === undefined) return '<span style="color:var(--faint)">&mdash;</span>';
+  return (PAID_SYMBOL[r.paidCurrency]||'') + Number(r.paidAmount).toLocaleString() + ' <span style="color:var(--muted);font-size:.78rem">' + r.paidCurrency.toUpperCase() + '</span>';
+}
 function fmtD(iso){ if(!iso) return '—'; try { return new Date(iso).toLocaleDateString(); } catch(e){ return iso; } }
 
 renderHeader('account');
@@ -274,6 +286,7 @@ function subCard(p, actions){
       <span class="pill pill-${p.status==='approved'?(p.expired?'suspended':'active'):(p.status==='rejected'?'rejected':'pending')}" style="margin-left:6px">${p.expired?'suspended':esc(p.status)}</span>
       <div style="font-weight:700;color:var(--text);margin-top:8px">${esc(p.planName)}</div>
       <div style="font-size:.84rem">${p.userName?esc(p.userName)+' · ':''}${esc(p.userEmail)}</div>
+      <div style="font-size:.82rem;color:var(--muted);margin-top:2px">${dialectLabel(p.dialect)} &middot; paid ${paidAs(p)}</div>
       <div style="color:var(--muted);font-size:.8rem">Submitted ${fmt(p.submittedAt)}${p.reviewedAt?' · reviewed '+fmt(p.reviewedAt):''}</div>
       ${p.planExpiresAt?`<div style="color:var(--muted);font-size:.8rem">Plan ${p.expired?'expired':'expires'} ${fmtD(p.planExpiresAt)}</div>`:''}
       ${p.transactionId?`<div style="margin-top:8px"><span style="color:var(--muted);font-size:.8rem">Transaction ID</span><div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9rem;font-weight:700;color:var(--text);word-break:break-all;user-select:all">${esc(p.transactionId)}</div></div>`:'<div style="color:var(--faint);font-size:.8rem;margin-top:8px">No transaction ID</div>'}
@@ -303,9 +316,10 @@ window.approve=approve; window.reject=reject;
 async function loadUsers(){
   const { users } = await adminGet('/api/admin/users');
   document.getElementById('panel-users').innerHTML = `<div class="card"><div class="table-scroll"><table class="data">
-    <thead><tr><th>Name</th><th>Email</th><th>Nationality</th><th>Grade</th><th>Tier</th><th>Subscription</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Email</th><th>Nationality</th><th>Grade</th><th>Dialect</th><th>Tier</th><th>Subscription</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>${users.length? users.map(u=>`<tr>
       <td><a href="#" onclick="userDetail('${u.id}');return false" style="color:var(--accent);font-weight:700;text-decoration:none" title="Full plan history">${esc(u.name||'—')}</a></td><td>${esc(u.email)}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
+      <td>${dialectLabel(u.dialect)}</td>
       <td style="text-transform:capitalize">${u.tier}</td>
       <td><span class="pill pill-${u.subState==='active'?'active':(u.subState==='suspended'?'suspended':'none')}">${u.subState}</span>${u.planId?'<div style="font-size:.72rem;color:var(--muted)">'+u.planId+'</div>':''}</td>
       <td>${u.deviceCount}/${u.maxDevices}${u.maxDevices!==3?' <span style="font-size:.68rem;color:var(--gold)">raised</span>':''}</td>
@@ -316,7 +330,7 @@ async function loadUsers(){
         ${u.subState==='active'?`<button class="btn btn-ghost" onclick="userAction('${u.id}','suspend')">Suspend</button>`:`<button class="btn btn-ghost" onclick="userAction('${u.id}','reactivate')">Reactivate</button>`}
         ${u.status==='banned'?`<button class="btn btn-primary" onclick="userAction('${u.id}','unban')">Unban</button>`:`<button class="btn btn-danger" onclick="userAction('${u.id}','ban')">Ban</button>`}
       </div></td>
-    </tr>`).join('') : '<tr><td colspan="9" class="empty">No users yet.</td></tr>'}</tbody></table></div></div>`;
+    </tr>`).join('') : '<tr><td colspan="10" class="empty">No users yet.</td></tr>'}</tbody></table></div></div>`;
 }
 async function userAction(id, action){
   if(action==='ban' && !confirm('Ban this user? They will be logged out and unable to sign in.')) return;
@@ -369,6 +383,7 @@ async function userDetail(id){
         ${row('Phone', esc(u.phone||'—'))}
         ${row('College', esc(u.college||'—'))}
         ${row('Nationality / Grade', esc(u.nationality||'—')+' · '+esc(u.grade||'—'))}
+        ${row('Dialect', dialectLabel(u.dialect))}
         ${row('Joined', fmtD(u.createdAt))}
         ${row('Email verified', u.emailVerified===true
             ? '<span style="color:var(--accent)">✓ Verified</span>'
@@ -735,21 +750,23 @@ async function loadDev(){
          shows only Basic + Advanced instead of Explorer/Student/Professional/
          Lifetime. Both new plans' prices and durations are editable in the
          plan table below (rows "Basic" and "Advanced") with no code change. -->
-    <div style="border:1px solid ${site.newPlans?'rgba(34,211,238,.45)':'rgba(255,255,255,.12)'};border-radius:12px;padding:16px;margin-bottom:18px;background:${site.newPlans?'rgba(34,211,238,.07)':'rgba(255,255,255,.04)'}">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
-        <div>
-          <div style="font-weight:700;color:var(--txt, var(--text))">Payment and plans page — New (Basic / Advanced): <span style="color:${site.newPlans?'var(--ok)':'var(--muted)'}">${site.newPlans?'ON':'OFF'}</span></div>
-          <p style="color:var(--dim, var(--muted));font-size:.85rem;margin:6px 0 0;max-width:560px">
-            ${site.newPlans
-              ? 'The pricing page shows only Basic and Advanced. Basic: whole site except Flashcards (Franco & Communication allowed), AI Patient (General chat + Abdominal pain allowed) and QBank (lesson names visible, content locked). Advanced: everything, like Professional.'
-              : 'OFF — the classic Explorer / Student / Professional / Lifetime page is live. Turn on to switch to the two-plan structure (Basic + Advanced). Edit their prices in the plan table below.'}
-          </p>
-        </div>
-        <button class="btn ${site.newPlans?'btn-ghost':'btn-primary'}" onclick="toggleNewPlans(${site.newPlans?'false':'true'})">
-          ${site.newPlans?'Switch back to classic plans':'Switch to Basic / Advanced'}
-        </button>
-      </div>
-    </div>
+    <!-- Plans page per DIALECT. plansEnabled above is the global kill switch;
+         this chooses which pricing page each dialect shows. Egyptian keeps the
+         legacy setting; the dialects added later default to the classic page. -->
+    ${['eg','hejazi','khaleeji'].map(function(d){
+      var on = !!((site.dialects||{})[d]||{}).newPlans;
+      return '<div style="border:1px solid '+(on?'rgba(34,211,238,.45)':'rgba(255,255,255,.12)')+';border-radius:12px;padding:16px;margin-bottom:12px;background:'+(on?'rgba(34,211,238,.07)':'rgba(255,255,255,.04)')+'">'
+        + '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><div>'
+        + '<div style="font-weight:700;color:var(--txt, var(--text))">' + dialectLabel(d) + ' &mdash; plans page: '
+        + '<span style="color:'+(on?'var(--ok)':'var(--muted)')+'">' + (on?'NEW (Basic / Advanced)':'CLASSIC (Explorer / Student / Professional / Lifetime)') + '</span></div>'
+        + '<p style="color:var(--dim, var(--muted));font-size:.85rem;margin:6px 0 0;max-width:600px">'
+        + (on ? 'Basic: the whole site except Flashcards (Franco &amp; Communication allowed), AI Patient (General chat + Abdominal pain) and QBank (lesson names visible, content locked). Advanced: everything.'
+             : 'The classic four-plan page is live for this dialect. Every plan price is editable in the table below.')
+        + '</p></div>'
+        + '<button class="btn '+(on?'btn-ghost':'btn-primary')+'" onclick="toggleNewPlans(&quot;'+d+'&quot;,'+(on?'false':'true')+')">'
+        + (on?'Switch to classic':'Switch to Basic / Advanced') + '</button>'
+        + '</div></div>';
+    }).join('')}
 
     <!-- Global currency configuration: drives the INR/EGP figures for EVERY plan.
          Uses a translucent fill rather than var(--bg-2): that token is #ffffff in
@@ -960,12 +977,13 @@ async function toggleSitePlans(enable){
 }
 window.toggleSitePlans = toggleSitePlans;
 
-async function toggleNewPlans(enable){
+async function toggleNewPlans(dialect, enable){
+  const who = dialectLabel(dialect);
   const msg = enable
-    ? 'Switch the pricing page to the NEW structure (Basic / Advanced)?\n\nExisting subscribers keep their current plans; only what NEW visitors see changes.'
-    : 'Switch back to the classic Explorer / Student / Professional / Lifetime page?';
+    ? 'Switch the '+who+' pricing page to the NEW structure (Basic / Advanced)?\n\nExisting subscribers keep their current plans; only what NEW visitors see changes.'
+    : 'Switch '+who+' back to the classic Explorer / Student / Professional / Lifetime page?';
   if(!confirm(msg)) return;
-  await adminPost('/api/admin/site-config', { newPlans: enable });
+  await adminPost('/api/admin/site-config', { dialect: dialect, newPlans: enable });
   loadDev();
 }
 window.toggleNewPlans = toggleNewPlans;
@@ -1110,15 +1128,15 @@ function renderAccounts() {
     <div class="card" style="margin-top:16px">
       <h3 class="sec">Payment ledger <span style="color:var(--muted);font-weight:500">(${d.records.length} approved)</span></h3>
       <div class="table-scroll"><table class="data">
-        <thead><tr><th>Date</th><th>User</th><th>Plan</th><th>Method</th><th>Amount</th><th>Transaction ID</th></tr></thead>
+        <thead><tr><th>Date</th><th>User</th><th>Dialect</th><th>Plan</th><th>Method</th><th>Amount</th><th>Paid as</th><th>Transaction ID</th></tr></thead>
         <tbody>${d.records.length ? d.records.map(r => `<tr>
           <td>${fmtD(r.paidAt)}</td>
-          <td style="color:var(--text)">${esc(r.userName || '')}<div style="color:var(--muted);font-size:.8rem">${esc(r.userEmail)}</div></td>
+          <td style="color:var(--text)">${esc(r.userName || '')}<div style="color:var(--muted);font-size:.8rem">${esc(r.userEmail)}</div></td><td>${dialectLabel(r.dialect)}</td>
           <td>${esc(r.planName)}</td>
           <td><span class="method-badge ${esc(r.method)}">${esc(r.method)}</span></td>
-          <td style="color:var(--text);font-weight:700">${money(r, cur)}</td>
+          <td style="color:var(--text);font-weight:700">${money(r, cur)}</td><td>${paidAs(r)}</td>
           <td style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;word-break:break-all;user-select:all">${r.transactionId ? esc(r.transactionId) : '—'}</td>
-        </tr>`).join('') : '<tr><td colspan="6" class="empty">No approved payments yet.</td></tr>'}</tbody>
+        </tr>`).join('') : '<tr><td colspan="8" class="empty">No approved payments yet.</td></tr>'}</tbody>
       </table></div>
     </div>`;
 }
