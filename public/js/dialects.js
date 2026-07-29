@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 10,
+    batch: 11,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 10,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 11,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -594,6 +594,45 @@ window.TT_DIALECT_PACK = {
     'with difficulty':              { ar: 'بصعوبة',                    fr: 'Bi-su3ooba' },
     'can you move your head to the right and to the left': { ar: 'تقدر تلف راسك يمين وشمال؟', fr: 'Tigdar tliff rasak yameen wa shimal?' },
     'yes but weakly':               { ar: 'أيوه، بس بضعف',             fr: 'Aywa, bass bi-du3f' },
+
+    /* ===== Batch 11 — Neurology pt.2: motor system & weakness =====
+       The bracketed clinical labels ([Distal UL], [Tone]…) are part of the
+       English key but never spoken, so only the patient-facing question after
+       them is translated. */
+    'im paralyzed':                 { ar: 'عندي شلل',                  fr: '3indi shalal' },
+    'yes my right side is weak':    { ar: 'أيوه، جنبي اليمين ضعيف',    fr: 'Aywa, jambi al-yameen da3eef' },
+    'do you feel weakness':         { ar: 'تحس بضعف في الحركة؟',       fr: 'Tihiss bi-du3f fil-haraka?' },
+    'yes in my legs':               { ar: 'أيوه، في رجلي',             fr: 'Aywa, fi rijli' },
+    'do you feel heaviness':        { ar: 'تحس بثقل في الحركة؟',       fr: 'Tihiss bi-thigl fil-haraka?' },
+    'yes heavy limbs':              { ar: 'أيوه، أطرافي ثقيلة',        fr: 'Aywa, atrafi thigeela' },
+    'degree is it weakness or complete paralysis': { ar: 'ضعف ولا شلل كامل؟', fr: 'Du3f wala shalal kamil?' },
+    'weakness':                     { ar: 'ضعف',                       fr: 'Du3f' },
+    'tone is the muscle tone increased or decreased': { ar: 'عضلاتك مشدودة ولا مرتخية؟', fr: '3adalatak mashdooda wala murtakhiya?' },
+    'it feels stiff':               { ar: 'مشدودة',                    fr: 'Mashdooda' },
+    'atrophy is there any muscle wasting': { ar: 'عضلاتك ضمرت؟',       fr: '3adalatak dhamrat?' },
+    'fasciculations is there any twitches': { ar: 'في رفة في عضلاتك؟', fr: 'Fee raffa fi 3adalatak?' },
+    'yes twitches':                 { ar: 'أيوه، رفة',                 fr: 'Aywa, raffa' },
+    'trophic do you have any brittle nails': { ar: 'أظافرك تتقصف؟',    fr: 'Adhafrak titgassaf?' },
+    'is there any falling of hair': { ar: 'شعرك يطيح؟',                fr: 'Sha3rak yteeh?' },
+    'is there any dry ulcerated skin': { ar: 'جلدك ناشف أو فيه تقرحات؟', fr: 'Jildak nashif aw feeh taqarruhat?' },
+    'yes dry skin':                 { ar: 'أيوه، جلد ناشف',            fr: 'Aywa, jild nashif' },
+    'is the upper limb more affected than the lower limb': { ar: 'يدك أكثر من رجلك؟', fr: 'Yaddak akthar min rijlak?' },
+    'no the leg is worse':          { ar: 'لا، الرجل أكثر',            fr: 'La, ar-rijl akthar' },
+    'is the right side more affected than the left side': { ar: 'الجنب اليمين أكثر من الشمال؟', fr: 'Al-jamb al-yameen akthar min ash-shimal?' },
+    'distal ul is there any difficulty in writing or squeezing a lemon': { ar: 'في صعوبة إنك تكتب أو تعصر ليمونة؟', fr: 'Fee su3ooba innak tiktub aw ti3sir laymoona?' },
+    'yes writing is hard':          { ar: 'أيوه، الكتابة صعبة',        fr: 'Aywa, al-kitaba sa3ba' },
+    'proximal ul is there any difficulty in combing your hair': { ar: 'في صعوبة إنك تسرح شعرك؟', fr: 'Fee su3ooba innak tsarrih sha3rak?' },
+    'distal ll is there any difficulty in walking down the stairs': { ar: 'في صعوبة إنك تنزل الدرج؟', fr: 'Fee su3ooba innak tinzil ad-daraj?' },
+    'proximal ll is there any difficulty in climbing the stairs': { ar: 'في صعوبة إنك تطلع الدرج؟', fr: 'Fee su3ooba innak titla3 ad-daraj?' },
+    'yes hard to climb':            { ar: 'أيوه، صعب أطلع',            fr: 'Aywa, sa3b atla3' },
+    'extensor ul is there any difficulty when you close the door': { ar: 'في صعوبة لما تسكر الباب؟', fr: 'Fee su3ooba lamma tsakkir al-bab?' },
+    'flexor ul is there any difficulty when you open the door': { ar: 'في صعوبة لما تفتح الباب؟', fr: 'Fee su3ooba lamma tiftah al-bab?' },
+    'can you flex your leg to wear the trousers': { ar: 'تقدر ترفع رجلك عشان تلبس البنطلون؟', fr: 'Tigdar tirfa3 rijlak 3ashan tilbas al-bantaloon?' },
+    'can you straighten your leg when wearing the trousers': { ar: 'تقدر تفرد رجلك في البنطلون؟', fr: 'Tigdar tifrid rijlak fil-bantaloon?' },
+    'adductor ul can you put a newspaper between your armpit': { ar: 'تقدر تحط جريدة تحت إبطك؟', fr: 'Tigdar thutt jareeda taht ibtak?' },
+    'abductor ul can you wear your shirt': { ar: 'تقدر تلبس قميصك؟',   fr: 'Tigdar tilbas gamisak?' },
+    'adductor ll can you put your legs crossing each other': { ar: 'تقدر تحط رجل على رجل؟', fr: 'Tigdar thutt rijl 3ala rijl?' },
+    'abductor ll can you put your legs down again': { ar: 'تقدر تنزل رجلك من على رجلك؟', fr: 'Tigdar tnazzil rijlak min 3ala rijlak?' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1152,5 +1191,41 @@ window.TT_DIALECT_PACK = {
     'with difficulty':              { ar: 'بصعوبة',                    fr: 'Bi-su3ooba' },
     'can you move your head to the right and to the left': { ar: 'تقدر تلف راسك يمين ويسار؟', fr: 'Tigdar tliff rasik yameen w yasar?' },
     'yes but weakly':               { ar: 'إي، بس بضعف',               fr: 'Ee, bass bi-dhu3f' },
+
+    /* ===== Batch 11 — Neurology pt.2: motor system & weakness ===== */
+    'im paralyzed':                 { ar: 'عندي شلل',                  fr: '3indi shalal' },
+    'yes my right side is weak':    { ar: 'إي، جنبي اليمين ضعيف',      fr: 'Ee, jambi al-yameen dha3eef' },
+    'do you feel weakness':         { ar: 'تحس بضعف بالحركة؟',         fr: 'Tihiss bi-dhu3f bil-haraka?' },
+    'yes in my legs':               { ar: 'إي، برجلي',                 fr: 'Ee, b-rijli' },
+    'do you feel heaviness':        { ar: 'تحس بثقل بالحركة؟',         fr: 'Tihiss bi-thigl bil-haraka?' },
+    'yes heavy limbs':              { ar: 'إي، أطرافي ثقيلة',          fr: 'Ee, atrafi thigeela' },
+    'degree is it weakness or complete paralysis': { ar: 'ضعف ولا شلل كامل؟', fr: 'Dhu3f wala shalal kamil?' },
+    'weakness':                     { ar: 'ضعف',                       fr: 'Dhu3f' },
+    'tone is the muscle tone increased or decreased': { ar: 'عضلاتك مشدودة ولا مرتخية؟', fr: '3adalatik mashdooda wala murtakhiya?' },
+    'it feels stiff':               { ar: 'مشدودة',                    fr: 'Mashdooda' },
+    'atrophy is there any muscle wasting': { ar: 'عضلاتك ضمرت؟',       fr: '3adalatik dhamrat?' },
+    'fasciculations is there any twitches': { ar: 'في رفة بعضلاتك؟',   fr: 'Fee raffa b-3adalatik?' },
+    'yes twitches':                 { ar: 'إي، رفة',                   fr: 'Ee, raffa' },
+    'trophic do you have any brittle nails': { ar: 'أظافرك تتقصف؟',    fr: 'Adhafrik titgassaf?' },
+    'is there any falling of hair': { ar: 'شعرك يطيح؟',                fr: 'Sha3rik yteeh?' },
+    'is there any dry ulcerated skin': { ar: 'جلدك ناشف ولا فيه تقرحات؟', fr: 'Jildik nashif wala feeh taqarruhat?' },
+    'yes dry skin':                 { ar: 'إي، جلد ناشف',              fr: 'Ee, jild nashif' },
+    'is the upper limb more affected than the lower limb': { ar: 'يدك أكثر من رجلك؟', fr: 'Yaddik akthar min rijlik?' },
+    'no the leg is worse':          { ar: 'لا، الرجل أكثر',            fr: 'La, ar-rijl akthar' },
+    'is the right side more affected than the left side': { ar: 'الجنب اليمين أكثر من اليسار؟', fr: 'Al-jamb al-yameen akthar min al-yasar?' },
+    'distal ul is there any difficulty in writing or squeezing a lemon': { ar: 'في صعوبة إنك تكتب ولا تعصر ليمونة؟', fr: 'Fee su3ooba innik tiktib wala ti3sir laymoona?' },
+    'yes writing is hard':          { ar: 'إي، الكتابة صعبة',          fr: 'Ee, al-kitaba sa3ba' },
+    'proximal ul is there any difficulty in combing your hair': { ar: 'في صعوبة إنك تسرح شعرك؟', fr: 'Fee su3ooba innik tsarrih sha3rik?' },
+    'distal ll is there any difficulty in walking down the stairs': { ar: 'في صعوبة إنك تنزل الدرج؟', fr: 'Fee su3ooba innik tinzil ad-daraj?' },
+    'proximal ll is there any difficulty in climbing the stairs': { ar: 'في صعوبة إنك تطلع الدرج؟', fr: 'Fee su3ooba innik titla3 ad-daraj?' },
+    'yes hard to climb':            { ar: 'إي، صعب أطلع',              fr: 'Ee, sa3b atla3' },
+    'extensor ul is there any difficulty when you close the door': { ar: 'في صعوبة لمن تسكر الباب؟', fr: 'Fee su3ooba liman tsakkir al-bab?' },
+    'flexor ul is there any difficulty when you open the door': { ar: 'في صعوبة لمن تفتح الباب؟', fr: 'Fee su3ooba liman tiftah al-bab?' },
+    'can you flex your leg to wear the trousers': { ar: 'تقدر ترفع رجلك عشان تلبس البنطلون؟', fr: 'Tigdar tirfa3 rijlik 3ashan tilbas al-bantaloon?' },
+    'can you straighten your leg when wearing the trousers': { ar: 'تقدر تفرد رجلك بالبنطلون؟', fr: 'Tigdar tifrid rijlik bil-bantaloon?' },
+    'adductor ul can you put a newspaper between your armpit': { ar: 'تقدر تحط جريدة تحت إبطك؟', fr: 'Tigdar thutt jareeda taht ibtik?' },
+    'abductor ul can you wear your shirt': { ar: 'تقدر تلبس قميصك؟',   fr: 'Tigdar tilbas gamisik?' },
+    'adductor ll can you put your legs crossing each other': { ar: 'تقدر تحط رجل على رجل؟', fr: 'Tigdar thutt rijl 3ala rijl?' },
+    'abductor ll can you put your legs down again': { ar: 'تقدر تنزل رجلك من على رجلك؟', fr: 'Tigdar tnazzil rijlik min 3ala rijlik?' },
   },
 };
