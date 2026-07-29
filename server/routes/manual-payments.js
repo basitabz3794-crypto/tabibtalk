@@ -1,7 +1,7 @@
 const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
-const { PLANS, accessTierForPlan, computeExpiry } = require('../data/plans');
+const { PLANS, accessTierForPlan, computeExpiry, getEffectivePlans, normaliseDialect } = require('../data/plans');
 
 function requireLogin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please log in first.' });
@@ -36,7 +36,7 @@ function createManualPaymentRouter(method, getDetails, label) {
   // admin checks against the real InstaPay/UPI/PayPal statement. (This used to
   // be a screenshot upload, but Vercel has no writable disk to keep files on.)
   router.post('/submit-proof', requireLogin, async (req, res) => {
-    const { planId, transactionId, referenceNote } = req.body || {};
+    const { planId, transactionId, referenceNote, currency } = req.body || {};
     if (!PLANS[planId]) return res.status(400).json({ error: 'Unknown plan.' });
 
     const txn = String(transactionId || '').trim();
@@ -45,11 +45,28 @@ function createManualPaymentRouter(method, getDetails, label) {
       return res.status(400).json({ error: 'That transaction ID doesn\'t look right — please copy it exactly from your payment app.' });
     }
 
+    // Record WHAT was actually paid, not just which plan: the dialect the
+    // student learns in, the currency they paid in, and the amount in that
+    // currency at today's price. Resolving the amount now means a later price
+    // change never rewrites the history of what someone handed over.
+    const payer = await store.findUserById(req.session.userId);
+    const cur = ['usd', 'inr', 'egp'].indexOf(String(currency || '').toLowerCase()) >= 0
+      ? String(currency).toLowerCase() : 'usd';
+    let amount = null;
+    try {
+      const { plans } = await getEffectivePlans();
+      const live = plans[planId] || PLANS[planId] || {};
+      amount = cur === 'inr' ? live.inr : cur === 'egp' ? live.egp : live.priceNow;
+    } catch (e) { amount = null; }
+
     const proof = await store.createManualProof({
       id: nanoid(),
       method,
       userId: req.session.userId,
       planId,
+      dialect: normaliseDialect(payer && payer.dialect),
+      currency: cur,
+      amount: Number.isFinite(Number(amount)) ? Number(amount) : null,
       transactionId: txn,
       referenceNote: String(referenceNote || '').slice(0, 500),
       status: 'pending', // pending -> approved | rejected

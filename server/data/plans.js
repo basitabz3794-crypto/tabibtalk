@@ -143,6 +143,34 @@ function baselineTier(siteConfig) {
   return (siteConfig && siteConfig.newPlans === true) ? 'basic' : 'explorer';
 }
 
+// The dialects the product ships. 'eg' is the original course; the others were
+// added later and default to the CLASSIC plans page.
+const DIALECTS = ['eg', 'hejazi', 'khaleeji'];
+function isDialect(d) { return DIALECTS.indexOf(d) >= 0; }
+function normaliseDialect(d) { return isDialect(d) ? d : 'eg'; }
+
+// Resolve the plans settings that apply to one dialect.
+//
+// Shape stored in siteConfig:
+//   { plansEnabled, newPlans, dialects: { hejazi: { newPlans }, … } }
+//
+// plansEnabled stays GLOBAL — it is the kill switch for the whole payment
+// surface and is not something to run differently per dialect.
+//
+// newPlans is per dialect. The legacy flat `newPlans` field is Egyptian's
+// setting, so existing installs keep working untouched. Dialects added later
+// default to the classic Explorer/Student/Professional/Lifetime page, which is
+// what they were specified to launch with; the admin can change any of them
+// independently from the Developer tab.
+function configForDialect(siteConfig, dialect) {
+  const cfg = siteConfig || {};
+  const d = normaliseDialect(dialect);
+  const plansEnabled = cfg.plansEnabled !== false;
+  if (d === 'eg') return { plansEnabled, newPlans: cfg.newPlans === true, dialect: d };
+  const per = (cfg.dialects || {})[d] || {};
+  return { plansEnabled, newPlans: per.newPlans === true, dialect: d };
+}
+
 // How many days each plan lasts from activation. Lifetime never expires (null).
 const PLAN_DURATION_DAYS = {
   'student-monthly': 30, 'student-6m': 180, 'student-12m': 365,
@@ -199,4 +227,4 @@ async function getEffectivePlans() {
   return { plans, durationsDays, fx };
 }
 
-module.exports = { PLANS, getFxRates, FULL_ACCESS_TIERS, isFullAccess, accessTierForPlan, baselineTier, PLAN_DURATION_DAYS, computeExpiry, isExpired, convert, roundUpNice, USD_TO_INR, USD_TO_EGP, getEffectivePlans };
+module.exports = { PLANS, getFxRates, FULL_ACCESS_TIERS, isFullAccess, accessTierForPlan, baselineTier, DIALECTS, isDialect, normaliseDialect, configForDialect, PLAN_DURATION_DAYS, computeExpiry, isExpired, convert, roundUpNice, USD_TO_INR, USD_TO_EGP, getEffectivePlans };

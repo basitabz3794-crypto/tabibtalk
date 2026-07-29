@@ -4,7 +4,7 @@ const store = require('../data/store');
 const firebase = require('../data/firebase');
 const { requireAdmin } = require('./manual-payments');
 const { reconcileAllUsers } = require('./auth');
-const { isExpired, PLANS, accessTierForPlan, computeExpiry, baselineTier } = require('../data/plans');
+const { isExpired, PLANS, accessTierForPlan, computeExpiry, baselineTier, DIALECTS, normaliseDialect, configForDialect } = require('../data/plans');
 
 const router = express.Router();
 
@@ -152,6 +152,7 @@ router.get('/users', requireAdmin, async (req, res) => {
       tier: u.tier, planId: u.planId || null,
       planActivatedAt: u.planActivatedAt || null, planExpiresAt: u.planExpiresAt || null,
       status: u.status || 'active',
+      dialect: u.dialect || 'eg',
       subState: !u.planId ? 'none' : (expired ? 'suspended' : 'active'),
       deviceCount: allDevices.filter(d => d.userId === u.id && !d.blocked).length,
       maxDevices: Number(u.maxDevices) > 0 ? Number(u.maxDevices) : 3,
@@ -193,6 +194,7 @@ router.get('/users/:id/detail', requireAdmin, async (req, res) => {
       planExpiresAt: user.planExpiresAt || null,
       subStatus: user.subStatus || null,
       status: user.status || 'active',
+      dialect: user.dialect || 'eg',
       emailVerified,
       maxDevices: Number(user.maxDevices) > 0 ? Number(user.maxDevices) : 3,
       createdAt: user.createdAt,
@@ -430,18 +432,37 @@ router.post('/device-appeals/:id/resolve', requireAdmin, async (req, res) => {
 });
 
 // ---- Site switches (Developer): plans kill-switch + new plan structure ----
+// Returns the GLOBAL kill switch plus the plans mode of every dialect, so the
+// Developer tab can render one row per dialect.
+function siteConfigView(cfg) {
+  const out = { plansEnabled: cfg.plansEnabled !== false, newPlans: cfg.newPlans === true, dialects: {} };
+  DIALECTS.forEach(function (d) { out.dialects[d] = { newPlans: configForDialect(cfg, d).newPlans }; });
+  return out;
+}
 router.get('/site-config', requireAdmin, async (req, res) => {
-  const cfg = await store.getSiteConfig();
-  res.json({ plansEnabled: cfg.plansEnabled !== false, newPlans: cfg.newPlans === true });
+  res.json(siteConfigView(await store.getSiteConfig()));
 });
 router.post('/site-config', requireAdmin, async (req, res) => {
   const body = req.body || {};
   const patch = {};
+  // plansEnabled is global — one kill switch for the whole payment surface.
   if (body.plansEnabled !== undefined) patch.plansEnabled = body.plansEnabled !== false;
-  if (body.newPlans !== undefined) patch.newPlans = body.newPlans === true;
+  // newPlans is per dialect. Egyptian keeps writing the legacy flat field so
+  // older installs and any cached client keep reading the same value; the
+  // other dialects are stored under dialects.<id>.
+  if (body.newPlans !== undefined) {
+    const d = normaliseDialect(body.dialect);
+    if (d === 'eg') {
+      patch.newPlans = body.newPlans === true;
+    } else {
+      const cur = await store.getSiteConfig();
+      const dialects = Object.assign({}, cur.dialects || {});
+      dialects[d] = Object.assign({}, dialects[d] || {}, { newPlans: body.newPlans === true });
+      patch.dialects = dialects;
+    }
+  }
   await store.setSiteConfig(patch);
-  const cfg = await store.getSiteConfig();
-  res.json({ ok: true, plansEnabled: cfg.plansEnabled !== false, newPlans: cfg.newPlans === true });
+  res.json(Object.assign({ ok: true }, siteConfigView(await store.getSiteConfig())));
 });
 
 // ---- Full admin subscription + account controls (items 12 & 15) ----

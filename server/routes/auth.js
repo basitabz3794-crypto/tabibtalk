@@ -2,7 +2,7 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const firebase = require('../data/firebase');
-const { computeExpiry, isExpired, accessTierForPlan, baselineTier } = require('../data/plans');
+const { computeExpiry, isExpired, accessTierForPlan, baselineTier, normaliseDialect, configForDialect } = require('../data/plans');
 
 const router = express.Router();
 const MAX_DEVICES = 3;
@@ -16,6 +16,9 @@ function publicUser(user) {
     tier: user.tier, planId: user.planId || null,
     planActivatedAt: user.planActivatedAt || null, planExpiresAt: user.planExpiresAt || null,
     status: user.status || 'active', // active | suspended | banned
+    // Which dialect this account learns in. Accounts created before dialects
+    // existed carry no field and are Egyptian, which is all there was.
+    dialect: user.dialect || 'eg',
     createdAt: user.createdAt,
   };
 }
@@ -29,7 +32,10 @@ function publicUser(user) {
 async function reconcileUser(user, cfg) {
   if (!user) return user;
   cfg = cfg || await store.getSiteConfig();
-  const baseline = baselineTier(cfg);
+  // The baseline depends on the plans page live for THIS user's dialect: the
+  // new dialects run the classic page, so their no-plan users sit on Explorer
+  // while Egyptian's sit on Basic.
+  const baseline = baselineTier(configForDialect(cfg, user.dialect));
 
   // Paid tiers whose time is up fall back to the current mode's free baseline.
   // (Lifetime never expires; the free baselines have no expiry to begin with.)
@@ -147,7 +153,10 @@ router.post('/firebase-session', async (req, res) => {
     // new Basic/Advanced page is live, Explorer under the classic page. Basic is
     // granted automatically — no manual "subscribe" step required — so nobody
     // lands on Explorer while new-plans is enabled.
-    const signupBaseline = baselineTier(await store.getSiteConfig());
+    // Which dialect they entered through — carried from the landing page and
+    // through the signup form. Unknown or absent means Egyptian.
+    const signupDialect = normaliseDialect(p.dialect);
+    const signupBaseline = baselineTier(configForDialect(await store.getSiteConfig(), signupDialect));
     user = await store.createUser({
       id: nanoid(),
       firebaseUid: decoded.uid,
@@ -157,6 +166,7 @@ router.post('/firebase-session', async (req, res) => {
       college: String(p.college).trim(),
       nationality: String(p.nationality).trim(),
       grade: String(p.grade).trim(),
+      dialect: signupDialect,
       tier: signupBaseline,
       planId: null, planActivatedAt: null, planExpiresAt: null,
       status: 'active',
@@ -250,6 +260,21 @@ router.get('/me', async (req, res) => {
   if (user.status === 'banned') { req.session.destroy(() => {}); return res.json({ user: null, banned: true }); }
   user = await reconcileUser(user);
   res.json({ user: publicUser(user) });
+});
+
+// ---- Record the dialect a student is learning in ----
+// Called when they switch dialect in the app. Kept server-side (not just in
+// localStorage) so the admin hub can report who is learning what, and so the
+// right plans page follows them onto a new device.
+router.post('/dialect', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Please log in first.' });
+  const dialect = normaliseDialect((req.body || {}).dialect);
+  const user = await store.findUserById(req.session.userId);
+  if (!user) return res.json({ user: null });
+  // Changing dialect can change which plans page applies, so re-run the
+  // baseline check straight away rather than waiting for the next login.
+  const updated = await reconcileUser(await store.updateUser(user.id, { dialect }));
+  res.json({ ok: true, user: publicUser(updated) });
 });
 
 // ---- Password reset ----

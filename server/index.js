@@ -87,13 +87,12 @@ app.get('/api/health', (req, res) => {
 app.get('/api/site-config', async (req, res) => {
   try {
     const store = require('./data/store');
+    const { configForDialect } = require('./data/plans');
     const cfg = await store.getSiteConfig();
-    res.json({
-      plansEnabled: cfg.plansEnabled !== false,
-      // Second switch: the NEW two-plan structure (Basic / Advanced). Off by
-      // default — the classic Student/Professional page keeps rendering.
-      newPlans: cfg.newPlans === true,
-    });
+    // Settings are resolved PER DIALECT: ?dialect=hejazi returns that dialect's
+    // plans mode. Callers that omit it get Egyptian, which is what every
+    // pre-dialect caller expects, so nothing older breaks.
+    res.json(configForDialect(cfg, req.query.dialect));
   } catch (e) {
     // If Firebase is unreachable, fail OPEN (plans shown) — the safe default
     // for a commerce page is the one that matches normal operation.

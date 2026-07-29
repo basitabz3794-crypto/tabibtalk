@@ -194,6 +194,18 @@ document.querySelectorAll('.tab-row button').forEach(btn => btn.addEventListener
 
 function nextUrl(){ return new URLSearchParams(window.location.search).get('next') || '/account.html'; }
 
+/* The dialect chosen on the landing page is kept in localStorage and sent up
+   with the signup profile, so the account records which version of the site
+   the student joined through. Login itself stays shared across dialects. */
+function chosenDialect(){
+  try {
+    var q = new URLSearchParams(window.location.search).get('dialect');
+    if (q) { localStorage.setItem('tt_dialect', JSON.stringify(q)); return q; }
+    var d = JSON.parse(localStorage.getItem('tt_dialect') || 'null');
+    return d || 'eg';
+  } catch (e) { return 'eg'; }
+}
+
 // ---- Continue with Google ----
 // Existing users sign straight in; new users are sent to the short details form.
 document.getElementById('google-btn').addEventListener('click', async () => {
@@ -229,6 +241,7 @@ document.getElementById('google-profile-form').addEventListener('submit', async 
       college: document.getElementById('gp-college').value,
       nationality: document.getElementById('gp-nationality').value,
       grade: document.getElementById('gp-grade').value,
+      dialect: chosenDialect(),
     });
     if (r.deviceBlocked) { showDeviceAppeal(r.error, r.idToken); return; }
     if (r.ok) {
@@ -287,6 +300,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       college: document.getElementById('su-college').value,
       nationality: document.getElementById('su-nationality').value,
       grade: document.getElementById('su-grade').value,
+      dialect: chosenDialect(),
     });
     // A brand-new account always starts every progress metric (streak, time
     // spent, course progress, bookmarks, saved questions) from zero — even
