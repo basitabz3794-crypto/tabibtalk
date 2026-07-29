@@ -6142,15 +6142,26 @@ function ttApplyDialect(){
   try{
     var d=ttDialect();
     if(d==='eg' || typeof db==='undefined') return out;
-    var pack=(window.TT_DIALECT_PACK||{})[d];
+    var P=window.TT_DIALECT_PACK||{};
+    var pack=P[d];
     if(!pack) return out;
+    // Per-SECTION overrides. The pack is keyed on the English phrase, but a few
+    // questions are asked of a MALE patient in one chapter and a FEMALE patient
+    // in another ("Do you have hypertension?" is masculine in general history,
+    // feminine in Cushing's). One global entry cannot carry both.
+    // Sections are the right grain, not subjects: Addison's (male) and Cushing's
+    // (female) live in the SAME subject, so a subject-level override could not
+    // tell them apart. Section title is checked first, global second.
+    var over=(P.bySection||{})[d]||{};
     Object.keys(db).forEach(function(subj){
       (db[subj]||[]).forEach(function(cat){
+        var secOver=over[cat.title]||{};
         (cat.items||[]).forEach(function(it){
           [['q_en','q_ar','q_fr'],['a_en','a_ar','a_fr']].forEach(function(f){
             if(!it[f[0]]) return;
             out.total++;
-            var hit=pack[ttDialectKey(it[f[0]])];
+            var key=ttDialectKey(it[f[0]]);
+            var hit=secOver[key]||pack[key];
             if(hit){ if(hit.ar) it[f[1]]=hit.ar; if(hit.fr) it[f[2]]=hit.fr; out.applied++; }
           });
         });

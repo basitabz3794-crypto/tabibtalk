@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 18,
+    batch: 19,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 18,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 19,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -1057,6 +1057,54 @@ window.TT_DIALECT_PACK = {
     'i am pregnant and i have diabetes': { ar: 'أنا حامل وعندي سكري',  fr: 'Ana hamil w 3indi sukkari' },
     'i am pregnant and i have hypertension': { ar: 'أنا حامل وعندي ضغط', fr: 'Ana hamil w 3indi daght' },
     'i am pregnant and i am rh negative': { ar: 'أنا حامل وفصيلتي سالبة', fr: 'Ana hamil w faseelati saliba' },
+
+    /* ===== Batch 19 — investigation names + example locale =====
+       These are MSA medical terms and read the same in all three dialects, so
+       the Arabic is unchanged. They are listed EXPLICITLY rather than left to
+       the Egyptian fallback for two reasons: the coverage report then measures
+       real completeness instead of hiding them, and the heavy Egyptian
+       vowelling is dropped, which is how these are actually written elsewhere.
+       The example city IS localised — a Hejazi patient does not live in Giza. */
+    'in giza':                      { ar: 'في جدة',                    fr: 'Fi Jeddah' },
+    'chest xray':                   { ar: 'أشعة سينية على الصدر',      fr: 'Ashi3a seeniya 3ala as-sadr' },
+    'electrocardiography ecg':      { ar: 'رسم القلب',                 fr: 'Rasm al-galb' },
+    'echocardiography':             { ar: 'تخطيط صدى القلب',           fr: 'Takhteet sada al-galb' },
+    'cardiac ct':                   { ar: 'أشعة مقطعية على القلب',     fr: 'Ashi3a maqta3iya 3ala al-galb' },
+    'cardiac mri':                  { ar: 'رنين مغناطيسي على القلب',   fr: 'Raneen maghnateesi 3ala al-galb' },
+    'cardiac catheterization':      { ar: 'قسطرة القلب',               fr: 'Gastarat al-galb' },
+    'exercise test':                { ar: 'اختبار مجهود',              fr: 'Ikhtibar majhood' },
+    'ultrasound':                   { ar: 'تصوير فوق صوتي',            fr: 'Taswer fog sooti' },
+    'scintigraphic imaging':        { ar: 'أشعة بالمواد المشعة',       fr: 'Ashi3a bil-mawad al-mushi3a' },
+    'respiratory function test':    { ar: 'وظائف التنفس',              fr: 'Wadha\'if at-tanaffus' },
+    'sputum analysis':              { ar: 'تحليل بصاق',                fr: 'Tahleel busag' },
+    'pleural biopsy':               { ar: 'عينة من الغشاء البلوري',    fr: '3ayyina min al-ghisha al-bulluri' },
+    'pleural aspiration':           { ar: 'سحب سائل من الغشاء البلوري', fr: 'Sahb sa\'il min al-ghisha al-bulluri' },
+    'skin prick test':              { ar: 'اختبار وخز الجلد',          fr: 'Ikhtibar wakhz al-jild' },
+    'endoscopy':                    { ar: 'منظار',                     fr: 'Mindhar' },
+    'haematological and biochemical test': { ar: 'اختبار دموي وكيميائي', fr: 'Ikhtibar damawi w keemya\'i' },
+    'plain xray of abdomen':        { ar: 'أشعة سينية على البطن',      fr: 'Ashi3a seeniya 3ala al-batn' },
+    'abdominal ultrasound':         { ar: 'تصوير فوق صوتي على البطن',  fr: 'Taswer fog sooti 3ala al-batn' },
+    'abdominal ct scan':            { ar: 'أشعة مقطعية على البطن',     fr: 'Ashi3a maqta3iya 3ala al-batn' },
+    'abdominal mri':                { ar: 'رنين مغناطيسي على البطن',   fr: 'Raneen maghnateesi 3ala al-batn' },
+    'blood test':                   { ar: 'تحليل الدم',                fr: 'Tahleel ad-dam' },
+    'urine analysis':               { ar: 'تحليل البول',               fr: 'Tahleel al-bol' },
+    'stool analysis':               { ar: 'تحليل البراز',              fr: 'Tahleel al-baraz' },
+    'liver biopsy':                 { ar: 'عينة من الكبد',             fr: '3ayyina min al-kabid' },
+    'renal biopsy':                 { ar: 'عينة من الكلية',            fr: '3ayyina min al-kilya' },
+    'ascitic fluid aspiration':     { ar: 'سحب سائل من البطن',         fr: 'Sahb sa\'il min al-batn' },
+    'skull and spinal xray':        { ar: 'أشعة سينية على الرأس والعمود الفقري', fr: 'Ashi3a seeniya 3ala ar-ras wal-3amood al-fiqri' },
+    'brain ct scan':                { ar: 'أشعة مقطعية على الرأس',     fr: 'Ashi3a maqta3iya 3ala ar-ras' },
+    'brain mri':                    { ar: 'رنين مغناطيسي على الرأس',   fr: 'Raneen maghnateesi 3ala ar-ras' },
+    'angiography':                  { ar: 'تصوير وعائي',               fr: 'Taswer wi3a\'i' },
+    'lumbar puncture and csf examination': { ar: 'عينة من السائل الشوكي للفحص', fr: '3ayyina min as-sa\'il ash-shawki lil-fahs' },
+    'complete blood count':         { ar: 'صورة دم كاملة',             fr: 'Soorat dam kamila' },
+    'blood film examination':       { ar: 'صورة الدم تحت المجهر',      fr: 'Soorat ad-dam taht al-mijhar' },
+    'bone marrow biopsy':           { ar: 'عينة من نخاع العظم',        fr: '3ayyina min nukha3 al-3adhm' },
+    'bone xray':                    { ar: 'أشعة سينية على العظام',     fr: 'Ashi3a seeniya 3ala al-3idham' },
+    'serum autoantibody':           { ar: 'أجسام مضادة',               fr: 'Ajsam mudadda' },
+    'synovial biopsy':              { ar: 'عينة من المفاصل',           fr: '3ayyina min al-mafasil' },
+    'kidney function test':         { ar: 'وظائف الكلى',               fr: 'Wadha\'if al-kila' },
+    'liver function test':          { ar: 'وظائف الكبد',               fr: 'Wadha\'if al-kabid' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -2066,5 +2114,95 @@ window.TT_DIALECT_PACK = {
     'i am pregnant and i have diabetes': { ar: 'أنا حامل وعندي سكر',   fr: 'Ana hamil w 3indi sukkar' },
     'i am pregnant and i have hypertension': { ar: 'أنا حامل وعندي ضغط', fr: 'Ana hamil w 3indi dhaght' },
     'i am pregnant and i am rh negative': { ar: 'أنا حامل وفصيلتي سالبة', fr: 'Ana hamil w faseelati saliba' },
+
+    /* ===== Batch 19 — investigation names + example locale =====
+       MSA terms, identical across dialects; listed explicitly so coverage is
+       measured rather than hidden behind the Egyptian fallback. Example city
+       localised — a Gulf patient does not live in Giza. */
+    'in giza':                      { ar: 'بالكويت',                   fr: 'Bil-Kuwait' },
+    'chest xray':                   { ar: 'أشعة سينية على الصدر',      fr: 'Ashi3a seeniya 3ala as-sadr' },
+    'electrocardiography ecg':      { ar: 'رسم القلب',                 fr: 'Rasm al-galb' },
+    'echocardiography':             { ar: 'تخطيط صدى القلب',           fr: 'Takhteet sada al-galb' },
+    'cardiac ct':                   { ar: 'أشعة مقطعية على القلب',     fr: 'Ashi3a maqta3iya 3ala al-galb' },
+    'cardiac mri':                  { ar: 'رنين مغناطيسي على القلب',   fr: 'Raneen maghnateesi 3ala al-galb' },
+    'cardiac catheterization':      { ar: 'قسطرة القلب',               fr: 'Gastarat al-galb' },
+    'exercise test':                { ar: 'اختبار مجهود',              fr: 'Ikhtibar majhood' },
+    'ultrasound':                   { ar: 'تصوير فوق صوتي',            fr: 'Taswer fog sooti' },
+    'scintigraphic imaging':        { ar: 'أشعة بالمواد المشعة',       fr: 'Ashi3a bil-mawad al-mushi3a' },
+    'respiratory function test':    { ar: 'وظائف التنفس',              fr: 'Wadha\'if at-tanaffus' },
+    'sputum analysis':              { ar: 'تحليل بصاق',                fr: 'Tahleel busag' },
+    'pleural biopsy':               { ar: 'عينة من الغشاء البلوري',    fr: '3ayyina min al-ghisha al-bulluri' },
+    'pleural aspiration':           { ar: 'سحب سائل من الغشاء البلوري', fr: 'Sahb sa\'il min al-ghisha al-bulluri' },
+    'skin prick test':              { ar: 'اختبار وخز الجلد',          fr: 'Ikhtibar wakhz al-jild' },
+    'endoscopy':                    { ar: 'منظار',                     fr: 'Mindhar' },
+    'haematological and biochemical test': { ar: 'اختبار دموي وكيميائي', fr: 'Ikhtibar damawi w keemya\'i' },
+    'plain xray of abdomen':        { ar: 'أشعة سينية على البطن',      fr: 'Ashi3a seeniya 3ala al-batn' },
+    'abdominal ultrasound':         { ar: 'تصوير فوق صوتي على البطن',  fr: 'Taswer fog sooti 3ala al-batn' },
+    'abdominal ct scan':            { ar: 'أشعة مقطعية على البطن',     fr: 'Ashi3a maqta3iya 3ala al-batn' },
+    'abdominal mri':                { ar: 'رنين مغناطيسي على البطن',   fr: 'Raneen maghnateesi 3ala al-batn' },
+    'blood test':                   { ar: 'تحليل الدم',                fr: 'Tahleel ad-dam' },
+    'urine analysis':               { ar: 'تحليل البول',               fr: 'Tahleel al-bol' },
+    'stool analysis':               { ar: 'تحليل البراز',              fr: 'Tahleel al-baraz' },
+    'liver biopsy':                 { ar: 'عينة من الكبد',             fr: '3ayyina min al-kabid' },
+    'renal biopsy':                 { ar: 'عينة من الكلية',            fr: '3ayyina min al-kilya' },
+    'ascitic fluid aspiration':     { ar: 'سحب سائل من البطن',         fr: 'Sahb sa\'il min al-batn' },
+    'skull and spinal xray':        { ar: 'أشعة سينية على الرأس والعمود الفقري', fr: 'Ashi3a seeniya 3ala ar-ras wal-3amood al-fiqri' },
+    'brain ct scan':                { ar: 'أشعة مقطعية على الرأس',     fr: 'Ashi3a maqta3iya 3ala ar-ras' },
+    'brain mri':                    { ar: 'رنين مغناطيسي على الرأس',   fr: 'Raneen maghnateesi 3ala ar-ras' },
+    'angiography':                  { ar: 'تصوير وعائي',               fr: 'Taswer wi3a\'i' },
+    'lumbar puncture and csf examination': { ar: 'عينة من السائل الشوكي للفحص', fr: '3ayyina min as-sa\'il ash-shawki lil-fahs' },
+    'complete blood count':         { ar: 'صورة دم كاملة',             fr: 'Soorat dam kamila' },
+    'blood film examination':       { ar: 'صورة الدم تحت المجهر',      fr: 'Soorat ad-dam taht al-mijhar' },
+    'bone marrow biopsy':           { ar: 'عينة من نخاع العظم',        fr: '3ayyina min nukha3 al-3adhm' },
+    'bone xray':                    { ar: 'أشعة سينية على العظام',     fr: 'Ashi3a seeniya 3ala al-3idham' },
+    'serum autoantibody':           { ar: 'أجسام مضادة',               fr: 'Ajsam mudadda' },
+    'synovial biopsy':              { ar: 'عينة من المفاصل',           fr: '3ayyina min al-mafasil' },
+    'kidney function test':         { ar: 'وظائف الكلى',               fr: 'Wadha\'if al-kila' },
+    'liver function test':          { ar: 'وظائف الكبد',               fr: 'Wadha\'if al-kabid' },
+  },
+
+  /* ============================================================
+     PER-SECTION OVERRIDES — male vs female wording
+     ------------------------------------------------------------
+     The packs above are keyed on the English phrase, which cannot carry two
+     genders for one question. A handful of questions are asked of a MALE
+     patient in one chapter and a FEMALE patient in another; the packs hold the
+     masculine form (the majority case) and the sections below override it with
+     the feminine one.
+
+     Keyed on SECTION TITLE, not subject: Addison's (male) and Cushing's
+     (female) both live in the endocrine subject, so a subject-level override
+     could not tell them apart.
+
+     To add one: find the section's exact `title` in db, then list the phrase
+     with the wording that section needs.
+     ============================================================ */
+  bySection: {
+    hejazi: {
+      'Cushing Syndrome': {
+        'do you have hypertension':     { ar: 'عندك ضغط عالي؟',        fr: '3indik daght 3ali?' },
+        'is there any weight loss':     { ar: 'وزنك نقص؟',             fr: 'Waznik nagas?' },
+        'do you have persistent headaches': { ar: 'عندك صداع مستمر؟',  fr: '3indik suda3 mustamirr?' },
+      },
+      'Myxoedema': {
+        'is there any weight loss':     { ar: 'وزنك نقص؟',             fr: 'Waznik nagas?' },
+      },
+      'Extra-articular Manifestations': {
+        'is the condition associated with fever': { ar: 'عندك ارتفاع في الحرارة؟', fr: '3indik irtifa3 fil-harara?' },
+      },
+    },
+    khaleeji: {
+      'Cushing Syndrome': {
+        'do you have hypertension':     { ar: 'عندك ضغط عالي؟',        fr: '3indik dhaght 3ali?' },
+        'is there any weight loss':     { ar: 'وزنك نقص؟',             fr: 'Waznik nagas?' },
+        'do you have persistent headaches': { ar: 'عندك صداع مستمر؟',  fr: '3indik suda3 mustamirr?' },
+      },
+      'Myxoedema': {
+        'is there any weight loss':     { ar: 'وزنك نقص؟',             fr: 'Waznik nagas?' },
+      },
+      'Extra-articular Manifestations': {
+        'is the condition associated with fever': { ar: 'عندك ارتفاع بالحرارة؟', fr: '3indik irtifa3 bil-harara?' },
+      },
+    },
   },
 };
