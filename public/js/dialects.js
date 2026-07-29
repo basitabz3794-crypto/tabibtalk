@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 15,
+    batch: 16,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 15,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 16,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -862,6 +862,73 @@ window.TT_DIALECT_PACK = {
     'did you lose your teeth earlier premature loosening': { ar: 'أسنانك وقعت بدري؟', fr: 'Asnanak wig3at badri?' },
     'yes early':                    { ar: 'أيوه، بدري',                fr: 'Aywa, badri' },
     'do you have blurring of vision': { ar: 'في زغللة؟',               fr: 'Fee zaghlala?' },
+
+    /* ===== Batch 16 — Rheumatology =====
+       The source mixes gender: the articular sections are mostly masculine and
+       the extra-articular block is consistently feminine (تشتكين، جلدك، فمك).
+       Each section follows its own source rather than being forced to one. */
+    // Articular — joint pain
+    'show me the site of pain':     { ar: 'وريني مكان الألم',          fr: 'Warreeni makan al-alam' },
+    'here in my knee':              { ar: 'هنا، في ركبتي',             fr: 'Hina, fi rukbati' },
+    'where is the radiation':       { ar: 'لوين ينتشر؟',               fr: 'Li-wain yintashir?' },
+    'it doesnt spread':             { ar: 'ما ينتشر',                  fr: 'Ma yintashir' },
+    'how many joints are involved': { ar: 'كم مفصل يوجعك؟',            fr: 'Kam mafsal yiwja3ak?' },
+    'several joints':               { ar: 'كم مفصل',                   fr: 'Kam mafsal' },
+    'which joint is involved':      { ar: 'وش المفاصل اللي تعبتك؟',    fr: 'Wesh al-mafasil illi ta3batak?' },
+    'my knees and hands':           { ar: 'ركبي ويدي',                 fr: 'Rukabi w yaddi' },
+    'is it the hip':                { ar: 'الورك؟',                    fr: 'Al-wirk?' },
+    'is it the shoulder':           { ar: 'الكتف؟',                    fr: 'Al-katif?' },
+    'is it the lumbar spine':       { ar: 'الظهر؟',                    fr: 'Adh-dhahr?' },
+    'is it the knee':               { ar: 'الركبة؟',                   fr: 'Ar-rukba?' },
+    'yes my knees':                 { ar: 'أيوه، ركبي',                fr: 'Aywa, rukabi' },
+    'is it the small joints of hands and feet': { ar: 'مفاصل يدك ورجلك؟', fr: 'Mafasil yaddak w rijlak?' },
+    'is it the heel':               { ar: 'الكعب؟',                    fr: 'Al-ka3b?' },
+    'does the pain appear and stay in one joint': { ar: 'يجي في مفصل واحد؟', fr: 'Yiji fi mafsal wahid?' },
+    'or simultaneously in several joints': { ar: 'ولا يجي في كم مفصل بنفس الوقت؟', fr: 'Wala yiji fi kam mafsal b-nafs al-wagt?' },
+    'yes several at once':          { ar: 'أيوه، كم مفصل مع بعض',      fr: 'Aywa, kam mafsal ma3 ba3d' },
+    'or migrate from joint to joint': { ar: 'ولا ينتقل بين المفاصل؟',  fr: 'Wala yintaqil bain al-mafasil?' },
+    'sometimes it moves':           { ar: 'أحياناً ينتقل',             fr: 'Ahyanan yintaqil' },
+    'is there affection of another joint on top of the affected joint': { ar: 'في مفاصل ثانية توجعك؟', fr: 'Fee mafasil thanya tiwja3ak?' },
+    'how many analgesics do you need': { ar: 'كم مسكّن تحتاج؟',        fr: 'Kam musakkin tihtaj?' },
+    'about two a day':              { ar: 'حوالي اثنين في اليوم',      fr: 'Hawali ithnain fil-yom' },
+    'does the pain interfere with activity': { ar: 'الألم يوقفك عن الحركة؟', fr: 'Al-alam ywagfak 3an al-haraka?' },
+    'does the pain disturb sleep':  { ar: 'الألم ما يخليك تنام؟',      fr: 'Al-alam ma ykhalleek tnam?' },
+    'does the pain worsen in the early morning': { ar: 'يزيد أول ما تصحى الصبح؟', fr: 'Yizeed awwal ma tis-ha as-subh?' },
+    'yes worse in the morning':     { ar: 'أيوه، أسوأ الصبح',          fr: 'Aywa, aswa as-subh' },
+    'does the pain worsen by the end of the day': { ar: 'يزيد آخر اليوم؟', fr: 'Yizeed akhir al-yom?' },
+    'does the pain worsen in the morning and evening': { ar: 'يزيد الصبح والمساء؟', fr: 'Yizeed as-subh wal-masa?' },
+    'does the pain worsen at rest':  { ar: 'يزيد وأنت قاعد مرتاح؟',    fr: 'Yizeed wa inta ga3id murtah?' },
+    'yes at rest':                  { ar: 'أيوه، وأنا مرتاح',          fr: 'Aywa, wa ana murtah' },
+    'does the pain increase with movement': { ar: 'يزيد مع الحركة؟',   fr: 'Yizeed ma3 al-haraka?' },
+    'no it eases':                  { ar: 'لا، يخف',                   fr: 'La, ykhiff' },
+    'what will increase the pain':  { ar: 'وش يزيد الألم؟',            fr: 'Wesh yizeed al-alam?' },
+    'cold weather':                 { ar: 'البرد',                     fr: 'Al-bard' },
+    'does the pain decrease with analgesics or other drugs': { ar: 'يخف مع المسكنات أو أدوية ثانية؟', fr: 'Ykhiff ma3 al-musakkinat aw adwiya thanya?' },
+    'yes painkillers help':         { ar: 'أيوه، المسكنات تريحني',     fr: 'Aywa, al-musakkinat treehni' },
+
+    // Articular — associated symptoms
+    'is the pain associated with swollen joints': { ar: 'مع الألم مفاصلك تتورم؟', fr: 'Ma3 al-alam mafasilak titwarram?' },
+    'yes they swell':               { ar: 'أيوه، تتورم',               fr: 'Aywa, titwarram' },
+    'is it simultaneous with pain or comes after the pain': { ar: 'مع الألم ولا بعد ما يروح؟', fr: 'Ma3 al-alam wala ba3d ma yrooh?' },
+    'with the pain':                { ar: 'مع الألم',                  fr: 'Ma3 al-alam' },
+    'is the pain associated with stiffness in the morning': { ar: 'أول ما تصحى تحس مفاصلك متيبسة؟', fr: 'Awwal ma tis-ha tihiss mafasilak mityabbisa?' },
+    'yes morning stiffness':        { ar: 'أيوه، تيبس الصبح',          fr: 'Aywa, tayabbus as-subh' },
+    'is the pain associated with pain in the fingers on exposure to cold': { ar: 'لما تحط يدك في ماي بارد تحس بشي؟', fr: 'Lamma thutt yaddak fi may barid tihiss bi-shai?' },
+    'yes in the cold':              { ar: 'أيوه، مع البرد',            fr: 'Aywa, ma3 al-bard' },
+
+    // Extra-articular manifestations (female patient in the source)
+    'do you have any skin lesions': { ar: 'تشتكين من شي في جلدك؟',     fr: 'Tishtikeen min shai fi jildik?' },
+    'yes a rash':                   { ar: 'أيوه، طفح',                 fr: 'Aywa, tafh' },
+    'do you have loss of hair':     { ar: 'عندك تساقط شعر؟',           fr: '3indik tasaqut sha3r?' },
+    'do you have oral ulcers':      { ar: 'عندك قرحة في فمك؟',         fr: '3indik gurha fi fammik?' },
+    'yes mouth ulcers':             { ar: 'أيوه، قروح في فمي',         fr: 'Aywa, guroh fi fammi' },
+    'do you have genital ulcers':   { ar: 'عندك قرحة في المنطقة التناسلية؟', fr: '3indik gurha fil-mintaqa at-tanasuliya?' },
+    'is there any eye redness or burning': { ar: 'في احمرار أو حرقان في عينك؟', fr: 'Fee ihmirar aw hargan fi 3ainik?' },
+    'yes red eyes':                 { ar: 'أيوه، عيني حمرا',           fr: 'Aywa, 3aini hamra' },
+    'do you have skin redness on exposure to sunlight': { ar: 'جلدك يحمر مع الشمس؟', fr: 'Jildik yihmarr ma3 ash-shams?' },
+    'yes in the sun':               { ar: 'أيوه، مع الشمس',            fr: 'Aywa, ma3 ash-shams' },
+    'do you lacrimate when cutting onions': { ar: 'عينك تدمع لما تقطعين بصل؟', fr: '3ainik tidma3 lamma tgatt3een basal?' },
+    'no my eyes stay dry':          { ar: 'لا، عيني تبقى ناشفة',       fr: 'La, 3aini tibga nashfa' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1678,5 +1745,71 @@ window.TT_DIALECT_PACK = {
     'did you lose your teeth earlier premature loosening': { ar: 'أسنانك طاحت بدري؟', fr: 'Asnanik tahat badri?' },
     'yes early':                    { ar: 'إي، بدري',                  fr: 'Ee, badri' },
     'do you have blurring of vision': { ar: 'في زغللة؟',               fr: 'Fee zaghlala?' },
+
+    /* ===== Batch 16 — Rheumatology =====
+       Articular sections masculine, extra-articular block feminine, following
+       the source. ===== */
+    // Articular — joint pain
+    'show me the site of pain':     { ar: 'وريني مكان الوجع',          fr: 'Warreeni makan al-waja3' },
+    'here in my knee':              { ar: 'هني، بركبتي',               fr: 'Hini, b-rukbati' },
+    'where is the radiation':       { ar: 'لوين ينتشر؟',               fr: 'Li-wain yintashir?' },
+    'it doesnt spread':             { ar: 'ما ينتشر',                  fr: 'Ma yintashir' },
+    'how many joints are involved': { ar: 'كم مفصل يعورك؟',            fr: 'Kam mafsal y3awrik?' },
+    'several joints':               { ar: 'كم مفصل',                   fr: 'Kam mafsal' },
+    'which joint is involved':      { ar: 'شنو المفاصل اللي تعبتك؟',   fr: 'Shino al-mafasil illi ta3batik?' },
+    'my knees and hands':           { ar: 'ركبي ويدي',                 fr: 'Rukabi w yaddi' },
+    'is it the hip':                { ar: 'الورك؟',                    fr: 'Al-wirk?' },
+    'is it the shoulder':           { ar: 'الكتف؟',                    fr: 'Al-katif?' },
+    'is it the lumbar spine':       { ar: 'الظهر؟',                    fr: 'Adh-dhahr?' },
+    'is it the knee':               { ar: 'الركبة؟',                   fr: 'Ar-rukba?' },
+    'yes my knees':                 { ar: 'إي، ركبي',                  fr: 'Ee, rukabi' },
+    'is it the small joints of hands and feet': { ar: 'مفاصل يدك ورجلك؟', fr: 'Mafasil yaddik w rijlik?' },
+    'is it the heel':               { ar: 'الكعب؟',                    fr: 'Al-ka3b?' },
+    'does the pain appear and stay in one joint': { ar: 'يجي بمفصل واحد؟', fr: 'Yiji b-mafsal wahid?' },
+    'or simultaneously in several joints': { ar: 'ولا يجي بكم مفصل بنفس الوقت؟', fr: 'Wala yiji b-kam mafsal b-nafs al-wagt?' },
+    'yes several at once':          { ar: 'إي، كم مفصل مع بعض',        fr: 'Ee, kam mafsal ma3 ba3d' },
+    'or migrate from joint to joint': { ar: 'ولا ينتقل بين المفاصل؟',  fr: 'Wala yintaqil bain al-mafasil?' },
+    'sometimes it moves':           { ar: 'أحياناً ينتقل',             fr: 'Ahyanan yintaqil' },
+    'is there affection of another joint on top of the affected joint': { ar: 'في مفاصل ثانية تعورك؟', fr: 'Fee mafasil thanya t3awrik?' },
+    'how many analgesics do you need': { ar: 'كم مسكّن تحتاج؟',        fr: 'Kam musakkin tihtaj?' },
+    'about two a day':              { ar: 'حوالي ثنين باليوم',         fr: 'Hawali thnain bil-yom' },
+    'does the pain interfere with activity': { ar: 'الوجع يوقفك عن الحركة؟', fr: 'Al-waja3 ywagfik 3an al-haraka?' },
+    'does the pain disturb sleep':  { ar: 'الوجع ما يخليك تنام؟',      fr: 'Al-waja3 ma ykhalleek tnam?' },
+    'does the pain worsen in the early morning': { ar: 'يزيد أول ما تصحى الصبح؟', fr: 'Yzeed awwal ma tis-ha as-subh?' },
+    'yes worse in the morning':     { ar: 'إي، أسوأ الصبح',            fr: 'Ee, aswa as-subh' },
+    'does the pain worsen by the end of the day': { ar: 'يزيد آخر اليوم؟', fr: 'Yzeed akhir al-yom?' },
+    'does the pain worsen in the morning and evening': { ar: 'يزيد الصبح والمساء؟', fr: 'Yzeed as-subh wal-masa?' },
+    'does the pain worsen at rest':  { ar: 'يزيد وأنت قاعد مرتاح؟',    fr: 'Yzeed w inta ga3id murtah?' },
+    'yes at rest':                  { ar: 'إي، وأنا مرتاح',            fr: 'Ee, w ana murtah' },
+    'does the pain increase with movement': { ar: 'يزيد مع الحركة؟',   fr: 'Yzeed ma3 al-haraka?' },
+    'no it eases':                  { ar: 'لا، يخف',                   fr: 'La, ykhiff' },
+    'what will increase the pain':  { ar: 'شنو يزيد الوجع؟',           fr: 'Shino yzeed al-waja3?' },
+    'cold weather':                 { ar: 'البرد',                     fr: 'Al-bard' },
+    'does the pain decrease with analgesics or other drugs': { ar: 'يخف مع المسكنات ولا أدوية ثانية؟', fr: 'Ykhiff ma3 al-musakkinat wala adwiya thanya?' },
+    'yes painkillers help':         { ar: 'إي، المسكنات تريحني',       fr: 'Ee, al-musakkinat treehni' },
+
+    // Articular — associated symptoms
+    'is the pain associated with swollen joints': { ar: 'مع الوجع مفاصلك تتورم؟', fr: 'Ma3 al-waja3 mafasilik titwarram?' },
+    'yes they swell':               { ar: 'إي، تتورم',                 fr: 'Ee, titwarram' },
+    'is it simultaneous with pain or comes after the pain': { ar: 'مع الوجع ولا بعد ما يروح؟', fr: 'Ma3 al-waja3 wala ba3d ma yrooh?' },
+    'with the pain':                { ar: 'مع الوجع',                  fr: 'Ma3 al-waja3' },
+    'is the pain associated with stiffness in the morning': { ar: 'أول ما تصحى تحس مفاصلك متيبسة؟', fr: 'Awwal ma tis-ha tihiss mafasilik mityabbisa?' },
+    'yes morning stiffness':        { ar: 'إي، تيبس الصبح',            fr: 'Ee, tayabbus as-subh' },
+    'is the pain associated with pain in the fingers on exposure to cold': { ar: 'لمن تحط يدك بماي بارد تحس بشي؟', fr: 'Liman thutt yaddik b-may barid tihiss bi-shay?' },
+    'yes in the cold':              { ar: 'إي، مع البرد',              fr: 'Ee, ma3 al-bard' },
+
+    // Extra-articular manifestations (female patient in the source)
+    'do you have any skin lesions': { ar: 'تشتكين من شي بجلدك؟',       fr: 'Tishtikeen min shay b-jildik?' },
+    'yes a rash':                   { ar: 'إي، طفح',                   fr: 'Ee, tafh' },
+    'do you have loss of hair':     { ar: 'عندك تساقط شعر؟',           fr: '3indik tasaqut sha3r?' },
+    'do you have oral ulcers':      { ar: 'عندك قرحة بفمك؟',           fr: '3indik gurha b-fammik?' },
+    'yes mouth ulcers':             { ar: 'إي، قروح بفمي',             fr: 'Ee, guroh b-fammi' },
+    'do you have genital ulcers':   { ar: 'عندك قرحة بالمنطقة التناسلية؟', fr: '3indik gurha bil-mintaqa at-tanasuliya?' },
+    'is there any eye redness or burning': { ar: 'في احمرار ولا حرقان بعينك؟', fr: 'Fee ihmirar wala hargan b-3ainik?' },
+    'yes red eyes':                 { ar: 'إي، عيني حمرا',             fr: 'Ee, 3aini hamra' },
+    'do you have skin redness on exposure to sunlight': { ar: 'جلدك يحمر مع الشمس؟', fr: 'Jildik yihmarr ma3 ash-shams?' },
+    'yes in the sun':               { ar: 'إي، مع الشمس',              fr: 'Ee, ma3 ash-shams' },
+    'do you lacrimate when cutting onions': { ar: 'عينك تدمع لمن تقطعين بصل؟', fr: '3ainik tidma3 liman tgatt3een basal?' },
+    'no my eyes stay dry':          { ar: 'لا، عيني تبقى ناشفة',       fr: 'La, 3aini tibga nashfa' },
   },
 };
