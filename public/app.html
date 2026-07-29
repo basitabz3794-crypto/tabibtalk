@@ -5531,7 +5531,7 @@ function fcRender(){
     card='<div class="flashcard" onclick="fcFlip()"><span class="fc-face-lbl mini-chip">English</span><div class="fc-front-txt">'+c.eng+'</div><div class="fc-hint">Tap to flip</div></div>'
        +'<div class="fc-actions"><button class="btn-primary" onclick="fcFlip()">Reveal answer &rsaquo;</button></div>';
   } else {
-    card='<div class="flashcard" onclick="fcFlip()"><span class="fc-face-lbl mini-chip">Egyptian Arabic · Franco</span><div class="fc-back-ar">'+c.ar+'</div><div class="fc-back-fr">'+c.fr+'</div><div class="fc-hint">'+c.eng+'</div></div>'
+    card='<div class="flashcard" onclick="fcFlip()"><span class="fc-face-lbl mini-chip">'+ttDialectArabic()+' · Franco</span><div class="fc-back-ar">'+c.ar+'</div><div class="fc-back-fr">'+c.fr+'</div><div class="fc-hint">'+c.eng+'</div></div>'
        +'<div class="fc-grades"><button class="grade-btn again" onclick="fcGrade(0)">Again</button><button class="grade-btn good" onclick="fcGrade(1)">Good</button><button class="grade-btn easy" onclick="fcGrade(2)">Easy</button></div>';
   }
   st.innerHTML=stats+meta+card;
@@ -5574,9 +5574,9 @@ function doTranslate(){
   var out=document.getElementById('tr-out');
   if(!hit){ out.innerHTML='<div class="tr-result"><p class="tool-sub" style="margin:0">No match found for &ldquo;'+raw+'&rdquo;. Try another term such as “cough”, “pain” or “fever”.</p></div>'; return; }
   out.innerHTML='<div class="tr-result"><span class="tr-lbl">English</span><div class="tr-en">'+hit.eng+'</div>'
-    +'<span class="tr-lbl">Egyptian Arabic</span><div class="tr-ar">'+hit.ar+'</div>'
+    +'<span class="tr-lbl">'+ttDialectArabic()+'</span><div class="tr-ar">'+hit.ar+'</div>'
     +'<span class="tr-lbl">Franco-Arabic</span><div class="tr-fr">'+hit.fr+'</div>'
-    +'<div class="usage-note"><div class="un-t">💡 Usage note</div><div>Commonly used in Egyptian medical settings — part of the <b>'+hit.dept+'</b> phrasebook. Say it as written; the Franco numbers stand in for Arabic throat letters.</div></div></div>';
+    +'<div class="usage-note"><div class="un-t">💡 Usage note</div><div>Commonly used in '+ttDialectPeople()+' medical settings — part of the <b>'+hit.dept+'</b> phrasebook. Say it as written; the Franco numbers stand in for Arabic throat letters.</div></div></div>';
 }
 
 /* ---------------- AI patient ---------------- */
@@ -5600,7 +5600,7 @@ var AI={idx:0, cat:null, conv:[], };
 function buildAI(){
   var chips=AICATS.map(function(c,idx){ return '<button class="pill'+(idx===0?' active':'')+'" data-i="'+idx+'" onclick="aiStart('+idx+')">'+c.label+'</button>'; }).join('');
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back to home</button><span class="ctx-chip">AI Tutor</span></div>';
-  h+='<h1 class="tool-title">Practice with an Egyptian AI patient</h1><p class="tool-sub">You play the doctor — the patient answers in Egyptian Arabic, Franco and English. Tap a suggested question or type your own to take the history.</p>';
+  h+='<h1 class="tool-title">Practice with a '+ttDialectPeople()+' AI patient</h1><p class="tool-sub">You play the doctor — the patient answers in '+ttDialectArabic()+', Franco and English. Tap a suggested question or type your own to take the history.</p>';
   h+='<div class="chip-row" style="margin-bottom:8px">'+chips+' <button class="pill warn" onclick="aiNew()">↻ New session</button></div>';
   h+='<div class="ai-chat" id="ai-chat"></div><div class="ai-suggest" id="ai-suggest"></div>';
   h+='<div class="ai-inputbar"><input id="ai-input" placeholder="Ask the patient… (English, Franco or Arabic)" onkeydown="if(event.key===\'Enter\')aiSend()"><button class="ai-send" onclick="aiSend()">Send</button></div>';
@@ -5891,7 +5891,7 @@ function aiNew(){ aiStart(AI.idx); }
 function buildAI(){
   var chips=AICATS.map(function(c,idx){ return '<button class="pill'+(idx===0?' active':'')+'" data-i="'+idx+'" onclick="aiStart('+idx+')">'+c.label+'</button>'; }).join('');
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">AI Patient</span></div>';
-  h+='<h1 class="tool-title">Practice With An Egyptian AI Patient</h1><p class="tool-sub">You play the doctor \u2014 the patient answers in Egyptian Arabic, Franco and English. Tap a suggested question (they change with the specialty) or type your own to take the history.</p>';
+  h+='<h1 class="tool-title">Practice With A '+ttDialectPeople()+' AI Patient</h1><p class="tool-sub">You play the doctor \u2014 the patient answers in '+ttDialectArabic()+', Franco and English. Tap a suggested question (they change with the specialty) or type your own to take the history.</p>';
   h+='<div class="chip-row" style="margin-bottom:8px">'+chips+' <button class="pill warn" onclick="aiNew()">\u21bb New Session</button></div>';
   h+='<div class="ai-chat" id="ai-chat"></div><div class="ai-suggest" id="ai-suggest"></div>';
   h+='<div class="ai-inputbar"><input id="ai-input" placeholder="Ask the patient\u2026 (English, Franco or Arabic)" onkeydown="if(event.key===\'Enter\')aiSend()"><button class="ai-send" onclick="aiSend()">Send</button></div>';
@@ -6030,7 +6030,7 @@ var VSEL='.qa-text-ar,.opt-ar,.option-arabic,.fc-back-ar,.tr-ar,.b-ar,.ix-ar,.bm
 function hasArabic(s){ return /[\u0600-\u06FF]/.test(s||''); }
 function makeVoiceBtn(text){
   var b=document.createElement('button'); b.className='voice-btn'; b.type='button';
-  b.setAttribute('aria-label','Play Arabic voice'); b.title='Play '+(typeof ttDialectLabel==='function'?ttDialectLabel():'Egyptian')+' Arabic';
+  b.setAttribute('aria-label','Play Arabic voice'); b.title='Play '+(typeof ttDialectArabic==='function'?ttDialectArabic():'Egyptian Arabic');
   b.innerHTML=SPKICON;
   b.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); speak(text); });
   b.addEventListener('mousedown', function(ev){ ev.stopPropagation(); });
@@ -6073,19 +6073,63 @@ window.addEventListener('DOMContentLoaded', function(){
 /* ============ TABIB TALK v4 — English (US) + Franco→Arabic table voices + Day streak ============ */
 /* ---- Arabic dialects (voice + locale). Content itself is Egyptian today;
    this table is what the voice layer and the dialect switch read from. ---- */
+/* Each dialect carries three label forms, because English needs different
+   wording in different slots and one label cannot serve all three:
+     label   — the full name for pickers and settings ("Saudi (Hejazi)")
+     people  — the demonym, for "your ___ patient" ("Saudi")
+     arabic  — the language name, for "___ Arabic" ("Hejazi Arabic")
+   "Saudi (Hejazi) Arabic" and "your Gulf (Khaleeji) patient" read badly, which
+   is why the picker label is not reused for prose. */
 var AR_DIALECTS = {
-  eg:       { label:'Egyptian',        lang:'ar-EG', match:/ar[-_]?eg|egypt|hoda|salma/i },
-  hejazi:   { label:'Saudi (Hejazi)',  lang:'ar-SA', match:/ar[-_]?sa|saudi|hejaz|naayf|maged/i },
-  khaleeji: { label:'Gulf (Khaleeji)', lang:'ar-AE', match:/ar[-_]?(ae|kw|qa|bh|om)|gulf|khalij|emirat/i }
+  eg:       { label:'Egyptian',        people:'Egyptian', arabic:'Egyptian Arabic', lang:'ar-EG', match:/ar[-_]?eg|egypt|hoda|salma/i },
+  hejazi:   { label:'Saudi (Hejazi)',  people:'Saudi',    arabic:'Hejazi Arabic',   lang:'ar-SA', match:/ar[-_]?sa|saudi|hejaz|naayf|maged/i },
+  khaleeji: { label:'Gulf (Khaleeji)', people:'Gulf',     arabic:'Khaleeji Arabic', lang:'ar-AE', match:/ar[-_]?(ae|kw|qa|bh|om)|gulf|khalij|emirat/i }
 };
 function ttDialect(){
   try{ var d=JSON.parse(localStorage.getItem('tt_dialect')||'null'); if(d && AR_DIALECTS[d]) return d; }catch(e){}
   return 'eg';
 }
 window.ttDialect=ttDialect;
-/* Short label for branding ("Egyptian Medical Arabic", "New to Gulf Arabic"…). */
-function ttDialectLabel(d){ var x=AR_DIALECTS[d||ttDialect()]||AR_DIALECTS.eg; return x.label; }
+function ttDia(d){ return AR_DIALECTS[d||ttDialect()] || AR_DIALECTS.eg; }
+/* Full name — pickers, settings, "New to ___ Arabic" in onboarding. */
+function ttDialectLabel(d){ return ttDia(d).label; }
+/* Demonym — "your ___ patient", "___ Emergency Room". */
+function ttDialectPeople(d){ return ttDia(d).people; }
+/* Language name — "___ Arabic", chips and voice labels. */
+function ttDialectArabic(d){ return ttDia(d).arabic; }
 window.ttDialectLabel=ttDialectLabel;
+window.ttDialectPeople=ttDialectPeople;
+window.ttDialectArabic=ttDialectArabic;
+
+/* Static markup is authored with the Egyptian wording and rewritten here once
+   the dialect is known — it cannot interpolate the way the JS-built views can.
+   Kept as a small declarative table so adding a heading later is one line, and
+   every write is guarded: a missing element is skipped, never thrown on. */
+function ttApplyBranding(){
+  try{
+    var A = ttDialectArabic(), P = ttDialectPeople();
+    document.title = 'Tabib Talk — ' + P + ' Medical Arabic';
+    [
+      ['#page-main-menu .hero-title',
+       'Learn the language of your <span class="accent">' + P + ' patient.</span>'],
+      ['#page-er h2',
+       '🚑 ' + P + ' Emergency Room'],
+      ['#page-er .chapter-intro',
+       'Original trilingual phrases for the ' + P + ' ER — triage, pain, trauma, '
+       + 'breathing, cardiac emergencies, bleeding, allergy and handover.'],
+      ['#page-invest .chapter-intro',
+       'Common laboratory and radiological investigations with their ' + A
+       + ' and Franco-Arabic equivalents, plus pictorial anatomy.'],
+      ['[onclick="navigate(\'page-er\')"] h2',
+       '🚑 ' + P + ' Emergency Room'],
+    ].forEach(function(pair){
+      var el = document.querySelector(pair[0]);
+      if (el) el.innerHTML = pair[1];
+    });
+  }catch(e){ console.error('branding', e); }
+}
+window.ttApplyBranding=ttApplyBranding;
+document.addEventListener('DOMContentLoaded', ttApplyBranding);
 
 /* Swap the built-in Egyptian phrases for the chosen dialect.
    Keyed on the ENGLISH text so the pack file stays readable for a reviewer.
@@ -6201,7 +6245,7 @@ window.speak=speak;
 
 function makeVoiceBtnLang(text, lang){
   var b=document.createElement('button'); b.className='voice-btn voice-'+lang; b.type='button';
-  b.title = (lang==='en' ? 'Play English (US)' : 'Play '+(typeof ttDialectLabel==='function'?ttDialectLabel():'Egyptian')+' Arabic');
+  b.title = (lang==='en' ? 'Play English (US)' : 'Play '+(typeof ttDialectArabic==='function'?ttDialectArabic():'Egyptian Arabic'));
   b.setAttribute('aria-label', b.title);
   b.innerHTML = SPKICON;   /* reuse icon from v3 */
   b.addEventListener('click', function(ev){ ev.stopPropagation(); ev.preventDefault(); speak(text, lang); });
@@ -6391,7 +6435,7 @@ var AI={idx:0, spec:null, key:'', steps:[], remaining:[], asked:[], current:null
 function buildAI(){
   var chips=AICATS.map(function(c,idx){ return '<button class="pill'+(idx===0?' active':'')+'" data-i="'+idx+'" onclick="aiStart('+idx+')">'+c.label+'</button>'; }).join('');
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">AI Patient</span></div>';
-  h+='<h1 class="tool-title">Practice With An Egyptian AI Patient</h1><p class="tool-sub">Build a full history: pick a question, then choose the patient\u2019s answer, then the next question \u2014 every line appears in Egyptian Arabic, Franco and English. Finish to reveal a provisional diagnosis and differentials.</p>';
+  h+='<h1 class="tool-title">Practice With A '+ttDialectPeople()+' AI Patient</h1><p class="tool-sub">Build a full history: pick a question, then choose the patient\u2019s answer, then the next question \u2014 every line appears in '+ttDialectArabic()+', Franco and English. Finish to reveal a provisional diagnosis and differentials.</p>';
   h+='<div class="chip-row" style="margin-bottom:8px">'+chips+' <button class="pill warn" onclick="aiNew()">\u21bb New Session</button></div>';
   h+='<div class="ai-chat" id="ai-chat"></div><div class="ai-suggest" id="ai-suggest"></div>';
   document.getElementById('ai-body').innerHTML=h;
@@ -6582,7 +6626,7 @@ function openRowPopup(tr){
   var card=document.getElementById('row-popup-card');
   card.innerHTML='<button class="rp-x" onclick="closeRowPopup()" aria-label="Close">\u00d7</button>'
     +'<span class="mini-chip">English</span><div class="rp-en">'+en+'</div>'
-    +'<span class="mini-chip">Egyptian Arabic</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
+    +'<span class="mini-chip">'+ttDialectArabic()+'</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
     +'<span class="mini-chip">Franco-Arabic</span><div class="rp-fr">'+fr+'</div>';
   var arEl=card.querySelector('#rp-ar');
   var v1=document.createElement('button'); v1.className='voice-btn voice-ar'; v1.innerHTML=SPKICON; v1.onclick=function(){speak(ar,'ar');}; arEl.appendChild(document.createTextNode(' ')); arEl.appendChild(v1);
@@ -6698,7 +6742,7 @@ db.er = [
  ]}
 ];
 // Register ER across the platform
-if (typeof SUBJECTS !== 'undefined') SUBJECTS.push({k:'er', label:'Egyptian Emergency Room', page:'page-er', grp:'Specialties'});
+if (typeof SUBJECTS !== 'undefined') SUBJECTS.push({k:'er', label: ttDialectPeople()+' Emergency Room', page:'page-er', grp:'Specialties'});
 if (typeof AICATS !== 'undefined') AICATS.push({k:'er', label:'Emergency Room'});
 if (typeof SCEN !== 'undefined') SCEN.push({key:'er',
   sub:['what brought you','when did the problem','where exactly is the pain','how strong is the pain','does the pain move','sharp or pressing','difficulty breathing','sweating a lot'],
@@ -7061,7 +7105,7 @@ function openRowPopup(tr, viaSwipe){
   var card=document.getElementById('row-popup-card'); if(!card) return;
   var html='<button class="rp-x" onclick="closeRowPopup()" aria-label="Close">\u00d7</button>'
     +'<span class="mini-chip">English</span><div class="rp-en">'+en+'</div>'
-    +'<span class="mini-chip">Egyptian Arabic</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
+    +'<span class="mini-chip">'+ttDialectArabic()+'</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
     +'<span class="mini-chip">Franco-Arabic</span><div class="rp-fr">'+fr+'</div>';
   if(ans){
     html+='<hr class="rp-hr"><span class="mini-chip rp-pt">Patient Responds</span>'
@@ -7129,7 +7173,7 @@ function openRowPopup(tr, viaSwipe){
   var card=document.getElementById('row-popup-card'); if(!card) return;
   var html='<button class="rp-x" onclick="closeRowPopup()" aria-label="Close">\u00d7</button>'
     +'<span class="mini-chip">English</span><div class="rp-en">'+en+'</div>'
-    +'<span class="mini-chip">Egyptian Arabic</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
+    +'<span class="mini-chip">'+ttDialectArabic()+'</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
     +'<span class="mini-chip">Franco-Arabic</span><div class="rp-fr">'+fr+'</div>'
     +'<hr class="rp-hr"><span class="mini-chip rp-pt">Patient Responds</span>'
     +'<div class="rp-en">'+ans.en+'</div>'
@@ -7206,7 +7250,7 @@ function openRowPopup(tr, viaSwipe){
   var card=document.getElementById('row-popup-card'); if(!card) return;
   card.innerHTML='<button class="rp-x" onclick="closeRowPopup()" aria-label="Close">\u00d7</button>'
     +'<span class="mini-chip">English</span><div class="rp-en">'+en+'</div>'
-    +'<span class="mini-chip">Egyptian Arabic</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
+    +'<span class="mini-chip">'+ttDialectArabic()+'</span><div class="rp-ar" id="rp-ar">'+ar+'</div>'
     +'<span class="mini-chip">Franco-Arabic</span><div class="rp-fr">'+fr+'</div>'
     +'<hr class="rp-hr"><span class="mini-chip rp-pt">Patient Responds</span>'
     +'<div class="rp-en">'+ans.en+'</div><div class="rp-ar" id="rp-ar2">'+ans.ar+'</div><div class="rp-fr">'+ans.fr+'</div>';
@@ -7220,7 +7264,7 @@ window.openRowPopup=openRowPopup; window.genResponse=genResponse;
 var SRCH=[];
 function pageLabelById(id){
   var s=(typeof SUBJECTS!=='undefined')?SUBJECTS.filter(function(x){return x.page===id;})[0]:null; if(s) return s.label;
-  var map={'page-franco':'Franco (Arabizi)','page-ethics':'Communication & Ethics','page-history':'General History Taking','page-er':'Egyptian Emergency Room','page-vocab':'Important Medical Vocabulary','page-invest':'Medical Investigations and Anatomy','page-cardio':'Cardiology','page-chest':'Chest (Respiratory)','page-abdomen':'Abdomen (GIT)','page-neuro':'Neurology','page-endo':'Endocrinology','page-hema':'Haematology','page-rheuma':'Rheumatology','page-surgery':'General Surgery','page-pediatrics':'Paediatrics','page-obgyn':'Obstetrics & Gynaecology','page-ent':'ENT','page-ophthal':'Ophthalmology'};
+  var map={'page-franco':'Franco (Arabizi)','page-ethics':'Communication & Ethics','page-history':'General History Taking','page-er': ttDialectPeople()+' Emergency Room','page-vocab':'Important Medical Vocabulary','page-invest':'Medical Investigations and Anatomy','page-cardio':'Cardiology','page-chest':'Chest (Respiratory)','page-abdomen':'Abdomen (GIT)','page-neuro':'Neurology','page-endo':'Endocrinology','page-hema':'Haematology','page-rheuma':'Rheumatology','page-surgery':'General Surgery','page-pediatrics':'Paediatrics','page-obgyn':'Obstetrics & Gynaecology','page-ent':'ENT','page-ophthal':'Ophthalmology'};
   return map[id]||(id||'').replace('page-','').replace(/-/g,' ');
 }
 function buildSearchIndex(){
@@ -7331,7 +7375,7 @@ function openConversation(key, ret){
 function renderConvView(key){
   var body=document.getElementById('conv-view-body'); if(!body) return;
   body.innerHTML='<div class="backbar"><button class="back-to-home" onclick="navigate(\''+(CONV_RET||'page-conversations')+'\')">&larr; Back</button><span class="ctx-chip">Conversation</span></div>'
-    +'<h1 class="tool-title">'+subjLabel(key)+'</h1><p class="tool-sub">Doctor asks, patient answers \u2014 in Egyptian Arabic, Franco and English.</p><div id="conv-view-inner"></div>';
+    +'<h1 class="tool-title">'+subjLabel(key)+'</h1><p class="tool-sub">Doctor asks, patient answers \u2014 in '+ttDialectArabic()+', Franco and English.</p><div id="conv-view-inner"></div>';
   try{ if(typeof renderQA==='function') renderQA(convData(key),'conv-view-inner'); }catch(e){ console.error('conv',e); }
 }
 window.renderConversationsHub=renderConversationsHub; window.openConversation=openConversation; window.renderConvView=renderConvView;
@@ -7533,7 +7577,7 @@ function renderConversationsHub(){
   var body=document.getElementById('conversations-body'); if(!body) return;
   var groups={}; SUBJECTS.forEach(function(s){ if(s.k==='franco-alpha') return; (groups[s.grp]=groups[s.grp]||[]).push(s); });
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Conversations</span></div>';
-  h+='<h1 class="tool-title">Doctor &amp; Patient Conversations</h1><p class="tool-sub">The doctor\u2013patient conversation for every specialty, chapter and Internal-Medicine system \u2014 in Egyptian Arabic, Franco and English.</p>';
+  h+='<h1 class="tool-title">Doctor &amp; Patient Conversations</h1><p class="tool-sub">The doctor\u2013patient conversation for every specialty, chapter and Internal-Medicine system \u2014 in '+ttDialectArabic()+', Franco and English.</p>';
   Object.keys(groups).forEach(function(g){
     h+='<h3 class="mini-h">'+g+'</h3><div class="lessons">';
     groups[g].forEach(function(s){ h+='<article class="lesson-card" onclick="openConversation(\''+s.k+'\',\'page-conversations\')"><h3 class="lesson-title" style="display:block;margin:0 0 8px">'+s.label+'</h3><span class="lesson-open">\uD83D\uDCAC View Conversation &rarr;</span></article>'; });
@@ -7579,7 +7623,7 @@ function showLanding(){
   if(document.getElementById('landing-overlay')) return;
   var ov=document.createElement('div'); ov.id='landing-overlay';
   ov.innerHTML='<div class="landing-inner"><div class="landing-logo">Tabib Talk</div>'
-    +'<h1 class="landing-h">Choose Your Plan</h1><p class="landing-sub">Learn the language of your Egyptian patient. Pick a plan to begin \u2014 you can change it anytime from the menu.</p>'
+    +'<h1 class="landing-h">Choose Your Plan</h1><p class="landing-sub">Learn the language of your '+ttDialectPeople()+' patient. Pick a plan to begin \u2014 you can change it anytime from the menu.</p>'
     +'<div class="tiers">'
     + tierCard('student','Student','Free',['Franco, Communication &amp; Ethics, General History','Course study paths included','Flashcards, Quiz, AI Patient, Translate','Recommended for slow-paced learning &amp; moderate practice'])
     + tierCard('professional','Professional','Monthly',['Every lesson, specialty &amp; system unlocked','Full QBank (Pro)','Course + all Smart Features','Recommended for fast-paced learning &amp; heavy practice','Fully unlocked content doubles as an effective bedside history-taking reference tool'])
@@ -7797,7 +7841,7 @@ function showLanding(){
   if(document.getElementById('landing-overlay')) return;
   var ov=document.createElement('div'); ov.id='landing-overlay';
   ov.innerHTML='<div class="landing-inner"><div class="landing-logo">Tabib Talk</div>'
-    +'<h1 class="landing-h">Choose Your Plan</h1><p class="landing-sub">Learn the language of your Egyptian patient. Pick a plan to begin \u2014 you can change it anytime from the menu.</p>'
+    +'<h1 class="landing-h">Choose Your Plan</h1><p class="landing-sub">Learn the language of your '+ttDialectPeople()+' patient. Pick a plan to begin \u2014 you can change it anytime from the menu.</p>'
     +'<div class="tiers">'
     + tierCard('student','Student','Monthly',['Franco, Communication &amp; Ethics, General History','Course study paths included','Flashcards, Quiz, AI Patient, Translate','Recommended for slow-paced learning &amp; moderate practice'])
     + tierCard('professional','Professional','Monthly',['Every lesson, specialty &amp; system unlocked','Full QBank (Pro)','Course + all Smart Features','Recommended for fast-paced learning &amp; heavy practice','Fully unlocked content doubles as an effective bedside history-taking reference tool'])
@@ -7813,14 +7857,14 @@ function enhanceWhatsNew(){
   var grid=document.querySelector('#available-features .feat-grid'); if(!grid) return;
   if(grid.getAttribute('data-enh')) return; grid.setAttribute('data-enh','1');
   var tiles=[
-    ['\uD83D\uDD0A','Voice On Every Phrase','Tap the speaker to hear it in Egyptian Arabic \u2014 and US English.','navigate(\'page-conversations\')'],
+    ['\uD83D\uDD0A','Voice On Every Phrase','Tap the speaker to hear it in '+ttDialectArabic()+' \u2014 and US English.','navigate(\'page-conversations\')'],
     ['\uD83D\uDCAC','Patient Replies','Swipe right on any phrase to reveal the patient\u2019s trilingual answer.','navigate(\'page-course\')'],
     ['\uD83E\uDE7A','AI Patient','Interactive clinical scenarios that end in a diagnosis.','navigate(\'page-ai\')'],
     ['\uD83D\uDCDA','Course Study Paths','Gated sections with 70% subtests to unlock the next.','navigate(\'page-course\')'],
     ['\uD83E\uDDE0','Flashcards','Spaced-repetition decks for every subject.','navigate(\'page-flashcards\')'],
     ['\uD83C\uDF93','Quiz Hub','Every quiz with explained answers.','navigate(\'page-quiz-hub\')'],
     ['\uD83D\uDD16','Swipe To Bookmark','Swipe left on any phrase to save it for later.','navigate(\'page-bookmarks\')'],
-    ['\uD83D\uDE91','ER Chapter','Original Egyptian emergency-room phrases.','navigate(\'page-course\')']
+    ['\uD83D\uDE91','ER Chapter','Original '+ttDialectPeople()+' emergency-room phrases.','navigate(\'page-course\')']
   ];
   grid.innerHTML=tiles.map(function(t,i){ return '<div class="feat feat-i" style="animation-delay:'+(i*0.05)+'s" onclick="'+t[3]+'"><span class="feat-ic">'+t[0]+'</span><b>'+t[1]+'</b><span>'+t[2]+'</span></div>'; }).join('');
 }
@@ -8006,7 +8050,7 @@ function showLanding(){
   if(document.getElementById('landing-overlay')) return;
   var ov=document.createElement('div'); ov.id='landing-overlay';
   ov.innerHTML='<div class="landing-inner"><div class="landing-logo">Tabib Talk</div>'
-    +'<h1 class="landing-h">Choose Your Plan</h1><p class="landing-sub">Learn the language of your Egyptian patient. Pick a plan to begin \u2014 change it anytime from the menu.</p>'
+    +'<h1 class="landing-h">Choose Your Plan</h1><p class="landing-sub">Learn the language of your '+ttDialectPeople()+' patient. Pick a plan to begin \u2014 change it anytime from the menu.</p>'
     +'<div class="tiers">'
     + tierCard('explorer','Explorer','Free',['Some course lessons and quizzes are available','Full ability to navigate through the application','Translate, Search &amp; Streak'])
     + tierCard('student','Student','Monthly',['Franco, Communication &amp; Ethics, General History','Course study paths included','Flashcards, Quiz, AI Patient, Translate','Recommended for slow-paced learning &amp; moderate practice'])
@@ -8030,7 +8074,7 @@ window.wnPop=wnPop;
 function enhanceWhatsNew(){
   var grid=document.querySelector('#available-features .feat-grid'); if(!grid) return;
   var tiles=[
-    ['\uD83D\uDD0A','Voice On Every Phrase','Tap the speaker to hear Egyptian Arabic and US English.'],
+    ['\uD83D\uDD0A','Voice On Every Phrase','Tap the speaker to hear '+ttDialectArabic()+' and US English.'],
     ['\uD83D\uDCAC','Patient Replies','Swipe right on any phrase to reveal the trilingual answer.'],
     ['\uD83D\uDDE3\uFE0F','Conversations','Full doctor\u2013patient conversations for every subject.'],
     ['\uD83D\uDE80','Fully unlocked lessons','Time-saving guided study paths \u2014 for Professionals.'],
@@ -8873,7 +8917,7 @@ function shareOrDownloadBlob(blob, filename){
   }catch(e){ supportsFileShare = false; }
 
   if(supportsFileShare){
-    navigator.share({ files:[file], title:'Tabib Talk', text:'From Tabib Talk \u2014 Egyptian Medical Arabic' })
+    navigator.share({ files:[file], title:'Tabib Talk', text:'From Tabib Talk \u2014 '+ttDialectPeople()+' Medical Arabic' })
       .then(function(){
         window._ttSharing = false;
         toast('Shared!', 2500);
@@ -9306,11 +9350,11 @@ function startTour(level){
   /* Basic-plan members get pointed at the open-content trio regardless of
      level: Franco, the Medical Vocabulary dictionary, and Investigations. */
   var steps = ((typeof ttTier==='function') && ttTier()==='basic') ? [
-    { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start with Franco — how Egyptian Arabic is written with Latin letters and numbers. Fully open on your plan.' },
+    { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start with Franco — how '+ttDialectArabic()+' is written with Latin letters and numbers. Fully open on your plan.' },
     { sel:'[onclick*="page-vocab"]', txt:'📖 Then build your word bank in Medical Vocabulary — your dictionary of essential terms.' },
     { sel:'[onclick*="page-invest"]', txt:'🩻 And explore Medical Investigations &amp; Anatomy — how to name tests and body parts at the bedside.' }
   ] : level==='beginner' ? [
-    { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start HERE: Franco teaches you how Egyptian Arabic is written with Latin letters and numbers — the foundation for everything else.' },
+    { sel:'[onclick*="page-franco"], [onclick*="franco"]', txt:'🌱 Start HERE: Franco teaches you how '+ttDialectArabic()+' is written with Latin letters and numbers — the foundation for everything else.' },
     { sel:'[onclick*="page-vocab"]', txt:'📖 Next, build your word bank in the Dictionary — Important Medical Vocabulary.' }
   ] : [
     { sel:'#tabbar .tab:nth-child(2)', txt:'🎓 Head straight into the Courses — guided study paths for every specialty, with subtests that unlock as you pass.' }
