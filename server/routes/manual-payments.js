@@ -53,9 +53,11 @@ function createManualPaymentRouter(method, getDetails, label) {
     const payer = await store.findUserById(req.session.userId);
     const cur = ['usd', 'inr', 'egp'].indexOf(String(currency || '').toLowerCase()) >= 0
       ? String(currency).toLowerCase() : 'usd';
+    const paidForDialect = normaliseDialect(payer && payer.dialect);
     let amount = null;
     try {
-      const { plans } = await getEffectivePlans();
+      // Price it at the dialect they are buying for — prices can differ.
+      const { plans } = await getEffectivePlans(paidForDialect);
       const live = plans[planId] || PLANS[planId] || {};
       amount = cur === 'inr' ? live.inr : cur === 'egp' ? live.egp : live.priceNow;
     } catch (e) { amount = null; }
@@ -65,7 +67,7 @@ function createManualPaymentRouter(method, getDetails, label) {
       method,
       userId: req.session.userId,
       planId,
-      dialect: normaliseDialect(payer && payer.dialect),
+      dialect: paidForDialect,
       currency: cur,
       amount: Number.isFinite(Number(amount)) ? Number(amount) : null,
       transactionId: txn,

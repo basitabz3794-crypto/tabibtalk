@@ -203,15 +203,25 @@ function isExpired(expiresAtISO) {
 // Merges the base PLANS with any live admin overrides (Developer section):
 // price and/or duration can be changed without a deploy. Used by both the
 // public /api/plans/config endpoint and the admin Developer panel itself.
-async function getEffectivePlans() {
+// Prices can differ per dialect. Overrides are stored flat, keyed either by
+// plan id (the shared default, and what every pre-dialect install already has)
+// or by 'planId@dialect' for one dialect only. A dialect-specific value wins,
+// then the shared override, then the built-in price — so the admin can price
+// one dialect differently without disturbing the others.
+function overrideKey(planId, dialect) { return planId + '@' + dialect; }
+
+async function getEffectivePlans(dialect) {
   const store = require('./store');
   const overrides = await store.getPlanOverrides();
+  const d = dialect ? normaliseDialect(dialect) : null;
   const fx = await getFxRates(); // resolved once, reused for every plan below
   const plans = {};
   const durationsDays = {};
   Object.keys(PLANS).forEach((id) => {
     const base = PLANS[id];
-    const ov = overrides[id] || {};
+    const shared = overrides[id] || {};
+    const perDialect = d ? (overrides[overrideKey(id, d)] || {}) : {};
+    const ov = Object.assign({}, shared, perDialect);
     const priceNow = ov.priceNow != null ? ov.priceNow : base.priceNow;
     const days = ov.days != null ? ov.days : PLAN_DURATION_DAYS[id];
     const offerNote = (ov.label != null && ov.label !== '') ? ov.label : base.offerNote;
@@ -227,4 +237,4 @@ async function getEffectivePlans() {
   return { plans, durationsDays, fx };
 }
 
-module.exports = { PLANS, getFxRates, FULL_ACCESS_TIERS, isFullAccess, accessTierForPlan, baselineTier, DIALECTS, isDialect, normaliseDialect, configForDialect, PLAN_DURATION_DAYS, computeExpiry, isExpired, convert, roundUpNice, USD_TO_INR, USD_TO_EGP, getEffectivePlans };
+module.exports = { PLANS, overrideKey, getFxRates, FULL_ACCESS_TIERS, isFullAccess, accessTierForPlan, baselineTier, DIALECTS, isDialect, normaliseDialect, configForDialect, PLAN_DURATION_DAYS, computeExpiry, isExpired, convert, roundUpNice, USD_TO_INR, USD_TO_EGP, getEffectivePlans };

@@ -736,7 +736,11 @@ async function loadInterests(){
 // ---- Developer section: live-edit plan prices & durations ----
 const DEV_PLAN_ORDER = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime','basic-monthly','advanced-monthly'];
 async function loadDev(){
-  const { plans, durationsDays } = await adminGet('/api/admin/plan-config');
+  // Which dialect's prices the table is editing. 'all' edits the shared price
+  // every dialect falls back to; a specific dialect overrides just that one.
+  const priceScope = window.DEV_PRICE_SCOPE || 'all';
+  const { plans, durationsDays } = await adminGet('/api/admin/plan-config'
+    + (priceScope === 'all' ? '' : '?dialect=' + encodeURIComponent(priceScope)));
   const fx = await adminGet('/api/admin/fx-config');
   const adc = await adminGet('/api/admin/ad-config');
   const pay = await adminGet('/api/admin/payment-config');
@@ -808,6 +812,16 @@ async function loadDev(){
       <div id="fx-save-status"></div>
     </div>
 
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <span style="color:var(--dim, var(--muted));font-size:.88rem">Editing prices for</span>
+      <select id="dev-price-scope" onchange="setPriceScope(this.value)" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+        <option value="all"${priceScope==='all'?' selected':''}>All dialects (shared price)</option>
+        <option value="eg"${priceScope==='eg'?' selected':''}>🇪🇬 Egyptian only</option>
+        <option value="hejazi"${priceScope==='hejazi'?' selected':''}>🇸🇦 Hejazi only</option>
+        <option value="khaleeji"${priceScope==='khaleeji'?' selected':''}>🌊 Khaleeji only</option>
+      </select>
+      <span style="color:var(--muted);font-size:.82rem">${priceScope==='all' ? 'Saving here sets the price every dialect uses unless it has its own.' : 'Saving here overrides ' + dialectLabel(priceScope) + ' only — the others keep the shared price.'}</span>
+    </div>
     <p style="color:var(--muted);font-size:.88rem">Changes apply immediately to the live pricing page. Duration is in months (converted to days internally); leave it blank for Lifetime to keep it non-expiring. The label replaces the small "launch price" note shown under each price.</p>
     <div class="table-scroll"><table class="data">
       <thead><tr><th>Plan</th><th>Price (USD)</th><th>INR</th><th>EGP</th><th>Duration (months)</th><th>Label</th><th>Action</th></tr></thead>
@@ -947,6 +961,7 @@ async function loadDev(){
     if (el) el.addEventListener('input', adPreview);
   });
 }
+function setPriceScope(v){ window.DEV_PRICE_SCOPE = v; loadDev(); }
 async function saveDevPlan(planId){
   const priceEl = document.getElementById('dev-price-'+planId);
   const monthsEl = document.getElementById('dev-days-'+planId);
@@ -957,6 +972,7 @@ async function saveDevPlan(planId){
   if (price !== '') body.priceNow = price;
   if (months !== '') body.days = Math.round(Number(months) * 30);
   try {
+    body.dialect = window.DEV_PRICE_SCOPE || 'all';
     await adminPost(`/api/admin/plan-config/${planId}`, body);
     document.getElementById('dev-save-status').innerHTML = `<div class="alert alert-success" style="margin-top:14px">Updated ${planId} — now live on the pricing page.</div>`;
     loadDev();

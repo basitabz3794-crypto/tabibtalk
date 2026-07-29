@@ -571,7 +571,7 @@ function renderNewPlans() {
     || (currentUser && currentUser.dialect)
     || (function(){ try { return JSON.parse(localStorage.getItem('tt_dialect')||'null') || 'eg'; } catch(e){ return 'eg'; } })();
   const [{ plans }, siteCfg] = await Promise.all([
-    api('/api/plans/config'),
+    api('/api/plans/config?dialect=' + encodeURIComponent(dialect)),
     fetch('/api/site-config?dialect=' + encodeURIComponent(dialect), { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
   ]);
   ALL_PLANS = plans;

@@ -600,7 +600,9 @@ router.get('/shares', requireAdmin, async (req, res) => {
 // ---- Developer section: read/edit live plan pricing & duration ----
 router.get('/plan-config', requireAdmin, async (req, res) => {
   const { getEffectivePlans } = require('../data/plans');
-  res.json(await getEffectivePlans());
+  // Shows the prices in force for one dialect, so the Developer table can be
+  // switched between them. No dialect = the shared prices.
+  res.json(await getEffectivePlans(req.query.dialect));
 });
 
 router.post('/plan-config/:planId', requireAdmin, async (req, res) => {
@@ -621,7 +623,14 @@ router.post('/plan-config/:planId', requireAdmin, async (req, res) => {
   if (label !== undefined) {
     patch.label = String(label).slice(0, 200);
   }
-  await store.setPlanOverride(planId, patch);
+  // A price can be set for ONE dialect or shared across all of them. Passing a
+  // dialect writes 'planId@dialect', which wins over the shared entry for that
+  // dialect only; omitting it edits the shared price as before.
+  const priceDialect = req.body && req.body.dialect;
+  const key = priceDialect && priceDialect !== 'all'
+    ? require('../data/plans').overrideKey(planId, normaliseDialect(priceDialect))
+    : planId;
+  await store.setPlanOverride(key, patch);
   res.json({ ok: true });
 });
 

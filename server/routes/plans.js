@@ -12,7 +12,9 @@ function requireLogin(req, res, next) {
 // ---- Public plan list (safe to expose to the frontend) ----
 // Reflects any live overrides set by the admin's Developer section.
 router.get('/config', async (req, res) => {
-  const { plans } = await getEffectivePlans();
+  // Prices can differ per dialect, so the caller says which one it is showing.
+  // Omitting it yields the shared prices, which is what pre-dialect callers expect.
+  const { plans } = await getEffectivePlans(req.query.dialect);
   res.json({ plans });
 });
 
