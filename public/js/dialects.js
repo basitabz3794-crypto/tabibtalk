@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 12,
+    batch: 13,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 12,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 13,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -693,6 +693,64 @@ window.TT_DIALECT_PACK = {
     'do you have persistent blurring of vision': { ar: 'في زغللة مستمرة؟', fr: 'Fee zaghlala mustamirra?' },
     'do you have persistent vomiting': { ar: 'في استفراغ مستمر؟',      fr: 'Fee istifragh mustamirr?' },
     'yes in the morning':           { ar: 'أيوه، الصبح',               fr: 'Aywa, as-subh' },
+
+    /* ===== Batch 13 — Endocrine pt.1: Addison's, myxoedema, Sheehan =====
+       Myxoedema and Sheehan are asked of / about a FEMALE patient in the source,
+       so the feminine verb and pronoun forms are preserved (تتحملين, وزنك زايد,
+       رضّعتي). Getting this wrong would be immediately jarring at the bedside. */
+    // Addison's disease
+    'is there any weakness or easy fatiguability': { ar: 'في تعب أو إرهاق بسرعة؟', fr: 'Fee ta3ab aw irhaq bisur3a?' },
+    'yes im always tired':          { ar: 'أيوه، تعبان على طول',       fr: 'Aywa, ta3ban 3ala tool' },
+    'are there any syncopal attacks related to posture': { ar: 'تدوخ لما تقوم؟', fr: 'Tdookh lamma tgoom?' },
+    'yes when i stand':             { ar: 'أيوه، لما أقوم',            fr: 'Aywa, lamma agoom' },
+    'do you have cravings for salty food': { ar: 'تشتهي الأكل المالح؟', fr: 'Tishtahi al-akl al-malih?' },
+    'yes i crave salt':             { ar: 'أيوه، أشتهي الملح',         fr: 'Aywa, ashtahi al-milh' },
+    'do you have cravings for sweet food': { ar: 'تشتهي الحلويات؟',    fr: 'Tishtahi al-halawiyat?' },
+    'has your skin darkened':       { ar: 'في بقع غامقة في جلدك؟',     fr: 'Fee buga3 ghamga fi jildak?' },
+    'yes its darker':               { ar: 'أيوه، غمق',                 fr: 'Aywa, ghimig' },
+    'is there any anorexia':        { ar: 'شهيتك للأكل قلّت؟',         fr: 'Shahiyyatak lil-akl gallat?' },
+    'is there any nausea and vomiting': { ar: 'في غثيان واستفراغ؟',    fr: 'Fee ghathayan wa istifragh?' },
+    'do you have night fevers chest tb': { ar: 'عندك حرارة بالليل؟',   fr: '3indak harara bil-lail?' },
+    'do you sweat excessively at night': { ar: 'تعرق كثير بالليل؟',    fr: 'Ti3rag katheer bil-lail?' },
+    'is there any change in appetite': { ar: 'في تغيّر في الشهية للأكل؟', fr: 'Fee taghayyur fish-shahiya lil-akl?' },
+    'yes reduced':                  { ar: 'أيوه، قلّت',                fr: 'Aywa, gallat' },
+
+    // Myxoedema (female patient)
+    'do you feel that she is a bit slow in thinking': { ar: 'تحس إن عندها بطء في التفكير؟', fr: 'Tihiss inn 3indaha but\' fit-tafkeer?' },
+    'yes shes slower':              { ar: 'أيوه، صارت أبطأ',           fr: 'Aywa, sarat abta' },
+    'do you feel that she is fairly impassive apathy': { ar: 'تحس إن عندها بلادة في الإحساس؟', fr: 'Tihiss inn 3indaha balada fil-ihsas?' },
+    'do you notice that she has a tendency to sleep': { ar: 'تلاحظ إنها تنام كثير؟', fr: 'Tilahidh innaha tnam katheer?' },
+    'yes she sleeps a lot':         { ar: 'أيوه، تنام كثير',           fr: 'Aywa, tnam katheer' },
+    'can you stand cold weather':   { ar: 'تتحملين البرد؟',            fr: 'Tithammaleen al-bard?' },
+    'no i cant stand cold':         { ar: 'لا، ما أتحمل البرد',        fr: 'La, ma atahammal al-bard' },
+    'are you gaining weight':       { ar: 'وزنك زايد؟',                fr: 'Waznik zayid?' },
+    'yes i gained weight':          { ar: 'أيوه، وزني زاد',            fr: 'Aywa, wazni zad' },
+    'do you feel tired easily':     { ar: 'تتعبين بسرعة؟',             fr: 'Tit3abeen bisur3a?' },
+    'do you feel any weakness in your body': { ar: 'في ضعف في جسمك؟',  fr: 'Fee du3f fi jismik?' },
+    'do you have dyspepsia':        { ar: 'تتعبين بعد الأكل؟',         fr: 'Tit3abeen ba3d al-akl?' },
+    'do you have constipation':     { ar: 'عندك إمساك؟',               fr: '3indik imsak?' },
+    'what about your menses':       { ar: 'كيف الدورة؟',               fr: 'Kaif ad-dawra?' },
+    'theyre irregular':             { ar: 'مو منتظمة',                 fr: 'Mu muntadhima' },
+    'have you menstruated before':  { ar: 'الدورة كانت تجيك قبل؟',     fr: 'Ad-dawra kanat tjeek gabl?' },
+    'is it getting less in frequency oligomenorrhoea': { ar: 'الوقت بين الدورتين صار أطول؟', fr: 'Al-wagt bain ad-dawratain sar atwal?' },
+    'yes less often':               { ar: 'أيوه، صارت أقل',            fr: 'Aywa, sarat agall' },
+    'do you have excessive bleeding menorrhagia': { ar: 'كمية الدورة زادت؟', fr: 'Kimmiyat ad-dawra zadat?' },
+    'do you have milky discharge from your breast galactorrhoea': { ar: 'ينزل من صدرك إفرازات زي الحليب؟', fr: 'Yinzil min sadrik ifrazat zay al-haleeb?' },
+    'is there any problem during erection or sexual intercourse impotence': { ar: 'في مشكلة في الانتصاب أو العلاقة الزوجية؟', fr: 'Fee mushkila fil-intisab aw al-3alaqa az-zawjiya?' },
+    'do you have breast enlargement gynaecomastia': { ar: 'صدرك كبر؟', fr: 'Sadrak kibir?' },
+
+    // Sheehan syndrome (female patient)
+    'did you have severe per vaginal bleeding after delivery': { ar: 'جاك نزيف شديد بعد الولادة؟', fr: 'Jak nazeef shadeed ba3d al-wilada?' },
+    'yes heavy bleeding':           { ar: 'أيوه، نزيف شديد',           fr: 'Aywa, nazeef shadeed' },
+    'did you breastfeed your child': { ar: 'رضّعتي طفلك؟',             fr: 'Radda3ti tiflik?' },
+    'no i couldnt':                 { ar: 'لا، ما قدرت',               fr: 'La, ma gidart' },
+    'did you start having menstruation again': { ar: 'الدورة رجعت؟',   fr: 'Ad-dawra rij3at?' },
+    'no it stopped':                { ar: 'لا، وقفت',                  fr: 'La, wigfat' },
+    'is there any decrease in the breast size atrophy': { ar: 'حجم صدرك قل؟', fr: 'Hajm sadrik gall?' },
+    'yes smaller':                  { ar: 'أيوه، صغر',                 fr: 'Aywa, sighir' },
+    'is there any hair loss':       { ar: 'شعرك يطيح؟',                fr: 'Sha3rik yteeh?' },
+    'has any part of your skin turned lighter especially the areola': { ar: 'حلمة صدرك صارت أفتح؟', fr: 'Halamat sadrik sarat aftah?' },
+    'yes lighter':                  { ar: 'أيوه، فتحت',                fr: 'Aywa, fithat' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1347,5 +1405,61 @@ window.TT_DIALECT_PACK = {
     'do you have persistent blurring of vision': { ar: 'في زغللة مستمرة؟', fr: 'Fee zaghlala mustamirra?' },
     'do you have persistent vomiting': { ar: 'في استفراغ مستمر؟',      fr: 'Fee istifragh mustamirr?' },
     'yes in the morning':           { ar: 'إي، الصبح',                 fr: 'Ee, as-subh' },
+
+    /* ===== Batch 13 — Endocrine pt.1: Addison's, myxoedema, Sheehan =====
+       Feminine forms preserved for the myxoedema and Sheehan sections. ===== */
+    // Addison's disease
+    'is there any weakness or easy fatiguability': { ar: 'في تعب ولا إرهاق بسرعة؟', fr: 'Fee ta3ab wala irhaq bisur3a?' },
+    'yes im always tired':          { ar: 'إي، تعبان على طول',         fr: 'Ee, ta3ban 3ala tool' },
+    'are there any syncopal attacks related to posture': { ar: 'تدوخ لمن تقوم؟', fr: 'Tdookh liman tgoom?' },
+    'yes when i stand':             { ar: 'إي، لمن أقوم',              fr: 'Ee, liman agoom' },
+    'do you have cravings for salty food': { ar: 'تشتهي الأكل المالح؟', fr: 'Tishtahi al-akil al-malih?' },
+    'yes i crave salt':             { ar: 'إي، أشتهي الملح',           fr: 'Ee, ashtahi al-milh' },
+    'do you have cravings for sweet food': { ar: 'تشتهي الحلويات؟',    fr: 'Tishtahi al-halawiyat?' },
+    'has your skin darkened':       { ar: 'في بقع غامقة بجلدك؟',       fr: 'Fee buga3 ghamga b-jildik?' },
+    'yes its darker':               { ar: 'إي، غمق',                   fr: 'Ee, ghimig' },
+    'is there any anorexia':        { ar: 'شهيتك للأكل قلّت؟',         fr: 'Shahiyyatik lil-akil gallat?' },
+    'is there any nausea and vomiting': { ar: 'في غثيان واستفراغ؟',    fr: 'Fee ghathayan w istifragh?' },
+    'do you have night fevers chest tb': { ar: 'عندك حرارة بالليل؟',   fr: '3indik harara bil-lail?' },
+    'do you sweat excessively at night': { ar: 'تعرق وايد بالليل؟',    fr: 'Ti3rag wayid bil-lail?' },
+    'is there any change in appetite': { ar: 'في تغيّر بالشهية للأكل؟', fr: 'Fee taghayyur bish-shahiya lil-akil?' },
+    'yes reduced':                  { ar: 'إي، قلّت',                  fr: 'Ee, gallat' },
+
+    // Myxoedema (female patient)
+    'do you feel that she is a bit slow in thinking': { ar: 'تحس إن عندها بطء بالتفكير؟', fr: 'Tihiss inn 3indaha but\' bit-tafkeer?' },
+    'yes shes slower':              { ar: 'إي، صارت أبطأ',             fr: 'Ee, sarat abta' },
+    'do you feel that she is fairly impassive apathy': { ar: 'تحس إن عندها بلادة بالإحساس؟', fr: 'Tihiss inn 3indaha balada bil-ihsas?' },
+    'do you notice that she has a tendency to sleep': { ar: 'تلاحظ إنها تنام وايد؟', fr: 'Tilahidh innaha tnam wayid?' },
+    'yes she sleeps a lot':         { ar: 'إي، تنام وايد',             fr: 'Ee, tnam wayid' },
+    'can you stand cold weather':   { ar: 'تتحملين البرد؟',            fr: 'Tithammaleen al-bard?' },
+    'no i cant stand cold':         { ar: 'لا، ما أتحمل البرد',        fr: 'La, ma atahammal al-bard' },
+    'are you gaining weight':       { ar: 'وزنك زايد؟',                fr: 'Waznik zayid?' },
+    'yes i gained weight':          { ar: 'إي، وزني زاد',              fr: 'Ee, wazni zad' },
+    'do you feel tired easily':     { ar: 'تتعبين بسرعة؟',             fr: 'Tit3abeen bisur3a?' },
+    'do you feel any weakness in your body': { ar: 'في ضعف بجسمك؟',    fr: 'Fee dhu3f b-jismik?' },
+    'do you have dyspepsia':        { ar: 'تتعبين بعد الأكل؟',         fr: 'Tit3abeen ba3d al-akil?' },
+    'do you have constipation':     { ar: 'عندك إمساك؟',               fr: '3indik imsak?' },
+    'what about your menses':       { ar: 'شلون الدورة؟',              fr: 'Shlon ad-dawra?' },
+    'theyre irregular':             { ar: 'مو منتظمة',                 fr: 'Mu muntadhima' },
+    'have you menstruated before':  { ar: 'الدورة كانت تجيك قبل؟',     fr: 'Ad-dawra kanat tjeek gabl?' },
+    'is it getting less in frequency oligomenorrhoea': { ar: 'الوقت بين الدورتين صار أطول؟', fr: 'Al-wagt bain ad-dawratain sar atwal?' },
+    'yes less often':               { ar: 'إي، صارت أقل',              fr: 'Ee, sarat agall' },
+    'do you have excessive bleeding menorrhagia': { ar: 'كمية الدورة زادت؟', fr: 'Kimmiyat ad-dawra zadat?' },
+    'do you have milky discharge from your breast galactorrhoea': { ar: 'ينزل من صدرك إفرازات مثل الحليب؟', fr: 'Yinzil min sadrik ifrazat mithl al-haleeb?' },
+    'is there any problem during erection or sexual intercourse impotence': { ar: 'في مشكلة بالانتصاب ولا العلاقة الزوجية؟', fr: 'Fee mushkila bil-intisab wala al-3alaqa az-zawjiya?' },
+    'do you have breast enlargement gynaecomastia': { ar: 'صدرك كبر؟', fr: 'Sadrik kibir?' },
+
+    // Sheehan syndrome (female patient)
+    'did you have severe per vaginal bleeding after delivery': { ar: 'جاك نزيف شديد بعد الولادة؟', fr: 'Jak nazeef shadeed ba3d al-wilada?' },
+    'yes heavy bleeding':           { ar: 'إي، نزيف شديد',             fr: 'Ee, nazeef shadeed' },
+    'did you breastfeed your child': { ar: 'رضّعتي طفلك؟',             fr: 'Radda3ti tiflik?' },
+    'no i couldnt':                 { ar: 'لا، ما قدرت',               fr: 'La, ma gidart' },
+    'did you start having menstruation again': { ar: 'الدورة رجعت؟',   fr: 'Ad-dawra rij3at?' },
+    'no it stopped':                { ar: 'لا، وقفت',                  fr: 'La, wigfat' },
+    'is there any decrease in the breast size atrophy': { ar: 'حجم صدرك قل؟', fr: 'Hajm sadrik gall?' },
+    'yes smaller':                  { ar: 'إي، صغر',                   fr: 'Ee, sighir' },
+    'is there any hair loss':       { ar: 'شعرك يطيح؟',                fr: 'Sha3rik yteeh?' },
+    'has any part of your skin turned lighter especially the areola': { ar: 'حلمة صدرك صارت أفتح؟', fr: 'Halamat sadrik sarat aftah?' },
+    'yes lighter':                  { ar: 'إي، فتحت',                  fr: 'Ee, fithat' },
   },
 };
