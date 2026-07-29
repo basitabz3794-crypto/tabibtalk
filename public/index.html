@@ -101,6 +101,25 @@
   html.tt-minimal .readout .say.on { background: #0f9c8c; color: #fff; }
   html.tt-minimal .console-bar i { background: #e2e6e9; }
   html.tt-minimal .feat .ic { background: #f1f4f5; border-color: #e2e6e9; }
+
+  /* Where each dialect is spoken — shown on hover/focus so a visitor can tell
+     them apart before committing. CSS-only: no JS, and it reaches keyboard
+     users because :focus-visible is included. */
+  .tt-tip { position: relative; }
+  .tt-tip::after {
+    content: attr(data-tip);
+    position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+    min-width: 210px; max-width: 290px; padding: 9px 12px; border-radius: 10px;
+    background: #0d1420; color: #e8f1f8; border: 1px solid rgba(255,255,255,.16);
+    font-size: .78rem; font-weight: 500; line-height: 1.4; text-align: center;
+    white-space: normal; pointer-events: none; z-index: 40;
+    opacity: 0; transition: opacity .16s ease;
+  }
+  .tt-tip:hover::after, .tt-tip:focus-visible::after { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .tt-tip::after { transition: none; } }
+  html.tt-minimal .tt-tip::after { background: #10151b; border-color: rgba(0,0,0,.18); color: #ffffff; }
+  /* No hover on touch, and a tooltip that cannot be dismissed is worse than none. */
+  @media (hover: none) { .tt-tip::after { display: none; } }
 </style>
 </head>
 <body class="scifi">
@@ -137,16 +156,16 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   <div class="r3d" style="--d:0"><span class="holo-badge depth" data-depth="8"><span class="dot"></span> Bilingual with three scripts &middot; English &middot; Arabic &middot; Franco</span></div>
   <div class="r3d" style="--d:1"><h1 class="depth" data-depth="16">Speak your Arabic patient's <span class="grad">language.</span></h1></div>
   <div class="r3d" style="--d:1"><p class="depth" data-depth="12" style="margin:10px 0 0;font-weight:600">Choose your dialect: <b>Egyptian</b> &middot; <b>Saudi (Hejazi)</b> &middot; <b>Gulf (Khaleeji)</b></p></div>
-  <div class="r3d" style="--d:2"><p class="depth" data-depth="10">A premium, dialect-first toolkit for medical students &mdash; from a first &ldquo;Ezzayak?&rdquo; to a full bedside history, in the words patients actually use.</p></div>
+  <div class="r3d" style="--d:2"><p class="depth" data-depth="10">A premium, dialect-first toolkit for medical students &mdash; from a first &ldquo;Salamu alaykum&rdquo; to a full bedside history, in the words patients actually use.</p></div>
   <div class="r3d" style="--d:3">
   <!-- Entry is per dialect. Each link carries ?dialect=… which app.html stores
        before it renders anything, so the student lands in their own version.
        Sign-in itself is shared — the dialect survives the login round-trip
        because it is kept in localStorage, not in the session. -->
   <div class="actions dialect-entry">
-    <a href="/app.html?dialect=eg" class="btn btn-primary">🇪🇬 Egyptian Medical Arabic &rarr;</a>
-    <a href="/app.html?dialect=hejazi" class="btn btn-primary">🇸🇦 Saudi (Hejazi) Medical Arabic &rarr;</a>
-    <a href="/app.html?dialect=khaleeji" class="btn btn-primary">🌊 Gulf (Khaleeji) Medical Arabic &rarr;</a>
+    <a href="/app.html?dialect=eg" class="btn btn-primary tt-tip" data-tip="Spoken in Egypt — and widely understood across the Gulf, thanks to Egyptian film and television.">🇪🇬 Egyptian Medical Arabic &rarr;</a>
+    <a href="/app.html?dialect=hejazi" class="btn btn-primary tt-tip" data-tip="Western Saudi Arabia — Jeddah, Makkah, Madinah and Taif.">🇸🇦 Saudi (Hejazi) Medical Arabic &rarr;</a>
+    <a href="/app.html?dialect=khaleeji" class="btn btn-primary tt-tip" data-tip="Kuwait, the UAE, Qatar, Bahrain and the Eastern Province of Saudi Arabia.">🌊 Gulf (Khaleeji) Medical Arabic &rarr;</a>
   </div>
   <div class="actions" style="margin-top:14px">
     <a href="/choose.html?next=/plans.html" class="btn btn-outline" data-plans-link>Plans</a>
@@ -170,21 +189,21 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
       <!-- The same bedside question in all three dialects, so a visitor can hear
            the difference before choosing. Each line speaks its own Arabic with
            that dialect's locale, and the Franco spelling sits underneath. -->
-      <div class="line"><span class="tag">🇪🇬 EG</span>
+      <div class="line"><span class="tag tt-tip" tabindex="0" data-tip="Spoken in Egypt — and widely understood across the Gulf, thanks to Egyptian film and television.">🇪🇬 EG</span>
         <span><span class="ar">بيوجعك فين؟</span><br><span class="fr">Beyewga3ak fein?</span></span>
         <button class="say" type="button" data-say="بيوجعك فين؟" data-lang="ar-EG" aria-label="Play in Egyptian Arabic" title="Play in Egyptian Arabic">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
         </button>
       </div>
       <hr class="beam-rule">
-      <div class="line"><span class="tag">🇸🇦 Hejazi</span>
+      <div class="line"><span class="tag tt-tip" tabindex="0" data-tip="Western Saudi Arabia — Jeddah, Makkah, Madinah and Taif.">🇸🇦 Hejazi</span>
         <span><span class="ar">وين يوجعك؟</span><br><span class="fr">Wain yiwja3ak?</span></span>
         <button class="say" type="button" data-say="وين يوجعك؟" data-lang="ar-SA" aria-label="Play in Hejazi Arabic" title="Play in Hejazi Arabic">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
         </button>
       </div>
       <hr class="beam-rule">
-      <div class="line"><span class="tag">🌊 Khaleeji</span>
+      <div class="line"><span class="tag tt-tip" tabindex="0" data-tip="Kuwait, the UAE, Qatar, Bahrain and the Eastern Province of Saudi Arabia.">🌊 Khaleeji</span>
         <span><span class="ar">وين يعورك؟</span><br><span class="fr">Wain y3awrik?</span></span>
         <button class="say" type="button" data-say="وين يعورك؟" data-lang="ar-AE" aria-label="Play in Khaleeji Arabic" title="Play in Khaleeji Arabic">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>

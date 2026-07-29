@@ -198,7 +198,7 @@ document.getElementById('refresh-btn').addEventListener('click', async () => {
 
 async function loadStats(){
   const data = await adminGet('/api/admin/overview');
-  const { totals, activeByTier = {}, activeByPlan = {}, planDurationLabels = {}, renewalsDue = [] } = data;
+  const { totals, activeByTier = {}, activeByPlan = {}, planDurationLabels = {}, renewalsDue = [], activeByDialect = {}, signupsByDialect = {} } = data;
   const PLAN_NAMES = { // pretty labels for the plan-breakdown line
     'student-monthly':'Student · Monthly', 'student-6m':'Student · 6-month', 'student-12m':'Student · 12-month',
     'professional-monthly':'Professional · Monthly', 'professional-6m':'Professional · 6-month', 'professional-yearly':'Professional · Yearly',
@@ -238,8 +238,26 @@ async function loadStats(){
          </div>
        </div>`
     : '';
+  // Per-dialect picture: how many chose each dialect, and how many of them are
+  // actually paying. Active is counted on the dialect the payment was made for.
+  const dialectBreakdown = `<div class="card stat-card" style="grid-column: 1 / -1">
+         <div class="l" style="margin-bottom:8px">By dialect &mdash; signups and active paid subscriptions</div>
+         <div style="display:flex;flex-wrap:wrap;gap:16px 28px;font-size:.95rem">
+           ${['eg','hejazi','khaleeji'].map(function(d){
+             const signed = signupsByDialect[d] || 0;
+             const paid   = activeByDialect[d] || 0;
+             const pct    = signed ? Math.round((paid / signed) * 100) : 0;
+             return '<div><b style="color:var(--text)">' + dialectLabel(d) + '</b>'
+                  + '<div style="color:var(--muted);font-size:.85rem;margin-top:2px">'
+                  + signed + ' signed up &middot; <b style="color:var(--ok, var(--accent))">' + paid + ' paying</b>'
+                  + (signed ? ' &middot; ' + pct + '%' : '')
+                  + '</div></div>';
+           }).join('')}
+         </div>
+       </div>`;
   document.getElementById('stats').innerHTML =
     cards.map(([l,n,a,hint])=>`<div class="card stat-card ${a?'accent':''}"><div class="n">${n}</div><div class="l">${l}${hint?`<div style="font-size:.7rem;color:var(--muted);margin-top:2px">${hint}</div>`:''}</div></div>`).join('')
+    + dialectBreakdown
     + activeBreakdown
     + renderRenewalsDue(renewalsDue);
 }

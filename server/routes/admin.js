@@ -110,6 +110,22 @@ router.get('/overview', requireAdmin, async (req, res) => {
   });
   renewalsDue.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
 
+  // Who is actually paying, per dialect. Counted on the dialect the payment was
+  // MADE for rather than whichever one the student happens to be reading today,
+  // because that is the dialect the money belongs to. Signups are counted
+  // separately so the admin can see interest and revenue side by side.
+  const activeByDialect = {};
+  const signupsByDialect = {};
+  DIALECTS.forEach(function (d) { activeByDialect[d] = 0; signupsByDialect[d] = 0; });
+  users.forEach(function (u) {
+    const d = normaliseDialect(u.dialect);
+    signupsByDialect[d]++;
+  });
+  activeSubs.forEach(function (x) {
+    const d = normaliseDialect(x.proof.dialect || x.user.dialect);
+    activeByDialect[d]++;
+  });
+
   const planCounts = {};
   approved.forEach(p => { planCounts[p.planId] = (planCounts[p.planId] || 0) + 1; });
 
@@ -136,6 +152,8 @@ router.get('/overview', requireAdmin, async (req, res) => {
     planCounts,
     activeByTier,
     activeByPlan,
+    activeByDialect,
+    signupsByDialect,
     planDurationLabels: PLAN_DURATION_HUMAN,
     renewalsDue,
   });
