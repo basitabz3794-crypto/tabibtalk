@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 13,
+    batch: 14,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 13,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 14,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -751,6 +751,51 @@ window.TT_DIALECT_PACK = {
     'is there any hair loss':       { ar: 'شعرك يطيح؟',                fr: 'Sha3rik yteeh?' },
     'has any part of your skin turned lighter especially the areola': { ar: 'حلمة صدرك صارت أفتح؟', fr: 'Halamat sadrik sarat aftah?' },
     'yes lighter':                  { ar: 'أيوه، فتحت',                fr: 'Aywa, fithat' },
+
+    /* ===== Batch 14 — Endocrine pt.2: Cushing's & acromegaly =====
+       Cushing's is asked of a FEMALE patient (تروحين, تشربين, تاكلين) and
+       acromegaly of a MALE one (راسك, صوتك, غيّرت جزمتك) — the source alternates,
+       and both are preserved. */
+    // Cushing syndrome (female patient)
+    'is your weight increasing':    { ar: 'وزنك يزيد؟',                fr: 'Waznik yizeed?' },
+    'yes gaining weight':           { ar: 'أيوه، أسمن',                fr: 'Aywa, asman' },
+    'do you go to the toilet frequently': { ar: 'تروحين الحمام كثير؟', fr: 'Trooheen al-hammam katheer?' },
+    // 'yes a lot' is already defined in batch 3 — not repeated here.
+    'do you wake up at night to micturate more frequently than normal': { ar: 'تصحين من النوم عشان تروحين الحمام بالليل؟', fr: 'Tis-heen min an-nom 3ashan trooheen al-hammam bil-lail?' },
+    'yes several times':            { ar: 'أيوه، كم مرة',              fr: 'Aywa, kam marra' },
+    'do you drink a lot of water':  { ar: 'تشربين ماي كثير؟',          fr: 'Tishrabeen may katheer?' },
+    'yes always thirsty':           { ar: 'أيوه، عطشان دايماً',        fr: 'Aywa, 3atshan dayman' },
+    'do you eat a lot':             { ar: 'تاكلين كثير؟',              fr: 'Takleen katheer?' },
+    // 'do you have hypertension' is already defined in batch 2 (masculine, from
+    // the general-history section). The pack is keyed on English alone, so the
+    // same question cannot carry both a masculine and a feminine form — the
+    // batch-2 wording is kept so history taking is not silently changed.
+    'do you have any symptoms of hypertension': { ar: 'تحسين بأعراض الضغط؟', fr: 'Tihisseen bi-a3rad ad-daght?' },
+    'yes headaches':                { ar: 'أيوه، صداع',                fr: 'Aywa, suda3' },
+    'how long have you been complaining of these': { ar: 'من متى؟',    fr: 'Min mata?' },
+    'for a few months':             { ar: 'من كم شهر',                 fr: 'Min kam shahr' },
+    'do you have heartburn':        { ar: 'في ألم في أعلى المعدة؟',    fr: 'Fee alam fi a3la al-mi3da?' },
+    'do you have pain in the right hypochondrium': { ar: 'في ألم في جنبك اليمين؟', fr: 'Fee alam fi jambik al-yameen?' },
+    'do you have oedema of the lower limb upper limb or elsewhere': { ar: 'في انتفاخ في رجلك أو يدك أو مكان ثاني؟', fr: 'Fee intifakh fi rijlik aw yaddik aw makan thani?' },
+    'do you have any problems or infections in the kidney': { ar: 'في مشاكل أو التهابات في الكلى؟', fr: 'Fee mashakil aw iltihabat fil-kila?' },
+    'do you have convulsions':      { ar: 'جاك تشنجات؟',               fr: 'Jak tashannujat?' },
+    'when was the last time you measured your blood pressure what was the result': { ar: 'آخر مرة قست الضغط متى؟ وش كانت النتيجة؟', fr: 'Akhir marra gist ad-daght mata? Wesh kanat an-nateeja?' },
+    'last week it was high':        { ar: 'الأسبوع اللي فات، كان عالي', fr: 'Al-usboo3 illi fat, kan 3ali' },
+    'is there any bony pain osteoporosis': { ar: 'في ألم في عظامك؟',   fr: 'Fee alam fi 3idhamik?' },
+    'yes in my bones':              { ar: 'أيوه، في عظامي',            fr: 'Aywa, fi 3idhami' },
+    'are there any fractures':      { ar: 'صار عندك كسر؟',             fr: 'Sar 3indik kasr?' },
+    'do you have fevers at night chest tb': { ar: 'عندك حرارة بالليل؟', fr: '3indik harara bil-lail?' },
+    'has your skin become darker pigmentation': { ar: 'في بقع غامقة في جلدك؟', fr: 'Fee buga3 ghamga fi jildik?' },
+
+    // Acromegaly (male patient)
+    'is there any change in your head features enlargement of nose or big mouth': { ar: 'راسك كبر؟ أنفك أو فمك؟', fr: 'Rasak kibir? Anfak aw fammak?' },
+    'yes my features enlarged':     { ar: 'أيوه، ملامحي كبرت',         fr: 'Aywa, malamhi kibrat' },
+    'has your voice changed husky voice': { ar: 'صوتك تغيّر؟',          fr: 'Sotak taghayyar?' },
+    'yes its deeper':               { ar: 'أيوه، صار أغلظ',            fr: 'Aywa, sar aghladh' },
+    'have you had to change your hat shoes or rings': { ar: 'غيّرت جزمتك أو خاتمك بمقاس أكبر؟', fr: 'Ghayyart jazmatak aw khatimak bi-maqas akbar?' },
+    'yes bigger sizes':             { ar: 'أيوه، مقاسات أكبر',         fr: 'Aywa, maqasat akbar' },
+    'do you have persistent headaches pressure from tumour': { ar: 'عندك صداع مستمر؟', fr: '3indak suda3 mustamirr?' },
+    'do you go to the toilet frequently diabetes': { ar: 'تروحين الحمام كثير؟', fr: 'Trooheen al-hammam katheer?' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1461,5 +1506,46 @@ window.TT_DIALECT_PACK = {
     'is there any hair loss':       { ar: 'شعرك يطيح؟',                fr: 'Sha3rik yteeh?' },
     'has any part of your skin turned lighter especially the areola': { ar: 'حلمة صدرك صارت أفتح؟', fr: 'Halamat sadrik sarat aftah?' },
     'yes lighter':                  { ar: 'إي، فتحت',                  fr: 'Ee, fithat' },
+
+    /* ===== Batch 14 — Endocrine pt.2: Cushing's & acromegaly =====
+       Cushing's female, acromegaly male — both preserved. ===== */
+    // Cushing syndrome (female patient)
+    'is your weight increasing':    { ar: 'وزنك يزيد؟',                fr: 'Waznik yzeed?' },
+    'yes gaining weight':           { ar: 'إي، أسمن',                  fr: 'Ee, asman' },
+    'do you go to the toilet frequently': { ar: 'تروحين الحمام وايد؟', fr: 'Trooheen al-hammam wayid?' },
+    // 'yes a lot' is already defined in batch 3 — not repeated here.
+    'do you wake up at night to micturate more frequently than normal': { ar: 'تصحين من النوم عشان تروحين الحمام بالليل؟', fr: 'Tis-heen min an-nom 3ashan trooheen al-hammam bil-lail?' },
+    'yes several times':            { ar: 'إي، كم مرة',                fr: 'Ee, kam marra' },
+    'do you drink a lot of water':  { ar: 'تشربين ماي وايد؟',          fr: 'Tishrabeen may wayid?' },
+    'yes always thirsty':           { ar: 'إي، عطشان دايماً',          fr: 'Ee, 3atshan dayman' },
+    'do you eat a lot':             { ar: 'تاكلين وايد؟',              fr: 'Takleen wayid?' },
+    // 'do you have hypertension' is already defined in batch 2 — see the note in
+    // the Hejazi block. The batch-2 wording is kept.
+    'do you have any symptoms of hypertension': { ar: 'تحسين بأعراض الضغط؟', fr: 'Tihisseen bi-a3radh adh-dhaght?' },
+    'yes headaches':                { ar: 'إي، صداع',                  fr: 'Ee, suda3' },
+    'how long have you been complaining of these': { ar: 'من متى؟',    fr: 'Min mita?' },
+    'for a few months':             { ar: 'من كم شهر',                 fr: 'Min kam shahr' },
+    'do you have heartburn':        { ar: 'في وجع بأعلى المعدة؟',      fr: 'Fee waja3 b-a3la al-mi3da?' },
+    'do you have pain in the right hypochondrium': { ar: 'في وجع بجنبك اليمين؟', fr: 'Fee waja3 b-jambik al-yameen?' },
+    'do you have oedema of the lower limb upper limb or elsewhere': { ar: 'في انتفاخ برجلك ولا يدك ولا مكان ثاني؟', fr: 'Fee intifakh b-rijlik wala yaddik wala makan thani?' },
+    'do you have any problems or infections in the kidney': { ar: 'في مشاكل ولا التهابات بالكلى؟', fr: 'Fee mashakil wala iltihabat bil-kila?' },
+    'do you have convulsions':      { ar: 'جاك تشنجات؟',               fr: 'Jak tashannujat?' },
+    'when was the last time you measured your blood pressure what was the result': { ar: 'آخر مرة قست الضغط متى؟ شنو كانت النتيجة؟', fr: 'Akhir marra gist adh-dhaght mita? Shino kanat an-nateeja?' },
+    'last week it was high':        { ar: 'الأسبوع اللي فات، كان عالي', fr: 'Al-usboo3 illi fat, kan 3ali' },
+    'is there any bony pain osteoporosis': { ar: 'في وجع بعظامك؟',     fr: 'Fee waja3 b-3idhamik?' },
+    'yes in my bones':              { ar: 'إي، بعظامي',                fr: 'Ee, b-3idhami' },
+    'are there any fractures':      { ar: 'صار عندك كسر؟',             fr: 'Sar 3indik kasr?' },
+    'do you have fevers at night chest tb': { ar: 'عندك حرارة بالليل؟', fr: '3indik harara bil-lail?' },
+    'has your skin become darker pigmentation': { ar: 'في بقع غامقة بجلدك؟', fr: 'Fee buga3 ghamga b-jildik?' },
+
+    // Acromegaly (male patient)
+    'is there any change in your head features enlargement of nose or big mouth': { ar: 'راسك كبر؟ خشمك ولا فمك؟', fr: 'Rasik kibir? Khashmik wala fammik?' },
+    'yes my features enlarged':     { ar: 'إي، ملامحي كبرت',           fr: 'Ee, malamhi kibrat' },
+    'has your voice changed husky voice': { ar: 'صوتك تغيّر؟',          fr: 'Sotik taghayyar?' },
+    'yes its deeper':               { ar: 'إي، صار أغلظ',              fr: 'Ee, sar aghladh' },
+    'have you had to change your hat shoes or rings': { ar: 'غيّرت جزمتك ولا خاتمك بمقاس أكبر؟', fr: 'Ghayyart jazmatik wala khatimik bi-maqas akbar?' },
+    'yes bigger sizes':             { ar: 'إي، مقاسات أكبر',           fr: 'Ee, maqasat akbar' },
+    'do you have persistent headaches pressure from tumour': { ar: 'عندك صداع مستمر؟', fr: '3indik suda3 mustamirr?' },
+    'do you go to the toilet frequently diabetes': { ar: 'تروحين الحمام وايد؟', fr: 'Trooheen al-hammam wayid?' },
   },
 };
