@@ -6085,6 +6085,16 @@ var AR_DIALECTS = {
   hejazi:   { label:'Saudi (Hejazi)',  people:'Saudi',    arabic:'Hejazi Arabic',   lang:'ar-SA', match:/ar[-_]?sa|saudi|hejaz|naayf|maged/i },
   khaleeji: { label:'Gulf (Khaleeji)', people:'Gulf',     arabic:'Khaleeji Arabic', lang:'ar-AE', match:/ar[-_]?(ae|kw|qa|bh|om)|gulf|khalij|emirat/i }
 };
+/* A dialect chosen on the landing page arrives as ?dialect=… — persist it
+   before anything reads tt_dialect, so the student lands directly in their own
+   version. Sign-in is shared across dialects: the choice lives in localStorage,
+   not the session, so it survives the redirect through login and back. */
+(function(){
+  try{
+    var m=/[?&]dialect=([a-zA-Z]+)/.exec(location.search||'');
+    if(m && AR_DIALECTS[m[1]]) localStorage.setItem('tt_dialect', JSON.stringify(m[1]));
+  }catch(e){}
+})();
 function ttDialect(){
   try{ var d=JSON.parse(localStorage.getItem('tt_dialect')||'null'); if(d && AR_DIALECTS[d]) return d; }catch(e){}
   return 'eg';
