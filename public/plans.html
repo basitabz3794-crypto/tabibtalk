@@ -555,7 +555,20 @@ function renderNewPlans() {
   // Which dialect's plans page to show. The signed-in account is
   // authoritative; a visitor who has not signed in yet falls back to the
   // choice they made on the landing page, which lives in localStorage.
-  const dialect = (currentUser && currentUser.dialect)
+  // Precedence: an explicit ?dialect= wins, because it is a choice the student
+  // has JUST made (the chooser, or a shared link). Otherwise their account's
+  // dialect, then whatever this browser last used. The explicit choice is
+  // persisted so it survives the sign-in round-trip.
+  const urlDialect = (function(){
+    const q = new URLSearchParams(location.search).get('dialect');
+    if (q && ['eg','hejazi','khaleeji'].indexOf(q) >= 0) {
+      try { localStorage.setItem('tt_dialect', JSON.stringify(q)); } catch (e) {}
+      return q;
+    }
+    return null;
+  })();
+  const dialect = urlDialect
+    || (currentUser && currentUser.dialect)
     || (function(){ try { return JSON.parse(localStorage.getItem('tt_dialect')||'null') || 'eg'; } catch(e){ return 'eg'; } })();
   const [{ plans }, siteCfg] = await Promise.all([
     api('/api/plans/config'),

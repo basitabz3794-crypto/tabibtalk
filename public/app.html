@@ -9082,7 +9082,7 @@ function _ttDownloadBlob(blob, filename){
 <script>
 function ttGoPlans(){
   try{ if(typeof closeDrawer==='function') closeDrawer(); }catch(e){}
-  if(location.protocol==='http:'||location.protocol==='https:'){ window.location.href='/plans.html'; }
+  if(location.protocol==='http:'||location.protocol==='https:'){ window.location.href='/plans.html?dialect='+encodeURIComponent(ttDialect()); }
   else if(typeof showLanding==='function'){ showLanding(); }
 }
 window.ttGoPlans=ttGoPlans;

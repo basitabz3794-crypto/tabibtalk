@@ -97,16 +97,36 @@ function ttOpenDisplayMenu() {
 }
 
 /* ---------- Header with pinned My Account ---------- */
+/* Where the generic nav entries should lead.
+   On the LANDING page nobody has chosen a dialect yet, so both 'Plans' and
+   'Open the Website' ask first. Anywhere else the student is already inside a
+   dialect, so they go straight to that dialect's version — which is what the
+   in-app Plans link and My Account are expected to do. */
+var TT_DIA_NAME = { eg: 'Egyptian', hejazi: 'Hejazi', khaleeji: 'Khaleeji' };
+function ttNavDialect() {
+  try { var d = JSON.parse(localStorage.getItem('tt_dialect') || 'null'); return TT_DIA_NAME[d] ? d : null; }
+  catch (e) { return null; }
+}
+function ttIsLandingPage() {
+  var p = location.pathname;
+  return p === '/' || p.slice(-11).toLowerCase() === '/index.html';
+}
+function ttEntryHref(target) {
+  var d = ttIsLandingPage() ? null : ttNavDialect();
+  return d ? (target + '?dialect=' + encodeURIComponent(d))
+           : ('/choose.html?next=' + encodeURIComponent(target));
+}
+
 function renderHeader(activePage) {
   const el = document.getElementById('site-header');
   if (!el) return;
   el.innerHTML = `
     <img class="logo-mark" src="/img/logo.png" alt="Tabib Talk logo">
-    <div class="brand-text"><strong>Tabib Talk</strong><span>Egyptian Medical Arabic</span></div>
+    <div class="brand-text"><strong>Tabib Talk</strong><span>${ttIsLandingPage() ? 'Medical Arabic' : ((TT_DIA_NAME[ttNavDialect()] || 'Egyptian') + ' Medical Arabic')}</span></div>
     <nav>
       <a href="/index.html" data-key="home">Land up page</a>
-      <a href="/plans.html" data-key="plans" data-plans-link>Plans</a>
-      <a href="/app.html" class="cta" data-key="app" onclick="return openAppGuard(event)">Open the Website</a>
+      <a href="${ttEntryHref('/plans.html')}" data-key="plans" data-plans-link>Plans</a>
+      <a href="${ttEntryHref('/app.html')}" class="cta" data-key="app" onclick="return openAppGuard(event)">Open the Website</a>
       <a href="/account.html" class="account-pin" data-key="account">My Account</a>
       <button type="button" onclick="ttOpenDisplayMenu()" aria-label="Display options" title="Display options — Gamify / Minimalist"
         style="width:36px;height:36px;border-radius:10px;border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;cursor:pointer;font-size:1rem;flex:none">🎨</button>

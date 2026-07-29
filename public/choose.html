@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Choose your dialect — Tabib Talk</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<link rel="stylesheet" href="/css/scifi.css">
+<style>
+  .dia-grid { display: grid; gap: 16px; margin-top: 26px; }
+  .dia-card {
+    display: flex; align-items: center; gap: 18px; width: 100%; text-align: left;
+    padding: 22px 24px; border-radius: 18px; cursor: pointer; font: inherit;
+    background: var(--surface); border: 1.5px solid var(--border); color: var(--text);
+    transition: transform .16s var(--ease), border-color .16s var(--ease), box-shadow .16s var(--ease);
+  }
+  .dia-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .dia-card .flag { font-size: 2rem; line-height: 1; flex: none; }
+  .dia-card .name { font-weight: 700; font-size: 1.08rem; }
+  .dia-card .desc { color: var(--muted); font-size: .88rem; margin-top: 3px; }
+  .dia-card .go { margin-left: auto; color: var(--accent); font-weight: 700; flex: none; }
+  /* The original course leads, as the others were added on top of it. */
+  .dia-card.primary { border-color: var(--accent); background: var(--accent-soft, rgba(45,212,191,.06)); }
+  .dia-note { color: var(--muted); font-size: .86rem; margin-top: 22px; text-align: center; }
+</style>
+</head>
+<body class="scifi">
+<script>/* Match the saved display mode before first paint, as every other page does. */
+try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
+<div class="nebula"></div>
+<canvas id="scifi-field"></canvas>
+
+<header class="site-header" id="site-header"></header>
+
+<div class="wrap narrow">
+  <h1 class="page-title reveal">Choose your dialect</h1>
+  <p class="page-sub reveal d1" id="choose-sub">Every phrase, the voice and the plans follow your choice. You can change it any time in My Account.</p>
+  <div class="dia-grid reveal d2" id="dia-grid"></div>
+  <p class="dia-note reveal d2">One account works across all three — signing in is shared.</p>
+</div>
+
+<script src="/js/header.js"></script>
+<script src="/js/scifi.js"></script>
+<script>
+/* Shared dialect chooser.
+   Reached from the landing page's "Open the Website" and "Plans" entries, where
+   no dialect has been chosen yet. Takes ?next= (the page to continue to) and
+   forwards with ?dialect=… once picked — the same parameter app.html and
+   plans.html already understand, so nothing special happens downstream.
+   Egyptian is listed first: it is the original course. */
+const DIALECTS = [
+  ['eg',       '🇪🇬', 'Egyptian Medical Arabic',        'Masri — the original course'],
+  ['hejazi',   '🇸🇦', 'Saudi (Hejazi) Medical Arabic',  'Western Saudi — Jeddah, Makkah, Madinah'],
+  ['khaleeji', '🌊', 'Gulf (Khaleeji) Medical Arabic', 'Kuwait, UAE, Qatar, Bahrain, eastern Saudi'],
+];
+
+/* Only ever forward to a path on this site — never to whatever a query string
+   happens to contain, which would make this an open redirect. */
+function safeNext() {
+  const raw = new URLSearchParams(location.search).get('next') || '/app.html';
+  return /^\/[A-Za-z0-9._~\-\/]*$/.test(raw) ? raw : '/app.html';
+}
+
+const next = safeNext();
+if (next.indexOf('/plans') === 0) {
+  document.getElementById('choose-sub').textContent =
+    'Plans and prices are set per dialect. Pick the one you want to learn, and its plans open next.';
+}
+
+document.getElementById('dia-grid').innerHTML = DIALECTS.map(function (d, i) {
+  return '<button type="button" class="dia-card' + (i === 0 ? ' primary' : '') + '" data-d="' + d[0] + '">'
+       + '<span class="flag">' + d[1] + '</span>'
+       + '<span><span class="name">' + d[2] + '</span><span class="desc">' + d[3] + '</span></span>'
+       + '<span class="go">&rarr;</span>'
+       + '</button>';
+}).join('');
+
+document.querySelectorAll('.dia-card').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    const d = btn.dataset.d;
+    // Persist immediately so the choice survives the sign-in round-trip, then
+    // forward with the parameter the destination already reads.
+    try { localStorage.setItem('tt_dialect', JSON.stringify(d)); } catch (e) {}
+    location.href = next + (next.indexOf('?') >= 0 ? '&' : '?') + 'dialect=' + encodeURIComponent(d);
+  });
+});
+
+renderHeader('app');
+</script>
+</body>
+</html>
