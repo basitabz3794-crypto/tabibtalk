@@ -1250,6 +1250,73 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   window.addEventListener('pagehide', function(){ doFlush(true); });
   window.addEventListener('beforeunload', function(){ doFlush(true); });
 })();
+
+/* ============================================================
+   PER-DIALECT STREAK AND SCORE
+   ============================================================
+   Streak, study time and test scores belong to the dialect they were earned
+   in. A student holding a 20-day Egyptian streak starts a fresh one in
+   Hejazi, and neither can reset the other. Content progress (lessons opened,
+   flashcards, bookmarks) stays shared on purpose: "I have studied Cushing
+   Syndrome" is true whichever dialect you read it in.
+
+   Done by rewriting the KEY, not every call site. The four scored keys get a
+   '__<dialect>' suffix, so computeStreak(), addTime(), allScores() and the
+   rest keep working untouched. Egyptian deliberately keeps the BARE key, so
+   every account that existed before dialects shipped still reads exactly the
+   streak and scores it already had — there is nothing to migrate.
+
+   This wraps the sync layer above rather than replacing it, so the scoped
+   name is both what is stored locally and what is synced. The server
+   therefore sees tt_streak (Egyptian) next to tt_streak__hejazi and can add
+   them up for the one shared leaderboard.
+   ============================================================ */
+(function(){
+  var SCOPED = { tt_streak:1, tt_days:1, tt_time:1, tt_scores:1 };
+  var VALID  = { eg:1, hejazi:1, khaleeji:1 };
+
+  var rawGet  = localStorage.getItem.bind(localStorage);
+  var rawDel  = localStorage.removeItem.bind(localStorage);
+  var syncSet = localStorage.setItem.bind(localStorage);   // the sync wrapper above
+
+  // A dialect chosen on the landing page arrives as ?dialect=… and is stored
+  // HERE, at the front of the page, rather than being treated as a competing
+  // source of truth further down. That leaves exactly one answer to "which
+  // dialect am I in" for the whole page: tt_dialect. (The block further down
+  // that also persists the param then simply rewrites the same value.)
+  //
+  // Order matters. Without this, the gap between installing this layer and
+  // that block would scope reads to the PREVIOUS dialect; and preferring the
+  // param instead would break switching dialect in-app without a reload.
+  try {
+    var m = /[?&]dialect=([a-zA-Z]+)/.exec(location.search || '');
+    if (m && VALID[m[1]]) syncSet('tt_dialect', JSON.stringify(m[1]));
+  } catch(e){}
+
+  function dialect(){
+    try {
+      var d = JSON.parse(rawGet('tt_dialect') || 'null');
+      if (d && VALID[d]) return d;
+    } catch(e){}
+    return 'eg';
+  }
+  function scoped(k){
+    if (!SCOPED[k]) return k;                     // not a scored key — untouched
+    var d = dialect();
+    return d === 'eg' ? k : k + '__' + d;
+  }
+
+  // Unscoped access, for code that already holds a real stored key — the
+  // logout wipe iterates Object.keys(localStorage) and must delete the exact
+  // names it found, not the ones the current dialect maps them to.
+  window.__ttRawLS = { get: rawGet, remove: rawDel, set: syncSet };
+  window.__ttScopedKey = scoped;
+  window.__ttScopedBases = Object.keys(SCOPED);
+
+  localStorage.getItem    = function(k){ return rawGet(scoped(k)); };
+  localStorage.setItem    = function(k, v){ return syncSet(scoped(k), v); };
+  localStorage.removeItem = function(k){ return rawDel(scoped(k)); };
+})();
 </script>
 
     <header class="app-header">
@@ -6951,7 +7018,7 @@ function renderStreak(){
   var used=totalSolved(), tot=totalPhrases();
   var pct=Math.min(100, Math.round(fmtMin(todaySec)/goal*100));
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Streak</span></div>';
-  h+='<h1 class="tool-title">\uD83D\uDD25 Your Streak</h1><p class="tool-sub">Track your study time, keep your streak alive, and set a daily goal.</p>';
+  h+='<h1 class="tool-title">\uD83D\uDD25 Your Streak</h1><p class="tool-sub">Track your study time, keep your streak alive, and set a daily goal. This is your <b>'+esc(ttDia().label)+'</b> streak &mdash; every dialect keeps its own, and the weekly leaderboard adds them all together.</p>';
   h+='<div class="stat-grid">'
     +'<div class="stat-card"><div class="lbl">Streak Days</div><div class="val a3">'+streak+'</div></div>'
     +'<div class="stat-card"><div class="lbl">Today</div><div class="val a1">'+fmtMin(todaySec)+'m</div></div>'
@@ -9167,7 +9234,9 @@ function ttLogout(){
       // one's leftovers. Device id and display mode are kept.
       Object.keys(localStorage)
         .filter(function(k){ return k.indexOf('tt_') === 0 && k !== 'tt_device_id' && k !== 'tt_display_mode'; })
-        .forEach(function(k){ localStorage.removeItem(k); });
+        // Raw remove: these key names came from localStorage itself, so they
+        // must not be run through the per-dialect scoping map again.
+        .forEach(function(k){ (window.__ttRawLS ? window.__ttRawLS.remove : localStorage.removeItem.bind(localStorage))(k); });
     }catch(e){}
     window.location.href = '/index.html';
   }
@@ -9449,7 +9518,7 @@ window.startTour=startTour;
 function renderLeaderboard(){
   var body=document.getElementById('leaderboard-body'); if(!body) return;
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Leaderboard</span></div>';
-  h+='<h1 class="tool-title">🏆 Weekly Leaderboard</h1><p class="tool-sub">Earn points every week: 1 point per minute of study, up to 10 per test you finish, plus 5 × your streak. Resets every Monday — the top 10 win a league award.</p>';
+  h+='<h1 class="tool-title">🏆 Weekly Leaderboard</h1><p class="tool-sub">Earn points every week: 1 point per minute of study, up to 10 per test you finish, plus 5 × your streak. One board for all three dialects — study in more than one and every point still counts towards the same total. Resets every Monday — the top 10 win a league award.</p>';
   h+='<div id="lb-content" class="fc-count">Loading this week\'s standings…</div>';
   body.innerHTML=h;
   var served=(location.protocol==='http:'||location.protocol==='https:');
@@ -9465,7 +9534,17 @@ function renderLeaderboard(){
         meHtml='<div class="stat-card" style="margin-bottom:18px;padding:18px">'
           +'<div class="lbl">Your week ('+esc(d.week)+')'+(d.me.award?' · '+d.me.award.emoji+' '+esc(d.me.award.title):'')+'</div>'
           +'<div class="val a3" style="font-size:1.9rem">'+d.me.score+' pts <span style="font-size:1rem;color:var(--muted)">· rank #'+d.me.rank+'</span></div>'
-          +'<div class="fc-count" style="margin-top:6px">⏱ '+d.me.minutes+' study min &nbsp;·&nbsp; 📝 '+d.me.testPts+' test pts &nbsp;·&nbsp; 🔥 '+d.me.streakBonus+' streak bonus</div></div>';
+          +'<div class="fc-count" style="margin-top:6px">⏱ '+d.me.minutes+' study min &nbsp;·&nbsp; 📝 '+d.me.testPts+' test pts &nbsp;·&nbsp; 🔥 '+d.me.streakBonus+' streak bonus</div>'
+          /* Which dialect(s) these points came from. Split shown only when
+             there is more than one, so a single-dialect student sees no noise. */
+          +((d.me.dialects&&d.me.dialects.length)
+              ? '<div class="fc-count" style="margin-top:4px;opacity:.8">🗣 '+esc(d.me.dialects.join(' + '))
+                  +(Object.keys(d.me.byDialect||{}).length>1
+                      ? ' — '+Object.keys(d.me.byDialect).map(function(k){ return esc(k)+' '+d.me.byDialect[k]; }).join(' · ')+' pts'
+                      : '')
+                +'</div>'
+              : '')
+          +'</div>';
       } else {
         meHtml='<div class="stat-card" style="margin-bottom:18px;padding:18px"><div class="lbl">Your week</div><div class="fc-count">No points yet — study a few minutes or finish a quiz and you\'re on the board!</div></div>';
       }
@@ -9476,6 +9555,7 @@ function renderLeaderboard(){
           var isMe = d.me && d.me.rank===e.rank && ob.nick===e.nick;
           return '<div class="qa-analysis" style="'+(isMe?'outline:2px solid #f5b544;outline-offset:3px;border-radius:12px;padding:6px 8px;':'')+'">'
             +'<div class="qa-analysis-top"><span style="font-size:1.05rem">'+medal+' '+esc(e.emoji||'')+' <b>'+esc(e.nick)+'</b>'
+            +((e.dialects&&e.dialects.length)?' <span style="font-size:.7rem;font-weight:700;letter-spacing:.03em;color:var(--muted)">'+esc(e.dialects.join(' + '))+'</span>':'')
             +(e.award?' <span style="font-size:.72rem;font-weight:800;letter-spacing:.04em;color:var(--amber);text-transform:uppercase">'+e.award.emoji+' '+esc(e.award.title)+'</span>':'')
             +'</span><span class="d-c">'+e.score+' pts</span></div>'
             +'<div class="prog"><div class="prog-bar" style="width:'+Math.max(4,Math.round(e.score/Math.max(1,d.top[0].score)*100))+'%"></div></div></div>';
