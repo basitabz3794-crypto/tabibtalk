@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 11,
+    batch: 12,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 11,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 12,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -633,6 +633,66 @@ window.TT_DIALECT_PACK = {
     'abductor ul can you wear your shirt': { ar: 'تقدر تلبس قميصك؟',   fr: 'Tigdar tilbas gamisak?' },
     'adductor ll can you put your legs crossing each other': { ar: 'تقدر تحط رجل على رجل؟', fr: 'Tigdar thutt rijl 3ala rijl?' },
     'abductor ll can you put your legs down again': { ar: 'تقدر تنزل رجلك من على رجلك؟', fr: 'Tigdar tnazzil rijlak min 3ala rijlak?' },
+
+    /* ===== Batch 12 — Neurology pt.3: involuntary movement, incoordination,
+       autonomic, sensory, meningeal/ICT. Completes neurology. ===== */
+    // Involuntary movement
+    'is there any abnormal involuntary movement': { ar: 'في حركات لا إرادية غريبة؟', fr: 'Fee harakat la iradiya ghareeba?' },
+    'yes my hand shakes':           { ar: 'أيوه، يدي ترجف',            fr: 'Aywa, yaddi tirjif' },
+    'is it static or kinetic':      { ar: 'وأنت ساكن ولا مع الحركة؟',  fr: 'Wa inta sakin wala ma3 al-haraka?' },
+    'when i move':                  { ar: 'مع الحركة',                 fr: 'Ma3 al-haraka' },
+    'is it regular or irregular':   { ar: 'نفس الشكل كل مرة ولا لا؟',  fr: 'Nafs ash-shakl kull marra wala la?' },
+    'irregular':                    { ar: 'مو منتظم',                  fr: 'Mu muntadhim' },
+    'can you describe it':          { ar: 'تقدر توصفها؟',              fr: 'Tigdar tiwsifha?' },
+    'like a tremor':                { ar: 'زي رعشة',                   fr: 'Zay ra3sha' },
+    'is it increased or decreased': { ar: 'يزيد ولا يقل؟',             fr: 'Yizeed wala yigill?' },
+    'is the muscle tone increased or decreased': { ar: 'عضلاتك مشدودة ولا مرتخية؟', fr: '3adalatak mashdooda wala murtakhiya?' },
+    'increased':                    { ar: 'زايدة',                     fr: 'Zayda' },
+    'is it in your hand distal or shoulder proximal': { ar: 'في كفك ولا كتفك؟', fr: 'Fi kaffak wala katfak?' },
+    'in my hand':                   { ar: 'في كفي',                    fr: 'Fi kaffi' },
+    'is it in your leg distal or knee distal': { ar: 'في فخذك ولا رجلك؟', fr: 'Fi fakhdhak wala rijlak?' },
+    'in my leg':                    { ar: 'في رجلي',                   fr: 'Fi rijli' },
+
+    // Incoordination & others
+    'do you walk normally or unstably': { ar: 'تمشي عادي ولا تترنح؟',  fr: 'Timshi 3adi wala titrannah?' },
+    'im unstable':                  { ar: 'أترنح',                     fr: 'Atrannah' },
+    'do you eat normally or does your hand move abnormally and food spills from the spoon': { ar: 'تاكل عادي ولا يدك ترجف والأكل يطيح من الملعقة؟', fr: 'Takul 3adi wala yaddak tirjif wal-akl yteeh min al-mil3aga?' },
+    'food spills':                  { ar: 'الأكل يطيح',                fr: 'Al-akl yteeh' },
+    'is there any unsteadiness':    { ar: 'تفقد توازنك؟',              fr: 'Tifgid tawazunak?' },
+    'yes i lose balance':           { ar: 'أيوه، أفقد توازني',         fr: 'Aywa, afgid tawazuni' },
+    'is the condition associated with trauma': { ar: 'صار معه ضربة؟',  fr: 'Sar ma3u dharba?' },
+    'is the condition associated with fever': { ar: 'كان معه حرارة؟',  fr: 'Kan ma3u harara?' },
+    'yes i had fever':              { ar: 'أيوه، كان في حرارة',        fr: 'Aywa, kan fee harara' },
+    'is the condition associated with coma convulsion or vomiting': { ar: 'صار غيبوبة أو تشنجات أو استفراغ؟', fr: 'Sar ghaiboba aw tashannujat aw istifragh?' },
+
+    // Autonomic
+    'do you have a sense of fullness for micturition': { ar: 'تحس إنك محتاج تبول؟', fr: 'Tihiss innak muhtaj tbool?' },
+    'is there any urine retention': { ar: 'في احتباس في البول؟',       fr: 'Fee ihtibas fil-bol?' },
+    'is there any urine incontinence': { ar: 'البول يسيب عليك؟',       fr: 'Al-bol yseeb 3alaik?' },
+    'yes it leaks':                 { ar: 'أيوه، يسيب',                fr: 'Aywa, yseeb' },
+    'is there any delay at the beginning of micturition': { ar: 'في صعوبة في بداية التبول؟', fr: 'Fee su3ooba fi bidayat at-tabawwul?' },
+    'is there any problem during erection or during sexual intercourse': { ar: 'في مشكلة في الانتصاب أو العلاقة الزوجية؟', fr: 'Fee mushkila fil-intisab aw al-3alaqa az-zawjiya?' },
+
+    // Sensory
+    'is there any tingling':        { ar: 'في وخز؟',                   fr: 'Fee wakhz?' },
+    'yes in my feet':               { ar: 'أيوه، في رجلي',             fr: 'Aywa, fi rijli' },
+    'is there any numbness':        { ar: 'في تنميل؟',                 fr: 'Fee tanmeel?' },
+    'is there any pain':            { ar: 'في ألم؟',                   fr: 'Fee alam?' },
+    'yes a burning pain':           { ar: 'أيوه، ألم حارق',            fr: 'Aywa, alam harig' },
+    'do you feel as if you are walking on cotton': { ar: 'تحس كأنك ماشي على قطن؟', fr: 'Tihiss ka\'annak mashi 3ala gutn?' },
+    'do you fall when you walk in the dark': { ar: 'تطيح لما تمشي في الظلام؟', fr: 'Tteeh lamma timshi fidh-dhalam?' },
+    'yes in the dark':              { ar: 'أيوه، في الظلام',           fr: 'Aywa, fidh-dhalam' },
+
+    // Meningeal & raised intracranial tension
+    'is there any back stiffness':  { ar: 'ظهرك متيبس؟',               fr: 'Dhahrak mityabbis?' },
+    'yes stiff neck':               { ar: 'أيوه، رقبتي متيبسة',        fr: 'Aywa, ragabti mityabbisa' },
+    'is there any headache':        { ar: 'في صداع؟',                  fr: 'Fee suda3?' },
+    'yes severe':                   { ar: 'أيوه، شديد',                fr: 'Aywa, shadeed' },
+    'do you have persistent headaches': { ar: 'عندك صداع مستمر؟',      fr: '3indak suda3 mustamirr?' },
+    'yes all the time':             { ar: 'أيوه، على طول',             fr: 'Aywa, 3ala tool' },
+    'do you have persistent blurring of vision': { ar: 'في زغللة مستمرة؟', fr: 'Fee zaghlala mustamirra?' },
+    'do you have persistent vomiting': { ar: 'في استفراغ مستمر؟',      fr: 'Fee istifragh mustamirr?' },
+    'yes in the morning':           { ar: 'أيوه، الصبح',               fr: 'Aywa, as-subh' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1227,5 +1287,65 @@ window.TT_DIALECT_PACK = {
     'abductor ul can you wear your shirt': { ar: 'تقدر تلبس قميصك؟',   fr: 'Tigdar tilbas gamisik?' },
     'adductor ll can you put your legs crossing each other': { ar: 'تقدر تحط رجل على رجل؟', fr: 'Tigdar thutt rijl 3ala rijl?' },
     'abductor ll can you put your legs down again': { ar: 'تقدر تنزل رجلك من على رجلك؟', fr: 'Tigdar tnazzil rijlik min 3ala rijlik?' },
+
+    /* ===== Batch 12 — Neurology pt.3: involuntary movement, incoordination,
+       autonomic, sensory, meningeal/ICT. Completes neurology. ===== */
+    // Involuntary movement
+    'is there any abnormal involuntary movement': { ar: 'في حركات لا إرادية غريبة؟', fr: 'Fee harakat la iradiya ghareeba?' },
+    'yes my hand shakes':           { ar: 'إي، يدي ترجف',              fr: 'Ee, yaddi tirjif' },
+    'is it static or kinetic':      { ar: 'وأنت ساكن ولا مع الحركة؟',  fr: 'W inta sakin wala ma3 al-haraka?' },
+    'when i move':                  { ar: 'مع الحركة',                 fr: 'Ma3 al-haraka' },
+    'is it regular or irregular':   { ar: 'نفس الشكل كل مرة ولا لا؟',  fr: 'Nafs ash-shakl kull marra wala la?' },
+    'irregular':                    { ar: 'مو منتظم',                  fr: 'Mu muntadhim' },
+    'can you describe it':          { ar: 'تقدر توصفها؟',              fr: 'Tigdar tiwsifha?' },
+    'like a tremor':                { ar: 'مثل رعشة',                  fr: 'Mithl ra3sha' },
+    'is it increased or decreased': { ar: 'يزيد ولا يقل؟',             fr: 'Yzeed wala ygill?' },
+    'is the muscle tone increased or decreased': { ar: 'عضلاتك مشدودة ولا مرتخية؟', fr: '3adalatik mashdooda wala murtakhiya?' },
+    'increased':                    { ar: 'زايدة',                     fr: 'Zayda' },
+    'is it in your hand distal or shoulder proximal': { ar: 'بكفك ولا كتفك؟', fr: 'B-kaffik wala katfik?' },
+    'in my hand':                   { ar: 'بكفي',                      fr: 'B-kaffi' },
+    'is it in your leg distal or knee distal': { ar: 'بفخذك ولا رجلك؟', fr: 'B-fakhdhik wala rijlik?' },
+    'in my leg':                    { ar: 'برجلي',                     fr: 'B-rijli' },
+
+    // Incoordination & others
+    'do you walk normally or unstably': { ar: 'تمشي عادي ولا تترنح؟',  fr: 'Timshi 3adi wala titrannah?' },
+    'im unstable':                  { ar: 'أترنح',                     fr: 'Atrannah' },
+    'do you eat normally or does your hand move abnormally and food spills from the spoon': { ar: 'تاكل عادي ولا يدك ترجف والأكل يطيح من الملعقة؟', fr: 'Takil 3adi wala yaddik tirjif wal-akil yteeh min al-mil3aga?' },
+    'food spills':                  { ar: 'الأكل يطيح',                fr: 'Al-akil yteeh' },
+    'is there any unsteadiness':    { ar: 'تفقد توازنك؟',              fr: 'Tifgid tawazunik?' },
+    'yes i lose balance':           { ar: 'إي، أفقد توازني',           fr: 'Ee, afgid tawazuni' },
+    'is the condition associated with trauma': { ar: 'صار معه ضربة؟',  fr: 'Sar ma3a dharba?' },
+    'is the condition associated with fever': { ar: 'كان معه حرارة؟',  fr: 'Kan ma3a harara?' },
+    'yes i had fever':              { ar: 'إي، كان في حرارة',          fr: 'Ee, kan fee harara' },
+    'is the condition associated with coma convulsion or vomiting': { ar: 'صار غيبوبة ولا تشنجات ولا استفراغ؟', fr: 'Sar ghaiboba wala tashannujat wala istifragh?' },
+
+    // Autonomic
+    'do you have a sense of fullness for micturition': { ar: 'تحس إنك محتاج تبول؟', fr: 'Tihiss innik muhtaj tbool?' },
+    'is there any urine retention': { ar: 'في احتباس بالبول؟',         fr: 'Fee ihtibas bil-bol?' },
+    'is there any urine incontinence': { ar: 'البول يسيب عليك؟',       fr: 'Al-bol yseeb 3alaik?' },
+    'yes it leaks':                 { ar: 'إي، يسيب',                  fr: 'Ee, yseeb' },
+    'is there any delay at the beginning of micturition': { ar: 'في صعوبة ببداية التبول؟', fr: 'Fee su3ooba b-bidayat at-tabawwul?' },
+    'is there any problem during erection or during sexual intercourse': { ar: 'في مشكلة بالانتصاب ولا العلاقة الزوجية؟', fr: 'Fee mushkila bil-intisab wala al-3alaqa az-zawjiya?' },
+
+    // Sensory
+    'is there any tingling':        { ar: 'في وخز؟',                   fr: 'Fee wakhz?' },
+    'yes in my feet':               { ar: 'إي، برجلي',                 fr: 'Ee, b-rijli' },
+    'is there any numbness':        { ar: 'في تنميل؟',                 fr: 'Fee tanmeel?' },
+    'is there any pain':            { ar: 'في وجع؟',                   fr: 'Fee waja3?' },
+    'yes a burning pain':           { ar: 'إي، وجع حارق',              fr: 'Ee, waja3 harig' },
+    'do you feel as if you are walking on cotton': { ar: 'تحس كأنك ماشي على قطن؟', fr: 'Tihiss ka\'annik mashi 3ala gutn?' },
+    'do you fall when you walk in the dark': { ar: 'تطيح لمن تمشي بالظلام؟', fr: 'Tteeh liman timshi bidh-dhalam?' },
+    'yes in the dark':              { ar: 'إي، بالظلام',               fr: 'Ee, bidh-dhalam' },
+
+    // Meningeal & raised intracranial tension
+    'is there any back stiffness':  { ar: 'ظهرك متيبس؟',               fr: 'Dhahrik mityabbis?' },
+    'yes stiff neck':               { ar: 'إي، رقبتي متيبسة',          fr: 'Ee, ragabti mityabbisa' },
+    'is there any headache':        { ar: 'في صداع؟',                  fr: 'Fee suda3?' },
+    'yes severe':                   { ar: 'إي، شديد',                  fr: 'Ee, shadeed' },
+    'do you have persistent headaches': { ar: 'عندك صداع مستمر؟',      fr: '3indik suda3 mustamirr?' },
+    'yes all the time':             { ar: 'إي، على طول',               fr: 'Ee, 3ala tool' },
+    'do you have persistent blurring of vision': { ar: 'في زغللة مستمرة؟', fr: 'Fee zaghlala mustamirra?' },
+    'do you have persistent vomiting': { ar: 'في استفراغ مستمر؟',      fr: 'Fee istifragh mustamirr?' },
+    'yes in the morning':           { ar: 'إي، الصبح',                 fr: 'Ee, as-subh' },
   },
 };
