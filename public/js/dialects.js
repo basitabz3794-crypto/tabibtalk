@@ -25,10 +25,10 @@
 
 window.TT_DIALECT_PACK = {
   meta: {
-    batch: 16,
+    batch: 17,
     // Batches are signed off individually — reviewedThrough is the highest batch
     // a human has actually checked. Anything above it is still an AI draft.
-    reviewedThrough: 16,            // standing approval from the product owner; raised with each batch
+    reviewedThrough: 17,            // standing approval from the product owner; raised with each batch
     covers: ['Communication & Ethics', 'General History Taking', 'Chest (Respiratory)', 'Cardiology: dyspnoea, cough, palpitation & chest pain'],
     note: 'Approved by the product owner (standing sign-off). Not a line-by-line clinician audit — see the review note above.',
   },
@@ -929,6 +929,50 @@ window.TT_DIALECT_PACK = {
     'yes in the sun':               { ar: 'أيوه، مع الشمس',            fr: 'Aywa, ma3 ash-shams' },
     'do you lacrimate when cutting onions': { ar: 'عينك تدمع لما تقطعين بصل؟', fr: '3ainik tidma3 lamma tgatt3een basal?' },
     'no my eyes stay dry':          { ar: 'لا، عيني تبقى ناشفة',       fr: 'La, 3aini tibga nashfa' },
+
+    /* ===== Batch 17 — Haematology: bleeding, associated symptoms, aetiology ===== */
+    // Bleeding
+    'where is the site of bleeding': { ar: 'النزيف من وين؟',           fr: 'An-nazeef min wain?' },
+    'from my nose':                 { ar: 'من أنفي',                   fr: 'Min anfi' },
+    'is it from the nose':          { ar: 'من الأنف؟',                 fr: 'Min al-anf?' },
+    'is it from the mouth':         { ar: 'من الفم؟',                  fr: 'Min al-famm?' },
+    'is it from the rectum':        { ar: 'من الشرج؟',                 fr: 'Min ash-sharj?' },
+    'is it in the urine':           { ar: 'مع البول؟',                 fr: 'Ma3 al-bol?' },
+    'how did it start':             { ar: 'كيف بدأ؟',                  fr: 'Kaif bada?' },
+    'what is the amount of bleeding': { ar: 'كم كمية النزيف؟',         fr: 'Kam kimmiyat an-nazeef?' },
+    'is it scanty':                 { ar: 'قليلة؟',                    fr: 'Galeela?' },
+    'is it average':                { ar: 'متوسطة؟',                   fr: 'Mutawassita?' },
+    'yes average':                  { ar: 'أيوه، متوسطة',              fr: 'Aywa, mutawassita' },
+    'is it excessive':              { ar: 'كثيرة؟',                    fr: 'Katheera?' },
+    'what is the colour':           { ar: 'وش لونه؟',                  fr: 'Wesh lonu?' },
+    'bright red':                   { ar: 'أحمر فاتح',                 fr: 'Ahmar fatih' },
+    'is it dark brown':             { ar: 'أحمر غامق زي البني؟',       fr: 'Ahmar ghamig zay al-bunni?' },
+    'is it bright red':             { ar: 'أحمر فاتح؟',                fr: 'Ahmar fatih?' },
+
+    // Associated symptoms
+    'do you have any pain':         { ar: 'في ألم في أسفل بطنك؟',      fr: 'Fee alam fi asfal batnak?' },
+    'where is it is it radiated to any site': { ar: 'وين؟ وينتشر لوين؟', fr: 'Wain? Wa yintashir li-wain?' },
+    'in my lower belly':            { ar: 'في أسفل بطني',              fr: 'Fi asfal batni' },
+    'do you have any associated discharge': { ar: 'في إفرازات؟',       fr: 'Fee ifrazat?' },
+    'how about the amount colour and odour': { ar: 'كم كميتها؟ ولونها؟ وريحتها؟', fr: 'Kam kimmiyat-ha? Wa lonha? Wa reehatha?' },
+    'small red no smell':           { ar: 'قليلة، حمرا، بدون ريحة',    fr: 'Galeela, hamra, bidoon reeha' },
+    'do you notice any abdominal swelling': { ar: 'لاحظت انتفاخ في بطنك؟', fr: 'Lahadht intifakh fi batnak?' },
+
+    // Possible aetiology
+    'do you have bleeding from other sites': { ar: 'في نزيف من مكان ثاني؟', fr: 'Fee nazeef min makan thani?' },
+    'no just here':                 { ar: 'لا، هنا بس',                fr: 'La, hina bass' },
+    'did you encounter any trauma before': { ar: 'انضربت قبل؟',        fr: 'Indharabt gabl?' },
+    'do you have any heart disease': { ar: 'عندك مرض في القلب؟',       fr: '3indak marad fil-galb?' },
+    'do you have any liver disease': { ar: 'عندك مرض في الكبد؟',       fr: '3indak marad fil-kabid?' },
+    'do you have a thyroid dysfunction': { ar: 'عندك مشكلة في الغدة؟', fr: '3indak mushkila fil-ghudda?' },
+    'do you have a kidney problem': { ar: 'عندك مرض في الكلى؟',        fr: '3indak marad fil-kila?' },
+    'do you have any difficulties in micturation': { ar: 'في صعوبة في التبول؟', fr: 'Fee su3ooba fit-tabawwul?' },
+    'do you have any difficulties in defecation': { ar: 'في صعوبة في التبرز؟', fr: 'Fee su3ooba fit-tabarruz?' },
+    'do you take any drugs such as aspirin or marivan anticoagulant': { ar: 'تاخذ أدوية زي الأسبرين أو مارڤان؟', fr: 'Takhudh adwiya zay al-asbireen aw marivan?' },
+    'yes i take aspirin':           { ar: 'أيوه، آخذ أسبرين',          fr: 'Aywa, akhudh asbireen' },
+    'do you have anaemia':          { ar: 'عندك أنيميا؟',              fr: '3indak anemia?' },
+    'do you have pallor or easy fatiguability': { ar: 'عندك شحوب أو تعب بسرعة؟', fr: '3indak shuhoob aw ta3ab bisur3a?' },
+    'yes im pale and tired':        { ar: 'أيوه، شاحب وتعبان',         fr: 'Aywa, shahib w ta3ban' },
   },
 
   /* ---------------- Gulf — Khaleeji ---------------- */
@@ -1811,5 +1855,49 @@ window.TT_DIALECT_PACK = {
     'yes in the sun':               { ar: 'إي، مع الشمس',              fr: 'Ee, ma3 ash-shams' },
     'do you lacrimate when cutting onions': { ar: 'عينك تدمع لمن تقطعين بصل؟', fr: '3ainik tidma3 liman tgatt3een basal?' },
     'no my eyes stay dry':          { ar: 'لا، عيني تبقى ناشفة',       fr: 'La, 3aini tibga nashfa' },
+
+    /* ===== Batch 17 — Haematology: bleeding, associated symptoms, aetiology ===== */
+    // Bleeding
+    'where is the site of bleeding': { ar: 'النزيف من وين؟',           fr: 'An-nazeef min wain?' },
+    'from my nose':                 { ar: 'من خشمي',                   fr: 'Min khashmi' },
+    'is it from the nose':          { ar: 'من الخشم؟',                 fr: 'Min al-khashm?' },
+    'is it from the mouth':         { ar: 'من الفم؟',                  fr: 'Min al-famm?' },
+    'is it from the rectum':        { ar: 'من الشرج؟',                 fr: 'Min ash-sharj?' },
+    'is it in the urine':           { ar: 'مع البول؟',                 fr: 'Ma3 al-bol?' },
+    'how did it start':             { ar: 'شلون بدا؟',                 fr: 'Shlon bada?' },
+    'what is the amount of bleeding': { ar: 'كم كمية النزيف؟',         fr: 'Kam kimmiyat an-nazeef?' },
+    'is it scanty':                 { ar: 'قليلة؟',                    fr: 'Galeela?' },
+    'is it average':                { ar: 'متوسطة؟',                   fr: 'Mutawassita?' },
+    'yes average':                  { ar: 'إي، متوسطة',                fr: 'Ee, mutawassita' },
+    'is it excessive':              { ar: 'وايد؟',                     fr: 'Wayid?' },
+    'what is the colour':           { ar: 'شنو لونه؟',                 fr: 'Shino lona?' },
+    'bright red':                   { ar: 'أحمر فاتح',                 fr: 'Ahmar fatih' },
+    'is it dark brown':             { ar: 'أحمر غامق مثل البني؟',      fr: 'Ahmar ghamig mithl al-bunni?' },
+    'is it bright red':             { ar: 'أحمر فاتح؟',                fr: 'Ahmar fatih?' },
+
+    // Associated symptoms
+    'do you have any pain':         { ar: 'في وجع بأسفل بطنك؟',        fr: 'Fee waja3 b-asfal batnik?' },
+    'where is it is it radiated to any site': { ar: 'وين؟ وينتشر لوين؟', fr: 'Wain? W yintashir li-wain?' },
+    'in my lower belly':            { ar: 'بأسفل بطني',                fr: 'B-asfal batni' },
+    'do you have any associated discharge': { ar: 'في إفرازات؟',       fr: 'Fee ifrazat?' },
+    'how about the amount colour and odour': { ar: 'كم كميتها؟ ولونها؟ وريحتها؟', fr: 'Kam kimmiyat-ha? W lonha? W reehatha?' },
+    'small red no smell':           { ar: 'قليلة، حمرا، بدون ريحة',    fr: 'Galeela, hamra, bidoon reeha' },
+    'do you notice any abdominal swelling': { ar: 'لاحظت انتفاخ ببطنك؟', fr: 'Lahadht intifakh b-batnik?' },
+
+    // Possible aetiology
+    'do you have bleeding from other sites': { ar: 'في نزيف من مكان ثاني؟', fr: 'Fee nazeef min makan thani?' },
+    'no just here':                 { ar: 'لا، هني بس',                fr: 'La, hini bass' },
+    'did you encounter any trauma before': { ar: 'انضربت قبل؟',        fr: 'Indharabt gabl?' },
+    'do you have any heart disease': { ar: 'عندك مرض بالقلب؟',         fr: '3indik maradh bil-galb?' },
+    'do you have any liver disease': { ar: 'عندك مرض بالكبد؟',         fr: '3indik maradh bil-kabid?' },
+    'do you have a thyroid dysfunction': { ar: 'عندك مشكلة بالغدة؟',   fr: '3indik mushkila bil-ghudda?' },
+    'do you have a kidney problem': { ar: 'عندك مرض بالكلى؟',          fr: '3indik maradh bil-kila?' },
+    'do you have any difficulties in micturation': { ar: 'في صعوبة بالتبول؟', fr: 'Fee su3ooba bit-tabawwul?' },
+    'do you have any difficulties in defecation': { ar: 'في صعوبة بالتبرز؟', fr: 'Fee su3ooba bit-tabarruz?' },
+    'do you take any drugs such as aspirin or marivan anticoagulant': { ar: 'تاخذ أدوية مثل الأسبرين ولا مارڤان؟', fr: 'Takhidh adwiya mithl al-asbireen wala marivan?' },
+    'yes i take aspirin':           { ar: 'إي، آخذ أسبرين',            fr: 'Ee, akhidh asbireen' },
+    'do you have anaemia':          { ar: 'عندك أنيميا؟',              fr: '3indik anemia?' },
+    'do you have pallor or easy fatiguability': { ar: 'عندك شحوب ولا تعب بسرعة؟', fr: '3indik shuhoob wala ta3ab bisur3a?' },
+    'yes im pale and tired':        { ar: 'إي، شاحب وتعبان',           fr: 'Ee, shahib w ta3ban' },
   },
 };
