@@ -90,7 +90,7 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
           <div class="tier">${user.tier}</div>
           <div style="color:var(--accent);font-weight:600;font-size:.9rem;margin-top:2px">${planLabel}</div>
           ${expiryBlock}
-          <div style="margin-top:18px"><a href="/plans.html" class="btn btn-primary">${user.tier==='explorer'?'Choose a plan':'Change plan'} &rarr;</a></div>
+          <div style="margin-top:18px"><a href="/plans.html?dialect=${encodeURIComponent(user.dialect || 'eg')}" class="btn btn-primary">${user.tier==='explorer'?'Choose a plan':'Change plan'} &rarr;</a></div>
         </div>
       </div>
     </div>
@@ -148,14 +148,28 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
           <br><small style="color:var(--muted)">${d[2]}</small>
         </button>`).join('');
       document.querySelectorAll('#dialect-picker button').forEach(b=>{
-        b.addEventListener('click', ()=>{
+        b.addEventListener('click', async ()=>{
           const pick = b.dataset.d;
           if (pick === current()) return;
-          try { localStorage.setItem('tt_dialect', JSON.stringify(pick)); } catch(e){}
-          render();
           const name = (DIALECTS.find(x=>x[0]===pick)||[])[1] || '';
-          document.getElementById('dialect-status').innerHTML =
-            `Switched to <b>${name}</b>. <a href="/app.html" style="color:var(--accent)">Open the website</a> to see it applied.`;
+          const statusEl = document.getElementById('dialect-status');
+          statusEl.textContent = 'Switching…';
+          try {
+            // Recorded server-side, not just in this browser: a purchase belongs
+            // to the dialect it was made in and stays parked there, so the server
+            // swaps in whatever this student holds in the dialect they picked —
+            // its baseline if they have never bought there. Switching back later
+            // restores exactly what they paid for; nothing is ever forfeited.
+            const r = await api('/api/auth/dialect', { method:'POST', body:{ dialect: pick } });
+            try { localStorage.setItem('tt_dialect', JSON.stringify(pick)); } catch(e){}
+            render();
+            const tier = (r && r.user && r.user.tier) ? r.user.tier : '';
+            statusEl.innerHTML = 'Switched to <b>' + name + '</b>'
+              + (tier ? ' — your plan here is <b>' + tier + '</b>.' : '.')
+              + ' <a href="/app.html" style="color:var(--accent)">Open the website</a> to see it applied.';
+          } catch (e) {
+            statusEl.innerHTML = '<span style="color:var(--gold)">Could not switch just now — please try again.</span>';
+          }
         });
       });
     }

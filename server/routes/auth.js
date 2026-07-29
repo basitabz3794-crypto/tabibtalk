@@ -3,6 +3,7 @@ const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const firebase = require('../data/firebase');
 const { computeExpiry, isExpired, accessTierForPlan, baselineTier, normaliseDialect, configForDialect } = require('../data/plans');
+const entitlements = require('../data/entitlements');
 
 const router = express.Router();
 const MAX_DEVICES = 3;
@@ -41,7 +42,10 @@ async function reconcileUser(user, cfg) {
   // (Lifetime never expires; the free baselines have no expiry to begin with.)
   if (user.planExpiresAt && isExpired(user.planExpiresAt)
       && user.tier !== 'explorer' && user.tier !== 'lifetime' && user.tier !== 'basic') {
-    return await store.updateUser(user.id, { tier: baseline, subStatus: 'expired' });
+    return await store.updateUser(user.id, entitlements.grant(user, user.dialect, {
+      tier: baseline, planId: user.planId, planActivatedAt: user.planActivatedAt,
+      planExpiresAt: user.planExpiresAt, subStatus: 'expired',
+    }, cfg));
   }
 
   // Normalise a free-baseline user to match the live mode. Only touches users
@@ -50,7 +54,10 @@ async function reconcileUser(user, cfg) {
   if (!user.planId
       && (user.tier === 'explorer' || user.tier === 'basic')
       && user.tier !== baseline) {
-    return await store.updateUser(user.id, { tier: baseline });
+    return await store.updateUser(user.id, entitlements.grant(user, user.dialect, {
+      tier: baseline, planId: null, planActivatedAt: null,
+      planExpiresAt: null, subStatus: user.subStatus || null,
+    }, cfg));
   }
 
   return user;
@@ -273,7 +280,13 @@ router.post('/dialect', async (req, res) => {
   if (!user) return res.json({ user: null });
   // Changing dialect can change which plans page applies, so re-run the
   // baseline check straight away rather than waiting for the next login.
-  const updated = await reconcileUser(await store.updateUser(user.id, { dialect }));
+  // A purchase belongs to the dialect it was made in and stays parked there:
+  // switching swaps the flat fields to whatever they hold in the new dialect
+  // (its baseline if they have never bought there), and switching back restores
+  // exactly what they paid for. Nothing is forfeited by moving between them.
+  const cfg = await store.getSiteConfig();
+  const patch = entitlements.switchTo(user, dialect, cfg);
+  const updated = await reconcileUser(await store.updateUser(user.id, patch), cfg);
   res.json({ ok: true, user: publicUser(updated) });
 });
 

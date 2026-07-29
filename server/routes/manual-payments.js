@@ -2,6 +2,7 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const { PLANS, accessTierForPlan, computeExpiry, getEffectivePlans, normaliseDialect } = require('../data/plans');
+const entitlements = require('../data/entitlements');
 
 function requireLogin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please log in first.' });
@@ -95,13 +96,21 @@ function createManualPaymentRouter(method, getDetails, label) {
     const activatedAt = new Date().toISOString();
     const expiresAt = await computeExpiry(proof.planId, activatedAt); // null for lifetime
     await store.updateManualProof(proof.id, { status: 'approved', reviewedAt: activatedAt });
-    await store.updateUser(proof.userId, {
+    // Credit the purchase to the DIALECT it was made for, not to the account as
+    // a whole. If the student is currently in that dialect the access applies
+    // immediately; if they have since switched it sits parked, and is theirs the
+    // moment they switch back. Proofs taken before dialects existed carry none,
+    // so they credit the buyer's own dialect.
+    const buyer = await store.findUserById(proof.userId);
+    const cfg = await store.getSiteConfig();
+    const paidFor = proof.dialect || (buyer && buyer.dialect) || 'eg';
+    await store.updateUser(proof.userId, entitlements.grant(buyer, paidFor, {
       tier: accessTierForPlan(proof.planId),
       planId: proof.planId,
       planActivatedAt: activatedAt,
       planExpiresAt: expiresAt,
       subStatus: 'active',
-    });
+    }, cfg));
 
     res.json({ ok: true });
   });

@@ -5,6 +5,7 @@ const firebase = require('../data/firebase');
 const { requireAdmin } = require('./manual-payments');
 const { reconcileAllUsers } = require('./auth');
 const { isExpired, PLANS, accessTierForPlan, computeExpiry, baselineTier, DIALECTS, normaliseDialect, configForDialect } = require('../data/plans');
+const entitlements = require('../data/entitlements');
 
 const router = express.Router();
 
@@ -487,14 +488,16 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
 
   async function setPlan(newPlanId, activatedAt) {
     const start = activatedAt || now;
-    await store.updateUser(user.id, {
+    // Admin plan changes apply to the dialect the account is currently in.
+    const planPatch = entitlements.grant(user, user.dialect, {
       tier: accessTierForPlan(newPlanId),
       planId: newPlanId,
       planActivatedAt: start,
       planExpiresAt: await computeExpiry(newPlanId, start),
       subStatus: 'active',
-      status: user.status === 'banned' ? 'banned' : user.status,
-    });
+    }, await store.getSiteConfig());
+    planPatch.status = user.status === 'banned' ? 'banned' : user.status;
+    await store.updateUser(user.id, planPatch);
   }
 
   async function shiftExpiry(deltaDays) {
@@ -505,7 +508,11 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
 
   switch (action) {
     case 'suspend': // stop access now, but remember the plan so it can be reactivated
-      await store.updateUser(user.id, { tier: revokeTier, subStatus: 'suspended', suspendedAt: now });
+      await store.updateUser(user.id, Object.assign(
+        entitlements.grant(user, user.dialect, { tier: revokeTier, planId: user.planId,
+          planActivatedAt: user.planActivatedAt, planExpiresAt: user.planExpiresAt,
+          subStatus: 'suspended' }, await store.getSiteConfig()),
+        { suspendedAt: now }));
       break;
     case 'reactivate': // restore access to the plan on file (if any)
       if (user.planId) await store.updateUser(user.id, { tier: accessTierForPlan(user.planId), subStatus: 'active', suspendedAt: null });
@@ -525,7 +532,10 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
       await shiftExpiry(-Math.abs(Number(days) || 0));
       break;
     case 'expire': // force the plan to end right now -> revert to the free baseline
-      await store.updateUser(user.id, { tier: revokeTier, subStatus: 'expired', planExpiresAt: now });
+      await store.updateUser(user.id, entitlements.grant(user, user.dialect, {
+        tier: revokeTier, planId: user.planId, planActivatedAt: user.planActivatedAt,
+        planExpiresAt: now, subStatus: 'expired',
+      }, await store.getSiteConfig()));
       break;
     case 'ban':
       await store.updateUser(user.id, { status: 'banned', bannedAt: now });
