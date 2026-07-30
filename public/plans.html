@@ -273,6 +273,17 @@ const HINTS = { explorer: 'Free forever — create an account and start explorin
 let audience = 'student';
 let period = 'monthly';
 let ALL_PLANS = {};
+// Which dialect's plans this page is showing. Module-level, like ALL_PLANS,
+// because the render functions below sit outside the async block that resolves
+// it. Every plan name is prefixed with this: a plan is bought for ONE dialect
+// and grants nothing in the other two, so "Advanced" on its own reads like a
+// single site-wide product and invites students to buy the wrong one.
+let PLAN_DIALECT = 'eg';
+const DIALECT_LABEL = { eg: 'Egyptian', hejazi: 'Saudi (Hejazi)', khaleeji: 'Gulf (Khaleeji)' };
+function dialectName() { return DIALECT_LABEL[PLAN_DIALECT] || DIALECT_LABEL.eg; }
+// "Egyptian · Advanced" — used for both the cards and the payment step, so the
+// dialect a student is paying for is on screen at the moment they pay.
+function dialectPlan(name) { return dialectName() + ' · ' + name; }
 
 function planTermLabel(period){
   if(period==='1 month') return '';
@@ -292,7 +303,7 @@ function render() {
     document.getElementById('cards').innerHTML = `
       <div class="tier-card featured" style="grid-column:1/-1;max-width:520px;margin:0 auto">
         <span class="ribbon">Free forever</span>
-        <div class="plan-name">Explorer</div>
+        <div class="plan-name">${dialectPlan('Explorer')}</div>
         <div class="plan-term">No payment, no card — just an account</div>
         <div class="price-row"><span class="price-now">$0</span></div>
         <div class="price-sub">The key to everything — required before buying any plan</div>
@@ -326,7 +337,7 @@ function render() {
     return `
       <div class="tier-card${featured ? ' featured' : ''}"${active}>
         ${featured ? '<span class="ribbon">Best value</span>' : ''}
-        <div class="plan-name">${p.name}</div>
+        <div class="plan-name">${dialectPlan(p.name)}</div>
         <div class="plan-term">${planTermLabel(p.period)}</div>
         <div class="price-row"><span class="price-now">$${p.priceNow}</span></div>
         <div class="price-fx">&#8776; \u20B9${(p.inr||0).toLocaleString('en-IN')} INR &middot; E\u00A3${(p.egp||0).toLocaleString()} EGP</div>
@@ -370,7 +381,10 @@ function choosePaid(planId, planName) {
     return;
   }
   selectedPlanId = planId;
-  document.getElementById('chosen-plan-name').textContent = planName;
+  // Labelled here rather than at each call site, so every route into payment —
+  // the cards, Lifetime, and ?plan= preselection — names the dialect being paid
+  // for at the moment money is being sent.
+  document.getElementById('chosen-plan-name').textContent = dialectPlan(planName);
   document.getElementById('pay-methods').style.display = 'block';
   document.getElementById('pay-methods').scrollIntoView({ behavior: 'smooth' });
   updatePayAmounts();
@@ -503,7 +517,7 @@ function renderNewPlans() {
 
   document.getElementById('cards').innerHTML = `
     <div class="tier-card" style="max-width:none">
-      <div class="plan-name">Basic</div>
+      <div class="plan-name">${dialectPlan('Basic')}</div>
       <div class="plan-term">${basicFree ? 'Free — just create an account' : 'Monthly'}</div>
       <div class="price-row"><span class="price-now">$${basic.priceNow}</span>${basicFree?'':'<span style="color:var(--muted)">/month</span>'}</div>
       ${basicFree ? '' : `<div class="price-fx">${fx(basic)}</div>`}
@@ -522,7 +536,7 @@ function renderNewPlans() {
     </div>
     <div class="tier-card featured" style="max-width:none">
       <span class="ribbon">Everything unlocked</span>
-      <div class="plan-name">Advanced</div>
+      <div class="plan-name">${dialectPlan('Advanced')}</div>
       <div class="plan-term">Monthly</div>
       <div class="price-row"><span class="price-now">$${adv.priceNow}</span><span style="color:var(--muted)">/month</span></div>
       <div class="price-fx">${fx(adv)}</div>
@@ -575,6 +589,7 @@ function renderNewPlans() {
     fetch('/api/site-config?dialect=' + encodeURIComponent(dialect), { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
   ]);
   ALL_PLANS = plans;
+  PLAN_DIALECT = dialect; // every plan name below is labelled with this
   // New-plans mode is account-first: visitors must sign in before seeing the
   // pricing page at all (the signup flow lands them right back here).
   if (siteCfg && siteCfg.newPlans === true && !currentUser) {

@@ -104,12 +104,27 @@ function ttOpenDisplayMenu() {
    in-app Plans link and My Account are expected to do. */
 var TT_DIA_NAME = { eg: 'Egyptian', hejazi: 'Hejazi', khaleeji: 'Khaleeji' };
 function ttNavDialect() {
+  // An explicit ?dialect= wins, matching the precedence plans.html itself uses.
+  // Without this the header announced the dialect stored for the ACCOUNT while
+  // the page below it showed a different one's plans — "Egyptian Medical
+  // Arabic" sitting above Gulf (Khaleeji) pricing.
+  try {
+    var q = new URLSearchParams(location.search).get('dialect');
+    if (TT_DIA_NAME[q]) return q;
+  } catch (e) {}
   try { var d = JSON.parse(localStorage.getItem('tt_dialect') || 'null'); return TT_DIA_NAME[d] ? d : null; }
   catch (e) { return null; }
 }
 function ttIsLandingPage() {
   var p = location.pathname;
   return p === '/' || p.slice(-11).toLowerCase() === '/index.html';
+}
+/* Pages where no single dialect applies yet, so the header must stay neutral:
+   the landing page, and the dialect chooser itself — which was announcing
+   "EGYPTIAN MEDICAL ARABIC" above a list asking you to pick a dialect. */
+function ttIsDialectNeutralPage() {
+  var p = (location.pathname || '').toLowerCase();
+  return ttIsLandingPage() || p.slice(-12) === '/choose.html';
 }
 function ttEntryHref(target) {
   var d = ttIsLandingPage() ? null : ttNavDialect();
@@ -122,7 +137,7 @@ function renderHeader(activePage) {
   if (!el) return;
   el.innerHTML = `
     <img class="logo-mark" src="/img/logo.png" alt="Tabib Talk logo">
-    <div class="brand-text"><strong>Tabib Talk</strong><span>${ttIsLandingPage() ? 'Medical Arabic' : ((TT_DIA_NAME[ttNavDialect()] || 'Egyptian') + ' Medical Arabic')}</span></div>
+    <div class="brand-text"><strong>Tabib Talk</strong><span>${ttIsDialectNeutralPage() ? 'Medical Arabic and History taking' : ((TT_DIA_NAME[ttNavDialect()] || 'Egyptian') + ' Medical Arabic')}</span></div>
     <nav>
       <a href="/index.html" data-key="home">Land up page</a>
       <a href="${ttEntryHref('/plans.html')}" data-key="plans" data-plans-link>Plans</a>

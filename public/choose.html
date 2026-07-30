@@ -17,12 +17,29 @@
   }
   .dia-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
   .dia-card .flag { font-size: 2rem; line-height: 1; flex: none; }
-  .dia-card .name { font-weight: 700; font-size: 1.08rem; }
-  .dia-card .desc { color: var(--muted); font-size: .88rem; margin-top: 3px; }
+  /* Both are block so the description sits on its own line — as inline spans
+     the margin-top below was silently ignored and the two ran together. */
+  .dia-card .name { display: block; font-weight: 700; font-size: 1.08rem; }
+  .dia-card .desc { display: block; color: var(--muted); font-size: .88rem; margin-top: 3px; }
   .dia-card .go { margin-left: auto; color: var(--accent); font-weight: 700; flex: none; }
   /* The original course leads, as the others were added on top of it. */
   .dia-card.primary { border-color: var(--accent); background: var(--accent-soft, rgba(45,212,191,.06)); }
   .dia-note { color: var(--muted); font-size: .86rem; margin-top: 22px; text-align: center; }
+
+  /* Sci-fi mode defines its OWN palette (--txt/--dim/--glass/--cy) and never
+     redefines --text or --surface, so these cards fell back to the light
+     theme's colours. The two plain cards kept a light --surface background, so
+     their dark text stayed legible by luck. The Egyptian card is the only one
+     with .primary, which REPLACES that background with a near-transparent
+     tint — leaving dark light-theme text on the dark sci-fi backdrop, which is
+     why it read as invisible. These give the cards a real sci-fi skin. */
+  body.scifi .dia-card { background: var(--glass); border-color: var(--glass-line); color: var(--txt); }
+  body.scifi .dia-card .name { color: var(--txt); }
+  body.scifi .dia-card .desc { color: var(--dim); }
+  body.scifi .dia-card .go { color: var(--cy); }
+  body.scifi .dia-card:hover { border-color: var(--cy); }
+  body.scifi .dia-card.primary { border-color: var(--cy); background: rgba(34, 211, 238, .12); }
+  body.scifi .dia-note { color: var(--faint); }
 </style>
 </head>
 <body class="scifi">

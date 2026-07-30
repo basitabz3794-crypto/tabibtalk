@@ -12,7 +12,13 @@ function requireLogin(req, res, next) {
 // Only accept the app's own 'tt_' prefixed keys, and never the ones that must
 // stay device/browser-specific — keeps this endpoint from being used to store
 // arbitrary data or to clobber tier/device state from the client.
-const EXCLUDE = new Set(['tt_tier', 'tt_device_id']);
+// tt_dialect is here because it is not progress at all — it is which course the
+// student is in, and the account records that authoritatively in user.dialect
+// (see /api/auth/dialect). Storing a second copy in the progress blob meant a
+// stale copy could be hydrated back over the dialect the student had just
+// picked, resetting them to Egyptian and making every dialect appear to share
+// its streak, bookmarks and resume point.
+const EXCLUDE = new Set(['tt_tier', 'tt_device_id', 'tt_dialect']);
 
 function cleanPatch(patch) {
   const clean = {};

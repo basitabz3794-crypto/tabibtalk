@@ -1191,7 +1191,18 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   // Keys that must stay device/browser-specific and are never synced. tt_tier
   // is re-synced from the server by the tier block; tt_display_mode is a
   // per-device look; tt_device_id / tt_progress_owner are local bookkeeping.
-  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1 };
+  //
+  // tt_dialect is excluded for a subtler reason, and it matters: it is NOT
+  // progress, it is which course you are in, and the account already records
+  // that authoritatively (user.dialect, set via /api/auth/dialect). While it
+  // was being synced as an ordinary tt_ key, the hydration below — which runs
+  // BEFORE the per-dialect scoping layer is installed — would write a stale
+  // server copy over the dialect just chosen. Opening the app without an
+  // explicit ?dialect= then silently reverted you to Egyptian, so every
+  // per-dialect streak, bookmark and resume point read Egyptian's keys and
+  // the dialects looked like they were sharing progress. They were not; the
+  // dialect was being reset underneath them.
+  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1, tt_dialect: 1 };
   // Keys kept when wiping a previous account's data on account switch.
   var KEEP_ON_WIPE = { tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1 };
 
@@ -1373,7 +1384,11 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
             <button class="menu-toggle" onclick="openDrawer()" title="Menu" aria-label="Open menu">&#9776;</button>
             <div class="brand" onclick="selectTab(document.querySelector('#tabbar .tab')); navigate('page-main-menu')">
                 <span class="brand-logo"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v5a4 4 0 0 0 8 0V3"/><path d="M10 12v3a5 5 0 0 0 10 0v-1"/><circle cx="20" cy="10" r="2"/></svg></span>
-                <span class="brand-text"><strong>Tabib Talk</strong><small>EGYPTIAN MEDICAL ARABIC</small></span>
+                <!-- Deliberately dialect-NEUTRAL. The header sits on every page
+                     of every dialect, and naming one of them here was wrong for
+                     the other two. Which dialect you are in is stated where it
+                     is actually useful — My Account, and the plans pages. -->
+                <span class="brand-text"><strong>Tabib Talk</strong><small>MEDICAL ARABIC AND HISTORY TAKING</small></span>
             </div>
             <button class="notif-pill" id="notif-bell-btn" title="Notifications" onclick="showNotif()" aria-label="Notifications"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
             <!-- Unified display button: replaces the separate green-theme and
@@ -6301,11 +6316,34 @@ function ttApplyDialect(){
   return out;
 }
 window.ttApplyDialect=ttApplyDialect;
-/* Changing dialect rewrites content that's already rendered, so reload. */
+/* Changing dialect rewrites content that's already rendered, so reload.
+
+   The SERVER is told as well as this browser. The account is the authoritative
+   record of which dialect a student learns — it is what follows them to a new
+   device, and what the plans pages resolve against — so a local-only change
+   left the two disagreeing. That mismatch is what served the wrong dialect's
+   plans, and now that the app corrects itself from the account on load, a
+   local-only change would simply be undone on the next visit.
+
+   Also navigates with ?dialect= rather than calling reload(): the dialect has
+   to be settled before the phrase database is built, and a bare reload would
+   not carry it. */
 window.ttSetDialect=function(d){
   if(!AR_DIALECTS[d]) return;
-  try{ localStorage.setItem('tt_dialect', JSON.stringify(d)); }catch(e){}
-  location.reload();
+  var served=(location.protocol==='http:'||location.protocol==='https:');
+  var save=function(){ try{ localStorage.setItem('tt_dialect', JSON.stringify(d)); }catch(e){} };
+  if(!served){ save(); location.reload(); return; } // standalone file — no server to tell
+  var dev=''; try{ dev=localStorage.getItem('tt_device_id')||''; }catch(e){}
+  fetch('/api/auth/dialect',{ method:'POST', credentials:'same-origin',
+    headers:{ 'Content-Type':'application/json', 'x-device-id':dev },
+    body: JSON.stringify({ dialect:d }) })
+    .then(function(r){ if(!r.ok) throw new Error('dialect switch refused'); return r.json(); })
+    .then(function(){ save(); location.href='/app.html?dialect='+encodeURIComponent(d); })
+    .catch(function(){
+      // Deliberately leave the local dialect alone when the server refused —
+      // saving it anyway would recreate the very disagreement this prevents.
+      try{ if(typeof toast==='function') toast('Could not switch dialect just now — please try again.', 3200); }catch(e){}
+    });
 };
 window.ttDialectCoverage=function(){ return ttApplyDialect(); };
 ttApplyDialect();
@@ -9182,6 +9220,31 @@ function _ttDownloadBlob(blob, filename){
         window.location.replace(loginUrl());
         return;
       }
+      // The ACCOUNT decides which dialect this is, and it is the only copy that
+      // travels. tt_dialect is no longer synced (see EXCLUDE above), so a fresh
+      // device — or one whose storage was cleared — starts with nothing and
+      // would otherwise read Egyptian's phrases, streak and bookmarks for a
+      // student who actually learns Hejazi.
+      //
+      // The dialect has to be settled BEFORE the page renders its phrases, and
+      // it cannot be swapped in place (the wording is baked into the phrase
+      // database as the page parses), so correcting it means one reload with
+      // the dialect named explicitly. Guarded by a sessionStorage flag so a
+      // disagreement can never turn into a reload loop.
+      if(served){
+        var acctDialect = data.user.dialect || 'eg';
+        var localDialect = 'eg';
+        try{ var lv = JSON.parse(localStorage.getItem('tt_dialect') || 'null'); if(lv) localDialect = lv; }catch(e){}
+        var hasUrlDialect = /[?&]dialect=/.test(location.search || '');
+        var alreadyFixed = false;
+        try{ alreadyFixed = sessionStorage.getItem('tt_dialect_synced') === '1'; }catch(e){}
+        if(!hasUrlDialect && !alreadyFixed && acctDialect !== localDialect && AR_DIALECTS[acctDialect]){
+          try{ sessionStorage.setItem('tt_dialect_synced', '1'); }catch(e){}
+          try{ localStorage.setItem('tt_dialect', JSON.stringify(acctDialect)); }catch(e){}
+          window.location.replace('/app.html?dialect=' + encodeURIComponent(acctDialect));
+          return;
+        }
+      }
       if(!data || !data.user || !data.user.tier){ liftGate(); return; } // no tier to gate by
       var serverTier = data.user.tier;
       // Unrecognised tier: leave local tier state alone, but the account is
@@ -9592,9 +9655,15 @@ function openOnboardModal(editMode){
     +'<input id="tt-ob-nick" maxlength="24" placeholder="e.g. Dr. Nadia" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1.5px solid '+(dark?'rgba(255,255,255,.18)':'#d7dde2')+';background:transparent;color:inherit;font:inherit">'
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 6px">Choose your profile emoji</label>'
     +'<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px">'+emojis+'</div>'
-    +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Which Arabic dialect do you want to learn?</label>'
-    +'<small style="display:block;opacity:.65;font-size:.78rem;margin-bottom:2px">Every phrase, and the voice, will be in the dialect you pick. You can change this any time in My Account.</small>'
-    +dias
+    // Asked only when SETTING UP an account. In edit mode this panel is just
+    // "personal details", and offering the dialect here duplicated the switcher
+    // in My Account — two controls for one setting, one of which sat next to a
+    // nickname field and gave no hint that changing it swaps your whole course,
+    // plan and progress. My Account is the single place to change it.
+    +(editMode ? ''
+      : '<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Which Arabic dialect do you want to learn?</label>'
+        +'<small style="display:block;opacity:.65;font-size:.78rem;margin-bottom:2px">Every phrase, and the voice, will be in the dialect you pick. You can change this any time in My Account.</small>'
+        +dias)
     +'<label style="display:block;font-weight:700;font-size:.85rem;margin:16px 0 2px">Your Arabic level</label>'
     +lvls
     +'<button id="tt-ob-go" class="btn-primary" style="width:100%;margin-top:18px;padding:13px;border-radius:12px;border:none;cursor:pointer;font:inherit;font-weight:700;background:var(--accent-grad);color:#fff">'+(editMode?'Save changes':'Start learning →')+'</button>'
