@@ -214,6 +214,23 @@ router.get('/users/:id/detail', requireAdmin, async (req, res) => {
       subStatus: user.subStatus || null,
       status: user.status || 'active',
       dialect: user.dialect || 'eg',
+      // What this account holds in EACH dialect, so the admin can see and manage
+      // all three rather than only the one the student is currently sitting in.
+      dialects: await (async () => {
+        const cfg = await store.getSiteConfig();
+        const out = {};
+        DIALECTS.forEach((d) => {
+          const e = entitlements.forDialect(user, d, cfg);
+          out[d] = {
+            tier: e.tier, planId: e.planId, planExpiresAt: e.planExpiresAt,
+            subStatus: e.subStatus,
+            // Which pricing page this dialect runs, so the UI only offers plans
+            // that dialect actually sells.
+            newPlans: configForDialect(cfg, d).newPlans === true,
+          };
+        });
+        return out;
+      })(),
       emailVerified,
       maxDevices: Number(user.maxDevices) > 0 ? Number(user.maxDevices) : 3,
       createdAt: user.createdAt,
@@ -500,42 +517,71 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found.' });
 
   const now = new Date().toISOString();
-  // Revoking a plan (suspend/expire) drops the user to the CURRENT mode's free
-  // baseline — Basic under new-plans, Explorer under the classic page.
-  const revokeTier = baselineTier(await store.getSiteConfig());
+  const cfg = await store.getSiteConfig();
+
+  // Which dialect this action applies to. Defaults to the dialect the account
+  // is currently in, so existing calls behave exactly as before — but the admin
+  // can now name any dialect and manage all three from one place, instead of
+  // only being able to touch whichever one the student happens to be sitting in.
+  const target = req.body && req.body.dialect ? normaliseDialect(req.body.dialect) : normaliseDialect(user.dialect);
+
+  // Revoking a plan drops the student to the free baseline of the TARGET
+  // dialect's plans page — Basic under new-plans, Explorer under the classic
+  // page. Read per dialect, not globally: the global value is Egyptian's, so
+  // suspending a Hejazi subscriber used to park them on 'basic', a tier the
+  // classic page Hejazi runs does not even sell.
+  const revokeTier = baselineTier(configForDialect(cfg, target));
+
+  // Everything below writes through entitlements.grant(…, target, …) so a plan
+  // stays parked on the dialect it belongs to, and the flat fields only move if
+  // that dialect is the one the student is currently in.
+  function currentEnt() { return entitlements.forDialect(user, target, cfg); }
 
   async function setPlan(newPlanId, activatedAt) {
     const start = activatedAt || now;
-    // Admin plan changes apply to the dialect the account is currently in.
-    const planPatch = entitlements.grant(user, user.dialect, {
+    const planPatch = entitlements.grant(user, target, {
       tier: accessTierForPlan(newPlanId),
       planId: newPlanId,
       planActivatedAt: start,
       planExpiresAt: await computeExpiry(newPlanId, start),
       subStatus: 'active',
-    }, await store.getSiteConfig());
+    }, cfg);
     planPatch.status = user.status === 'banned' ? 'banned' : user.status;
     await store.updateUser(user.id, planPatch);
   }
 
   async function shiftExpiry(deltaDays) {
-    const cur = user.planExpiresAt ? new Date(user.planExpiresAt).getTime() : Date.now();
+    // Reads and writes the TARGET dialect's expiry rather than the flat field,
+    // which belongs to whichever dialect the student is currently in.
+    const ent = currentEnt();
+    const cur = ent.planExpiresAt ? new Date(ent.planExpiresAt).getTime() : Date.now();
     const next = new Date(cur + deltaDays * 86400000).toISOString();
-    await store.updateUser(user.id, { planExpiresAt: next, subStatus: 'active' });
+    await store.updateUser(user.id, entitlements.grant(user, target, {
+      tier: ent.tier, planId: ent.planId, planActivatedAt: ent.planActivatedAt,
+      planExpiresAt: next, subStatus: 'active',
+    }, cfg));
   }
 
   switch (action) {
-    case 'suspend': // stop access now, but remember the plan so it can be reactivated
+    case 'suspend': { // stop access now, but remember the plan so it can be reactivated
+      const ent = currentEnt();
       await store.updateUser(user.id, Object.assign(
-        entitlements.grant(user, user.dialect, { tier: revokeTier, planId: user.planId,
-          planActivatedAt: user.planActivatedAt, planExpiresAt: user.planExpiresAt,
-          subStatus: 'suspended' }, await store.getSiteConfig()),
+        entitlements.grant(user, target, { tier: revokeTier, planId: ent.planId,
+          planActivatedAt: ent.planActivatedAt, planExpiresAt: ent.planExpiresAt,
+          subStatus: 'suspended' }, cfg),
         { suspendedAt: now }));
       break;
-    case 'reactivate': // restore access to the plan on file (if any)
-      if (user.planId) await store.updateUser(user.id, { tier: accessTierForPlan(user.planId), subStatus: 'active', suspendedAt: null });
-      else return res.status(400).json({ error: 'This user has no plan to reactivate.' });
+    }
+    case 'reactivate': { // restore access to the plan on file (if any)
+      const ent = currentEnt();
+      if (!ent.planId) return res.status(400).json({ error: 'This user has no plan to reactivate in ' + target + '.' });
+      await store.updateUser(user.id, Object.assign(
+        entitlements.grant(user, target, { tier: accessTierForPlan(ent.planId), planId: ent.planId,
+          planActivatedAt: ent.planActivatedAt, planExpiresAt: ent.planExpiresAt,
+          subStatus: 'active' }, cfg),
+        { suspendedAt: null }));
       break;
+    }
     case 'activate': // manually turn on a specific plan
     case 'upgrade':
     case 'downgrade':
@@ -549,12 +595,14 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
     case 'reduce':
       await shiftExpiry(-Math.abs(Number(days) || 0));
       break;
-    case 'expire': // force the plan to end right now -> revert to the free baseline
-      await store.updateUser(user.id, entitlements.grant(user, user.dialect, {
-        tier: revokeTier, planId: user.planId, planActivatedAt: user.planActivatedAt,
+    case 'expire': { // force the plan to end right now -> revert to the free baseline
+      const ent = currentEnt();
+      await store.updateUser(user.id, entitlements.grant(user, target, {
+        tier: revokeTier, planId: ent.planId, planActivatedAt: ent.planActivatedAt,
         planExpiresAt: now, subStatus: 'expired',
-      }, await store.getSiteConfig()));
+      }, cfg));
       break;
+    }
     case 'ban':
       await store.updateUser(user.id, { status: 'banned', bannedAt: now });
       // A ban must take effect immediately, not on the next login. Kill every
@@ -573,7 +621,16 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
     default:
       return res.status(400).json({ error: 'Unknown action.' });
   }
-  res.json({ ok: true, user: await store.findUserById(user.id) });
+  const updated = await store.findUserById(user.id);
+  // `dialect` echoes which dialect was acted on, and `dialects` is the full
+  // per-dialect picture, so the admin hub can refresh the row it just changed
+  // without needing a second request.
+  const perDialect = {};
+  DIALECTS.forEach((d) => {
+    const e = entitlements.forDialect(updated, d, cfg);
+    perDialect[d] = { tier: e.tier, planId: e.planId, planExpiresAt: e.planExpiresAt, subStatus: e.subStatus };
+  });
+  res.json({ ok: true, dialect: target, user: updated, dialects: perDialect });
 });
 
 // ---- Send a broadcast notification to every user (shows up in their notification bell) ----

@@ -136,8 +136,14 @@ function renderHeader(activePage) {
   const el = document.getElementById('site-header');
   if (!el) return;
   el.innerHTML = `
-    <img class="logo-mark" src="/img/logo.png" alt="Tabib Talk logo">
-    <div class="brand-text"><strong>Tabib Talk</strong><span>${ttIsDialectNeutralPage() ? 'Medical Arabic and History taking' : ((TT_DIA_NAME[ttNavDialect()] || 'Egyptian') + ' Medical Arabic')}</span></div>
+    <!-- The mark and the name are one link home. They looked clickable on every
+         page — plans, payments, login, the chooser — but were plain markup, so
+         nothing happened. -->
+    <a class="brand-home" href="/index.html" aria-label="Tabib Talk — back to the home page"
+       style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+      <img class="logo-mark" src="/img/logo.png" alt="Tabib Talk logo">
+      <div class="brand-text"><strong>Tabib Talk</strong><span>${ttIsDialectNeutralPage() ? 'Medical Arabic and History taking' : ((TT_DIA_NAME[ttNavDialect()] || 'Egyptian') + ' Medical Arabic')}</span></div>
+    </a>
     <nav>
       <a href="/index.html" data-key="home">Land up page</a>
       <a href="${ttEntryHref('/plans.html')}" data-key="plans" data-plans-link>Plans</a>

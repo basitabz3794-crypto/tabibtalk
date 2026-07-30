@@ -331,9 +331,41 @@ async function approve(method,id){ await adminPost(`/api/${method}/admin/approve
 async function reject(method,id){ const reason = prompt('Reason for rejection (optional):')||''; await fetch(`/api/${method}/admin/reject/${id}`, {method:'POST', headers:Object.assign({'Content-Type':'application/json'},ah()), body:JSON.stringify({reason})}); loadAll(); }
 window.approve=approve; window.reject=reject;
 
+/* Held so the search box can filter without re-fetching the whole list. */
+let ALL_USERS = [];
+
 async function loadUsers(){
   const { users } = await adminGet('/api/admin/users');
-  document.getElementById('panel-users').innerHTML = `<div class="card"><div class="table-scroll"><table class="data">
+  ALL_USERS = users || [];
+  renderUsersTable();
+}
+
+/* Free-text search across the fields an admin actually searches by: name,
+   email, nationality, grade, dialect, tier, plan id and status. Matching is
+   case-insensitive and every space-separated term must match somewhere, so
+   "hejazi advanced" narrows rather than widens. */
+function renderUsersTable(){
+  const boxEl = document.getElementById('user-search');
+  const q = (boxEl ? boxEl.value : '').trim().toLowerCase();
+  const terms = q ? q.split(/\s+/) : [];
+  const users = !terms.length ? ALL_USERS : ALL_USERS.filter(u => {
+    const hay = [u.name, u.email, u.nationality, u.grade, dialectLabel(u.dialect),
+                 u.dialect, u.tier, u.planId, u.subState, u.status]
+      .filter(Boolean).join(' ').toLowerCase();
+    return terms.every(t => hay.indexOf(t) >= 0);
+  });
+  const countLine = terms.length
+    ? `Showing <b>${users.length}</b> of ${ALL_USERS.length}`
+    : `<b>${ALL_USERS.length}</b> accounts`;
+  document.getElementById('panel-users').innerHTML = `<div class="card">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <input id="user-search" type="search" placeholder="Search name, email, nationality, dialect, plan…"
+        value="${esc(q)}" oninput="renderUsersTable()"
+        style="flex:1;min-width:240px;padding:10px 13px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit">
+      ${terms.length?`<button class="btn btn-ghost" onclick="clearUserSearch()">Clear</button>`:''}
+      <span style="color:var(--muted);font-size:.85rem">${countLine}</span>
+    </div>
+    <div class="table-scroll"><table class="data">
     <thead><tr><th>Name</th><th>Email</th><th>Nationality</th><th>Grade</th><th>Dialect</th><th>Tier</th><th>Subscription</th><th>Devices</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody>${users.length? users.map(u=>`<tr>
       <td><a href="#" onclick="userDetail('${u.id}');return false" style="color:var(--accent);font-weight:700;text-decoration:none" title="Full plan history">${esc(u.name||'—')}</a></td><td>${esc(u.email)}</td><td>${u.nationality||'—'}</td><td>${u.grade||'—'}</td>
@@ -348,8 +380,19 @@ async function loadUsers(){
         ${u.subState==='active'?`<button class="btn btn-ghost" onclick="userAction('${u.id}','suspend')">Suspend</button>`:`<button class="btn btn-ghost" onclick="userAction('${u.id}','reactivate')">Reactivate</button>`}
         ${u.status==='banned'?`<button class="btn btn-primary" onclick="userAction('${u.id}','unban')">Unban</button>`:`<button class="btn btn-danger" onclick="userAction('${u.id}','ban')">Ban</button>`}
       </div></td>
-    </tr>`).join('') : '<tr><td colspan="10" class="empty">No users yet.</td></tr>'}</tbody></table></div></div>`;
+    </tr>`).join('') : `<tr><td colspan="10" class="empty">${terms.length?'No accounts match that search.':'No users yet.'}</td></tr>`}</tbody></table></div></div>`;
+  // Restore the caret so typing is not interrupted by the re-render.
+  const el = document.getElementById('user-search');
+  if (el && q) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 }
+window.renderUsersTable = renderUsersTable;
+function clearUserSearch(){
+  const el = document.getElementById('user-search');
+  if (el) el.value = '';
+  renderUsersTable();
+}
+window.clearUserSearch = clearUserSearch;
+
 async function userAction(id, action){
   if(action==='ban' && !confirm('Ban this user? They will be logged out and unable to sign in.')) return;
   await adminPost(`/api/admin/users/${id}/action`, { action }); loadAll();
@@ -512,16 +555,51 @@ function renderSignins(){
 }
 
 // Full plan-management modal (item 15: upgrade/downgrade/change/extend/reduce/expire)
-function manageSub(userId, currentPlan, subState){
-  const plans = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime','basic-monthly','advanced-monthly'];
-  const opts = plans.map(p=>`<option value="${p}" ${p===currentPlan?'selected':''}>${p}</option>`).join('');
+/* Manage subscription — per dialect.
+   A plan belongs to ONE dialect and grants nothing in the others, so this asks
+   which dialect it is acting on. Previously every action silently applied to
+   whichever dialect the student happened to be sitting in, which meant the
+   other two could not be managed at all. */
+const MNG_DIALECTS = [['eg','Egyptian'],['hejazi','Saudi (Hejazi)'],['khaleeji','Gulf (Khaleeji)']];
+// Which plans each pricing page actually sells. Offering Basic/Advanced for a
+// dialect on the classic page (or the reverse) would grant a tier that dialect
+// does not sell, so the list follows the dialect.
+const MNG_NEW_PLANS = ['basic-monthly','advanced-monthly'];
+const MNG_CLASSIC_PLANS = ['student-monthly','student-6m','student-12m','professional-monthly','professional-6m','professional-yearly','lifetime'];
+
+async function manageSub(userId, currentPlan, subState){
+  // Pull the per-dialect picture so the modal shows what is really held in each,
+  // and which pricing page each one runs.
+  let info = null;
+  try { info = await adminGet(`/api/admin/users/${userId}/detail`); }
+  catch (e) { alert('Could not load this account\'s per-dialect plans: ' + e.message); return; }
+  const perDialect = (info && info.user && info.user.dialects) || {};
+  const homeDialect = (info && info.user && info.user.dialect) || 'eg';
+
+  const summary = MNG_DIALECTS.map(([code,label])=>{
+    const e = perDialect[code] || {};
+    const isHome = code === homeDialect;
+    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.85rem">
+      <span>${label}${isHome?' <span style="color:var(--accent);font-size:.72rem">· currently in</span>':''}</span>
+      <span style="font-weight:700">${e.tier||'—'}${e.planId?` <span style="color:var(--muted);font-weight:500">(${e.planId})</span>`:''}</span>
+    </div>`;
+  }).join('');
+
+  const diaOpts = MNG_DIALECTS.map(([code,label])=>
+    `<option value="${code}" ${code===homeDialect?'selected':''}>${label}</option>`).join('');
+
   const html = `
     <div class="modal-overlay open" id="manage-modal">
       <div class="modal">
         <button class="modal-x" onclick="closeManage()">&times;</button>
         <h2>Manage subscription</h2>
-        <p style="color:var(--muted);margin-top:0">Set or adjust this user's plan. Changes apply immediately.</p>
-        <div class="field"><label>Set / change plan</label><select id="mng-plan">${opts}</select></div>
+        <p style="color:var(--muted);margin-top:0">A plan applies to one dialect only. Pick the dialect, then set its plan &mdash; the other two are left untouched.</p>
+        <div style="margin-bottom:16px">${summary}</div>
+        <div class="field">
+          <label>Dialect to manage</label>
+          <select id="mng-dialect" onchange="mngSyncPlanOptions()">${diaOpts}</select>
+        </div>
+        <div class="field"><label>Set / change plan</label><select id="mng-plan"></select></div>
         <div class="row-actions" style="margin-bottom:16px">
           <button class="btn btn-primary" onclick="doManage('${userId}','change')">Apply plan</button>
           <button class="btn btn-outline" onclick="doManage('${userId}','activate')">Activate fresh</button>
@@ -538,12 +616,32 @@ function manageSub(userId, currentPlan, subState){
       </div>
     </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
+  window.__mngPerDialect = perDialect;
+  mngSyncPlanOptions();
 }
+
+/* Re-fill the plan list for the chosen dialect, preselecting whatever that
+   dialect already holds. */
+function mngSyncPlanOptions(){
+  const sel = document.getElementById('mng-dialect');
+  const planSel = document.getElementById('mng-plan');
+  if (!sel || !planSel) return;
+  const code = sel.value;
+  const info = (window.__mngPerDialect || {})[code] || {};
+  const list = info.newPlans ? MNG_NEW_PLANS : MNG_CLASSIC_PLANS;
+  planSel.innerHTML = list.map(p=>`<option value="${p}" ${p===info.planId?'selected':''}>${p}</option>`).join('')
+    + `<optgroup label="Other page's plans (use with care)">`
+    + (info.newPlans ? MNG_CLASSIC_PLANS : MNG_NEW_PLANS).map(p=>`<option value="${p}">${p}</option>`).join('')
+    + `</optgroup>`;
+}
+window.mngSyncPlanOptions = mngSyncPlanOptions;
+
 function closeManage(){ const m=document.getElementById('manage-modal'); if(m) m.remove(); }
 async function doManage(userId, action){
   const planId = (document.getElementById('mng-plan')||{}).value;
+  const dialect = (document.getElementById('mng-dialect')||{}).value || undefined;
   const days = Number((document.getElementById('mng-days')||{}).value || 0);
-  await adminPost(`/api/admin/users/${userId}/action`, { action, planId, days });
+  await adminPost(`/api/admin/users/${userId}/action`, { action, planId, days, dialect });
   closeManage(); loadAll();
 }
 window.manageSub=manageSub; window.closeManage=closeManage; window.doManage=doManage;

@@ -584,10 +584,38 @@ function renderNewPlans() {
   const dialect = urlDialect
     || (currentUser && currentUser.dialect)
     || (function(){ try { return JSON.parse(localStorage.getItem('tt_dialect')||'null') || 'eg'; } catch(e){ return 'eg'; } })();
+  // Which pricing page to show hangs entirely on this one value, so it is worth
+  // one retry. It used to fall back to {} on any hiccup, and {} means
+  // newPlans !== true, which silently rendered the CLASSIC page — an Egyptian
+  // student would be shown Explorer/Student/Professional/Lifetime instead of
+  // Basic/Advanced, and could pay for a plan their dialect does not sell.
+  // Guessing is not acceptable on a payments page: if it still cannot be read,
+  // say so rather than render the wrong prices.
+  async function loadSiteCfg() {
+    const url = '/api/site-config?dialect=' + encodeURIComponent(dialect);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(url, { credentials: 'same-origin' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        if (j && typeof j.newPlans !== 'undefined') return j;
+        throw new Error('no newPlans field');
+      } catch (e) {
+        if (attempt === 1) return null; // null = unknown, distinct from "classic"
+        await new Promise(res => setTimeout(res, 600));
+      }
+    }
+    return null;
+  }
   const [{ plans }, siteCfg] = await Promise.all([
     api('/api/plans/config?dialect=' + encodeURIComponent(dialect)),
-    fetch('/api/site-config?dialect=' + encodeURIComponent(dialect), { credentials:'same-origin' }).then(r=>r.json()).catch(()=>({})),
+    loadSiteCfg(),
   ]);
+  if (!siteCfg) {
+    document.getElementById('cards').innerHTML = '';
+    showAlert('We could not load the current pricing for your dialect. Please refresh — nothing has been charged.');
+    return;
+  }
   ALL_PLANS = plans;
   PLAN_DIALECT = dialect; // every plan name below is labelled with this
   // New-plans mode is account-first: visitors must sign in before seeing the

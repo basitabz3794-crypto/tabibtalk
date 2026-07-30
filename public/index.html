@@ -72,6 +72,10 @@
   .drawer.open { transform: none; }
   .drawer .d-logo { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.05rem; margin-bottom: 22px;
     background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* Now a link home. Overrides the generic .drawer a rules, which would give it
+     link padding and — on hover — replace the gradient with a flat colour. */
+  .drawer a.d-logo { display: block; padding: 0; text-decoration: none; }
+  .drawer a.d-logo:hover { background: var(--beam); -webkit-background-clip: text; background-clip: text; color: transparent; opacity: .85; }
   .drawer a, .drawer button.d-link { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
     padding: 12px 14px; border-radius: 11px; color: var(--dim); font-weight: 550; font-size: .95rem;
     background: none; border: none; cursor: pointer; font-family: inherit; transition: all .15s ease; text-decoration: none; }
@@ -133,7 +137,7 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
 <div class="drawer-ov" id="drawer-ov" onclick="closeMenu()"></div>
 <aside class="drawer" id="drawer">
-  <div class="d-logo">Tabib Talk</div>
+  <a class="d-logo" href="/index.html">Tabib Talk</a>
   <div class="d-group">Navigate</div>
   <a href="/index.html">&#127968;&nbsp; Home</a>
   <a href="/choose.html?next=/app.html">&#128218;&nbsp; Open the Website</a>
