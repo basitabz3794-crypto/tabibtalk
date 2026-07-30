@@ -892,6 +892,23 @@
         /* v14: landing / tiers / ad / upgrade */
         .center-overlay { position: fixed; inset: 0; background: rgba(20,52,42,.55); backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
+        /* Fail-closed auth gate. Lives in the STATIC markup, so the content is
+           never painted for someone who is not signed in — not on a direct
+           load, not when the browser restores this page from its back/forward
+           cache, and not with JavaScript switched off. Removed only once
+           /api/auth/me has confirmed an account. */
+        #tt-auth-gate { position: fixed; inset: 0; z-index: 99999; background: var(--bg, #0b1020);
+          display: flex; align-items: center; justify-content: center; text-align: center;
+          padding: 30px 18px; color: var(--text, #e8ecf8); }
+        #tt-auth-gate .g-in { max-width: 430px; }
+        #tt-auth-gate h2 { font-size: 1.15rem; margin: 0 0 8px; font-weight: 700; }
+        #tt-auth-gate p  { font-size: .92rem; opacity: .75; margin: 0 0 18px; line-height: 1.55; }
+        #tt-auth-gate a  { display: inline-block; padding: 11px 22px; border-radius: 11px;
+          text-decoration: none; font-weight: 700; background: #2dd4bf; color: #05221f; }
+        #tt-auth-gate .g-spin { width: 26px; height: 26px; margin: 0 auto 14px; border-radius: 50%;
+          border: 3px solid rgba(255,255,255,.18); border-top-color: #2dd4bf;
+          animation: ttGateSpin .8s linear infinite; }
+        @keyframes ttGateSpin { to { transform: rotate(360deg); } }
         #landing-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2900; overflow-y: auto; padding: 30px 18px 50px; }
         .landing-inner { max-width: 1000px; margin: 0 auto; text-align: center; }
         .landing-logo { font-weight: 800; color: var(--primary); font-size: 1.4rem; letter-spacing: .04em; }
@@ -1137,6 +1154,23 @@
     </style>
 </head>
 <body class="tt-scifi">
+<!-- Auth gate — see #tt-auth-gate in the stylesheet above. This covers the page
+     until the account check passes, which is what stops a visitor who never
+     signed up from reading the content by opening this page directly or by
+     pressing Back out of the login screen. It is deliberately part of the
+     served HTML rather than something JavaScript adds, so it also holds when
+     scripts are blocked. -->
+<div id="tt-auth-gate"><div class="g-in">
+  <div class="g-spin" id="tt-gate-spin"></div>
+  <h2 id="tt-gate-title">Checking your account&hellip;</h2>
+  <p id="tt-gate-msg">One moment.</p>
+  <a id="tt-gate-act" href="/login.html" style="display:none">Log in or sign up</a>
+</div></div>
+<script>/* Opened as a standalone file there is no server to ask, so the gate
+would never lift — drop it straight away in that case. Runs before first paint. */
+try{ if(!(location.protocol==='http:'||location.protocol==='https:')){
+  var _g=document.getElementById('tt-auth-gate'); if(_g) _g.remove();
+} }catch(e){}</script>
 <script>/* Apply the saved display mode BEFORE first paint so minimalist users never
 see a dark flash. header.js (or the app's own module) handles live switching. */
 try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElement.classList.add('tt-minimal');document.body.classList.remove('scifi','tt-scifi');}}catch(e){}</script>
@@ -1254,17 +1288,18 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 /* ============================================================
    PER-DIALECT STREAK AND SCORE
    ============================================================
-   Streak, study time and test scores belong to the dialect they were earned
-   in. A student holding a 20-day Egyptian streak starts a fresh one in
-   Hejazi, and neither can reset the other. Content progress (lessons opened,
-   flashcards, bookmarks) stays shared on purpose: "I have studied Cushing
-   Syndrome" is true whichever dialect you read it in.
+   Each dialect is its own course, so it keeps its own everything: streak,
+   study time, test scores, lessons completed, flashcards, saved questions and
+   bookmarks. A student holding a 20-day Egyptian streak starts fresh in
+   Hejazi, and neither can reset the other. The only thing shared across all
+   three is the weekly leaderboard.
 
-   Done by rewriting the KEY, not every call site. The four scored keys get a
-   '__<dialect>' suffix, so computeStreak(), addTime(), allScores() and the
-   rest keep working untouched. Egyptian deliberately keeps the BARE key, so
-   every account that existed before dialects shipped still reads exactly the
-   streak and scores it already had — there is nothing to migrate.
+   Done by rewriting the KEY, not every call site. Each scoped key gets a
+   '__<dialect>' suffix, so computeStreak(), addTime(), allScores(), loadBM()
+   and the rest keep working untouched. Egyptian deliberately keeps the BARE
+   key, so every account that existed before dialects shipped still reads
+   exactly the progress it already had — there is nothing to migrate, and the
+   two new dialects legitimately start empty for everyone.
 
    This wraps the sync layer above rather than replacing it, so the scoped
    name is both what is stored locally and what is synced. The server
@@ -1272,7 +1307,21 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
    them up for the one shared leaderboard.
    ============================================================ */
 (function(){
-  var SCOPED = { tt_streak:1, tt_days:1, tt_time:1, tt_scores:1 };
+  // EVERY progress key is per dialect. Learning Hejazi is a separate course
+  // from learning Egyptian, so its streak, study time, test scores, completed
+  // lessons, flashcards, saved questions AND bookmarks all stand on their own,
+  // and a brand-new dialect starts from zero for everybody.
+  //
+  // The one deliberate exception is tt_onboard (nickname + profile emoji): that
+  // is the student's identity on the weekly leaderboard, which is shared across
+  // all three dialects, so it must not fork. Device id, display mode and the
+  // other look/preference keys are not progress and are left alone.
+  var SCOPED = {
+    tt_streak:1, tt_days:1, tt_time:1, tt_scores:1,   // streak and score
+    tt_path:1, tt_solved:1, tt_course_q:1, tt_correct:1,
+    tt_fc:1, tt_qz:1, tt_last:1, tt_qb_saved:1,       // content progress
+    tt_bm:1                                            // bookmarks
+  };
   var VALID  = { eg:1, hejazi:1, khaleeji:1 };
 
   var rawGet  = localStorage.getItem.bind(localStorage);
@@ -9087,17 +9136,57 @@ function _ttDownloadBlob(blob, filename){
   var _dev; try { _dev = localStorage.getItem('tt_device_id'); if(!_dev){ _dev='dev-'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('tt_device_id',_dev);} } catch(e){ _dev='dev-unknown'; }
   // Only enforce login when served over http/https from the website (not the standalone file://).
   var served = (location.protocol === 'http:' || location.protocol === 'https:');
+  // Lifts the gate. Called only once an account is confirmed AND — when the
+  // account has a tier — after that tier has been applied, so a Basic student
+  // never glimpses the unlocked view on the way in.
+  function liftGate(){
+    try{ var g=document.getElementById('tt-auth-gate'); if(g) g.remove(); }catch(e){}
+  }
+  // Leaves the gate up and explains why. Used when the account check itself
+  // could not be completed — failing closed rather than open.
+  function gateMessage(title, msg, actionHref, actionText){
+    try{
+      var sp=document.getElementById('tt-gate-spin'); if(sp) sp.style.display='none';
+      var t=document.getElementById('tt-gate-title'); if(t) t.textContent=title;
+      var m=document.getElementById('tt-gate-msg');   if(m) m.textContent=msg;
+      var a=document.getElementById('tt-gate-act');
+      if(a && actionHref){ a.href=actionHref; a.textContent=actionText; a.style.display='inline-block'; }
+    }catch(e){}
+  }
+  // Where to come back to after signing in — carrying the dialect, so a student
+  // who picked Hejazi on the landing page is not dropped into Egyptian.
+  function loginUrl(){
+    var d='eg';
+    try{ var v=JSON.parse(localStorage.getItem('tt_dialect')||'null'); if(v) d=v; }catch(e){}
+    return '/login.html?next=' + encodeURIComponent('/app.html?dialect=' + d)
+         + '&dialect=' + encodeURIComponent(d);
+  }
+
   fetch('/api/auth/me', { credentials: 'same-origin', headers: { 'x-device-id': _dev } })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(data){
-      if(served && (!data || !data.user)){
-        // Item 11: an account is required before accessing any content, including Explorer.
-        window.location.href = '/login.html?next=/app.html';
+      // Device limit is a different problem from "not signed in", and silently
+      // bouncing to the login screen hid it — the student had to guess, and try
+      // logging in again, before the appeal form appeared. Say it plainly at the
+      // gate instead, with a route to the appeal.
+      if(served && data && data.deviceBlocked){
+        gateMessage('Device limit reached',
+          data.error || 'This account is already active on its maximum number of devices.',
+          loginUrl(), 'Sign in to appeal');
         return;
       }
-      if(!data || !data.user || !data.user.tier) return; // standalone/offline — leave local state as-is
+      if(served && (!data || !data.user)){
+        // An account is required before any content, including the free tier.
+        // replace() rather than href: this page must NOT be left in history, or
+        // Back walks straight into the content it was just denied.
+        window.location.replace(loginUrl());
+        return;
+      }
+      if(!data || !data.user || !data.user.tier){ liftGate(); return; } // no tier to gate by
       var serverTier = data.user.tier;
-      if(KNOWN_TIERS.indexOf(serverTier) === -1) return;
+      // Unrecognised tier: leave local tier state alone, but the account is
+      // confirmed, so still let them in rather than stranding them at the gate.
+      if(KNOWN_TIERS.indexOf(serverTier) === -1){ liftGate(); return; }
       // Kill-switch: when the admin has disabled the plans/payment surface,
       // every signed-in account gets full access, exactly as if on Lifetime.
       // The tier they really own is untouched server-side, so re-enabling
@@ -9117,7 +9206,7 @@ function _ttDownloadBlob(blob, filename){
           }
           applyTier(cfg && cfg.plansEnabled === false ? 'lifetime' : effTier);
         })
-        .catch(function(){ applyTier(serverTier); });
+        .catch(function(){ applyTier(serverTier); });   // liftGate() runs inside applyTier
       function applyTier(tier){
         try{
           if(typeof setTier === 'function'){ setTier(tier); }
@@ -9130,9 +9219,32 @@ function _ttDownloadBlob(blob, filename){
           // (after the account's plan is resolved) alike.
           setTimeout(function(){ try{ if(window.maybeStartOnboarding) maybeStartOnboarding(); }catch(e){} }, 900);
         }catch(e){ console.error('tier sync failed', e); }
+        finally{
+          // MUST be in `finally`. This account is confirmed, so the gate has to
+          // come down even if applying the tier threw — otherwise a paying
+          // student hits a permanent "Checking your account…" screen and cannot
+          // get into the site at all. A thrown tier sync is a content-gating
+          // bug; refusing entry to a verified account would be a worse one.
+          liftGate();
+        }
       }
     })
-    .catch(function(){ /* offline or API unreachable — app still works from local tier */ });
+    .catch(function(){
+      // The account check itself could not be completed. FAIL CLOSED: leave the
+      // gate up and say so, rather than assuming the visitor is entitled to see
+      // the content. Standalone use never reaches here — the gate was already
+      // dropped before this script ran.
+      if(served) gateMessage('Could not check your account',
+        'We could not reach Tabib Talk to confirm you are signed in. Check your connection and try again.',
+        location.pathname + location.search, 'Try again');
+    });
+
+  // A browser restoring this page from its back/forward cache does NOT re-run
+  // any of the above — which is precisely how pressing Back out of the login
+  // screen used to expose the whole site. On a restored page, re-run the check.
+  window.addEventListener('pageshow', function(e){
+    if (e.persisted && served) location.reload();
+  });
 })();
 </script>
 <script>

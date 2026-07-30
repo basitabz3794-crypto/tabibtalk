@@ -192,7 +192,19 @@ document.querySelectorAll('.tab-row button').forEach(btn => btn.addEventListener
   btn.classList.add('active'); panelTo(`panel-${btn.dataset.panel}`);
 }));
 
-function nextUrl(){ return new URLSearchParams(window.location.search).get('next') || '/account.html'; }
+/* Where to go after signing in. The next= param is attacker-controllable, so
+   it is only honoured when it is a path on this site: anything absolute, and
+   anything protocol-relative ('//evil.com', which a browser treats as another
+   host), falls back to the account page. Without this check a crafted link
+   could carry someone straight off the site right after they log in. */
+function nextUrl(){
+  var raw = new URLSearchParams(window.location.search).get('next') || '';
+  if (!raw) return '/account.html';
+  if (raw.charAt(0) !== '/') return '/account.html';        // must be site-relative
+  var c = raw.charAt(1);
+  if (c === '/' || c === '\\') return '/account.html';       // '//host' and '/\host' are off-site
+  return raw;
+}
 
 /* The dialect chosen on the landing page is kept in localStorage and sent up
    with the signup profile, so the account records which version of the site
@@ -246,7 +258,7 @@ document.getElementById('google-profile-form').addEventListener('submit', async 
     if (r.deviceBlocked) { showDeviceAppeal(r.error, r.idToken); return; }
     if (r.ok) {
       // Fresh account: wipe any anonymous pre-signup progress in this browser.
-      ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard','tt_fc','tt_qz','tt_last'].concat(['hejazi','khaleeji'].reduce(function(a,d){ return a.concat(['tt_streak','tt_days','tt_time','tt_scores'].map(function(k){ return k+'__'+d; })); },[])).forEach(function(k){ try { localStorage.removeItem(k); } catch(e){} });
+      ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard','tt_fc','tt_qz','tt_last'].concat(['hejazi','khaleeji'].reduce(function(a,d){ return a.concat(['tt_streak','tt_days','tt_time','tt_scores','tt_path','tt_solved','tt_course_q','tt_correct','tt_fc','tt_qz','tt_last','tt_qb_saved','tt_bm'].map(function(k){ return k+'__'+d; })); },[])).forEach(function(k){ try { localStorage.removeItem(k); } catch(e){} });
       window.location.href = nextUrl();
       return;
     }
@@ -305,7 +317,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     // A brand-new account always starts every progress metric (streak, time
     // spent, course progress, bookmarks, saved questions) from zero — even
     // if this browser was used to poke around anonymously before signing up.
-    ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard','tt_fc','tt_qz','tt_last'].concat(['hejazi','khaleeji'].reduce(function(a,d){ return a.concat(['tt_streak','tt_days','tt_time','tt_scores'].map(function(k){ return k+'__'+d; })); },[])).forEach(function(k){
+    ['tt_streak','tt_days','tt_time','tt_path','tt_solved','tt_bm','tt_qb_saved','tt_course_q','tt_correct','tt_scores','tt_onboard','tt_fc','tt_qz','tt_last'].concat(['hejazi','khaleeji'].reduce(function(a,d){ return a.concat(['tt_streak','tt_days','tt_time','tt_scores','tt_path','tt_solved','tt_course_q','tt_correct','tt_fc','tt_qz','tt_last','tt_qb_saved','tt_bm'].map(function(k){ return k+'__'+d; })); },[])).forEach(function(k){
       try { localStorage.removeItem(k); } catch(e){}
     });
     lastCredentials = { email, password };
