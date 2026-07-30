@@ -649,6 +649,16 @@ router.get('/notifications', requireAdmin, async (req, res) => {
   res.json({ notifications: await store.listNotifications() });
 });
 
+// ---- Delete one broadcast from the history ----
+// Removes it from the admin's list and from every user's notification bell,
+// since the bell reads the same collection. Old announcements pile up otherwise
+// and there was no way to clear them.
+router.delete('/notifications/:id', requireAdmin, async (req, res) => {
+  const ok = await store.deleteNotification(req.params.id);
+  if (!ok) return res.status(404).json({ error: 'That message no longer exists.' });
+  res.json({ ok: true });
+});
+
 // ---- Log of every phrase share (item 4: Admin Logging) ----
 router.get('/shares', requireAdmin, async (req, res) => {
   res.json({ shares: await store.listShares() });

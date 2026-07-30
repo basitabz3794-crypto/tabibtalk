@@ -61,6 +61,16 @@ async function patchOne(path, id, patch) {
   await ref.update(forUpdate(patch));
   return (await ref.once('value')).val();
 }
+// Returns false when there was nothing there, so callers can answer 404 rather
+// than reporting a delete that never happened.
+async function removeOne(path, id) {
+  if (!id) return false;
+  const ref = db().ref(`${path}/${id}`);
+  const existing = (await ref.once('value')).val();
+  if (!existing) return false;
+  await ref.remove();
+  return true;
+}
 
 // The JSON store returned newest-first by reversing insertion order. RTDB has
 // no insertion order to rely on, so sort on each record's own timestamp.
@@ -204,6 +214,9 @@ async function createNotification(notif) {
 async function listNotifications() {
   return newestFirst(await getAll('notifications'), 'createdAt');
 }
+async function deleteNotification(id) {
+  return removeOne('notifications', id);
+}
 
 // ---------- Phrase shares (rate-limited per tier, logged for admin) ----------
 async function createShare(share) {
@@ -290,7 +303,7 @@ module.exports = {
   createRecommendation, listRecommendations,
   listDevicesForUser, findDevice, createDevice, updateDevice, listAllDevices,
   getAppState, mergeAppState,
-  createNotification, listNotifications,
+  createNotification, listNotifications, deleteNotification,
   createShare, countSharesForUser, listShares,
   getPlanOverrides, setPlanOverride,
   getPaymentConfig, setPaymentConfig,

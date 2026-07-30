@@ -1251,6 +1251,27 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
         if (EXCLUDE[k]) return;
         try { _origSetItem(k, state[k]); } catch(e){}
       });
+
+      // Settle which dialect this account learns in, NOW — before the scoping
+      // layer below installs and before any app code reads or writes progress.
+      //
+      // tt_dialect is not synced as progress (it is not progress), so a device
+      // that has never been used for this account knows nothing about it and
+      // would default to Egyptian. computeStreak() and addTime() run on load,
+      // so those first moments were writing a Khaleeji student's activity into
+      // EGYPTIAN's keys — which is exactly how progress bled between dialects
+      // on phones and tablets while desktops, which already had the value
+      // stored, looked correct.
+      //
+      // An explicit ?dialect= still wins: the scoping layer applies it after
+      // this, so choosing a dialect by link or from the chooser overrides the
+      // account's recorded one.
+      try {
+        var VALID_D = { eg:1, hejazi:1, khaleeji:1 };
+        if (data && VALID_D[data.dialect]) {
+          _origSetItem('tt_dialect', JSON.stringify(data.dialect));
+        }
+      } catch(e){}
     }
   } catch (e) { /* offline or first run — fall through with local/default state */ }
 

@@ -47,13 +47,32 @@ router.get('/me', requireLogin, async (req, res) => {
   // a previous account's leftover localStorage before hydrating — otherwise a
   // second account opened in the same browser inherits (and then re-uploads)
   // the first account's streak/scores/etc.
+  //
+  // `dialect` is returned because this is the FIRST call the app makes, and it
+  // is synchronous — so it is the only chance to know which dialect this
+  // account learns in BEFORE any progress is read or written.
+  //
+  // tt_dialect is deliberately not synced as progress (it is not progress), so
+  // a device that has never been used for this account knows nothing about it.
+  // Without this, such a device — a new phone, a cleared iPad — ran as Egyptian
+  // for the first moments of every visit, and computeStreak()/addTime() fire on
+  // load, so it wrote a Khaleeji student's activity into EGYPTIAN's keys before
+  // anything could correct it. That is how progress leaked between dialects on
+  // phones and tablets while desktops looked fine.
+  const store = require('../data/store');
+  let dialect = null;
   try {
-    res.json({ state: await readProgress(req.session.userId), userId: req.session.userId });
+    const user = await store.findUserById(req.session.userId);
+    if (user) dialect = user.dialect || 'eg';
+  } catch (e) { /* fall through — the app still works, just without the hint */ }
+
+  try {
+    res.json({ state: await readProgress(req.session.userId), userId: req.session.userId, dialect });
   } catch (err) {
     // Never hard-fail the app over a progress read — the page still hydrates
     // from localStorage and will sync again on the next write.
     console.error('[progress] read failed:', err.message);
-    res.json({ state: {}, userId: req.session.userId });
+    res.json({ state: {}, userId: req.session.userId, dialect });
   }
 });
 

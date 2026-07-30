@@ -49,7 +49,20 @@
   .lifetime::after { content:""; position:absolute; top:-40%; right:-10%; width:300px; height:300px; background:radial-gradient(circle,var(--accent-glow),transparent 70%); pointer-events:none; }
   @media (min-width: 820px) { .lifetime { grid-template-columns: 1fr auto; } }
   .lifetime h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; margin: 12px 0 6px; }
-  .lifetime p { margin: 0; color: var(--muted); font-size: .95rem; max-width: 460px; }
+  .lifetime p { margin: 0; font-size: .95rem; max-width: 460px; }
+
+  /* This panel keeps a dark background in BOTH looks — the deep gradient above
+     in minimalist, a translucent cyan/violet over the dark page in sci-fi. Its
+     text, though, was inheriting var(--text) and var(--muted), which in the
+     light theme are near-black (#10151b) and mid-grey. That put dark text on a
+     dark panel, so the whole Lifetime plan was unreadable. Pin the colours to
+     the background that is actually there rather than to the theme. */
+  .lifetime, .lifetime h3, .lifetime .lt-now { color: #f3f7fb; }
+  .lifetime p { color: rgba(243, 247, 251, .80); }
+  .lifetime .price-fx { color: rgba(243, 247, 251, .68); }
+  /* The mail button sat on the same dark panel with light-theme surface colours. */
+  .lifetime .btn-contact { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); color: #f3f7fb; }
+  .lifetime .btn-contact:hover { border-color: var(--accent); color: var(--accent); }
   .lt-price { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; }
   .lt-now { font-family: var(--font-display); font-size: 2.2rem; font-weight: 700; color:#fff; }
   .lt-was { text-decoration: line-through; color: var(--muted); font-size: 1.02rem; }

@@ -148,6 +148,7 @@ let KEY = '';
 function ah(){ return { 'x-admin-key': KEY }; }
 async function adminGet(path){ const r = await fetch(path, { headers: ah() }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
 async function adminPost(path, body){ const r = await fetch(path, { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, ah()), body: JSON.stringify(body||{}) }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
+async function adminDelete(path){ const r = await fetch(path, { method:'DELETE', headers: ah() }); if(!r.ok) throw new Error('Request failed ('+r.status+')'); return r.json(); }
 function fmt(iso){ if(!iso) return '—'; try { return new Date(iso).toLocaleString(); } catch(e){ return iso; } }
 // Dialect labels for the admin tables. Accounts predating dialects report
 // 'eg', which is all there was when they signed up.
@@ -754,6 +755,15 @@ async function resolveAppealRaise(id){
 }
 window.resolveAppeal=resolveAppeal; window.resolveAppealRaise=resolveAppealRaise;
 
+/* Delete one broadcast. It disappears from this history AND from every user's
+   notification bell, which reads the same collection — so confirm first. */
+async function deleteNotif(id){
+  if (!confirm('Delete this announcement?\n\nIt will also disappear from every user\'s notification bell.')) return;
+  try { await adminDelete('/api/admin/notifications/' + encodeURIComponent(id)); loadNotify(); }
+  catch (e) { alert('Could not delete it: ' + e.message); }
+}
+window.deleteNotif = deleteNotif;
+
 async function loadNotify(){
   const { notifications } = await adminGet('/api/admin/notifications');
   document.getElementById('panel-notify').innerHTML = `
@@ -767,9 +777,15 @@ async function loadNotify(){
     <div class="card">
       <h3 class="sec">Broadcast history</h3>
       ${notifications.length ? notifications.map(n=>`
-        <div style="padding:14px 0;border-bottom:1px solid var(--border-soft)">
-          <div style="color:#ffffff;font-weight:500;line-height:1.5">${esc(n.message)}</div>
-          <div style="color:var(--muted);font-size:.8rem;margin-top:5px">${fmt(n.createdAt)}</div>
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border-soft)">
+          <div style="flex:1;min-width:0">
+            <!-- Was hardcoded #ffffff, which is invisible on the light/minimalist
+                 background. Follows the theme now. -->
+            <div style="color:var(--text);font-weight:500;line-height:1.5;word-break:break-word">${esc(n.message)}</div>
+            <div style="color:var(--muted);font-size:.8rem;margin-top:5px">${fmt(n.createdAt)}</div>
+          </div>
+          <button class="btn btn-ghost" style="flex:none" onclick="deleteNotif('${n.id}')"
+            title="Remove this announcement from the history and from every user's notification bell">Delete</button>
         </div>`).join('') : '<div class="empty">No messages sent yet.</div>'}
     </div>`;
   document.getElementById('send-notif-btn').addEventListener('click', async () => {
