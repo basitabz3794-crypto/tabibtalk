@@ -62,9 +62,12 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
   const PLAN_LABELS = {
     'student-monthly':'Student · Monthly', 'student-6m':'Student · 6 months', 'student-12m':'Student · 12 months',
     'professional-monthly':'Professional · Monthly', 'professional-6m':'Professional · 6 months', 'professional-yearly':'Professional · 12 months',
-    'lifetime':'Lifetime', 'explorer':'Explorer (free)'
+    'lifetime':'Lifetime', 'explorer':'Explorer (free)',
+    'basic-monthly':'Basic · Monthly', 'advanced-monthly':'Advanced · Monthly'
   };
-  const planLabel = PLAN_LABELS[user.planId] || (user.tier ? user.tier.charAt(0).toUpperCase()+user.tier.slice(1) : 'Explorer');
+  const DIALECT_NAMES = { eg: '🇪🇬 Egyptian', hejazi: '🇸🇦 Saudi (Hejazi)', khaleeji: '🌊 Gulf (Khaleeji)' };
+  const planLabelFor = (planId, tier) => PLAN_LABELS[planId] || (tier ? tier.charAt(0).toUpperCase()+tier.slice(1) : 'Explorer');
+  const planLabel = planLabelFor(user.planId, user.tier);
   const expiryBlock = user.tier === 'lifetime'
     ? `<div class="countdown">Lifetime — never expires</div>`
     : (user.planExpiresAt
@@ -88,11 +91,17 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
         <h3 class="sec">Subscription</h3>
         <div class="plan-hero">
           <div class="tier">${user.tier}</div>
-          <div style="color:var(--accent);font-weight:600;font-size:.9rem;margin-top:2px">${planLabel}</div>
+          <div style="color:var(--accent);font-weight:600;font-size:.9rem;margin-top:2px">${DIALECT_NAMES[user.dialect || 'eg']} &middot; ${planLabel}</div>
           ${expiryBlock}
           <div style="margin-top:18px"><a href="/plans.html?dialect=${encodeURIComponent(user.dialect || 'eg')}" class="btn btn-primary">${user.tier==='explorer'?'Choose a plan':'Change plan'} &rarr;</a></div>
         </div>
       </div>
+    </div>
+
+    <div class="card reveal d3" style="margin-top:18px">
+      <h3 class="sec">Your plans, dialect by dialect</h3>
+      <p style="color:var(--muted);font-size:.9rem;margin-top:-8px">A plan is bought for one dialect and stays with it &mdash; buying Advanced for Egyptian does not unlock Hejazi. Here is what you hold in each, and you can take out a plan in any of them.</p>
+      <div id="all-dialect-plans" style="display:grid;gap:10px;margin-top:14px"></div>
     </div>
 
     <div class="card reveal d3" style="margin-top:18px">
@@ -123,6 +132,34 @@ function daysLeft(iso){ if(!iso) return null; const ms = new Date(iso).getTime()
 
     <div style="margin-top:22px"><button class="btn btn-ghost" id="logout-btn">Log out</button></div>
   `;
+
+  /* ---- Your plans, dialect by dialect ----
+     user.dialects comes straight from /api/auth/me — the account's own
+     entitlement in each of the three dialects, not just the one it is
+     currently in. Falls back to reading "no plan yet" (this dialect's
+     baseline) when a dialect is entirely absent from the map, which is the
+     normal case for a dialect the student has never touched. */
+  (function(){
+    const ORDER = ['eg', 'hejazi', 'khaleeji'];
+    const box = document.getElementById('all-dialect-plans');
+    if (!box) return;
+    const dialects = user.dialects || {};
+    box.innerHTML = ORDER.map((d) => {
+      const ent = dialects[d] || { tier: (d === (user.dialect || 'eg') ? user.tier : 'explorer'), planId: null, planExpiresAt: null };
+      const label = planLabelFor(ent.planId, ent.tier);
+      const isCurrent = d === (user.dialect || 'eg');
+      const exp = ent.tier === 'lifetime' ? 'Never expires'
+        : (ent.planExpiresAt ? ('Until ' + fmtDate(ent.planExpiresAt)) : 'Free — no expiry');
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;border-radius:12px;'
+        + 'background:' + (isCurrent ? 'var(--accent-soft, rgba(45,212,191,.10))' : 'var(--surface)') + ';'
+        + 'border:1.5px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border)') + '">'
+        + '<div><b>' + DIALECT_NAMES[d] + '</b>' + (isCurrent ? ' <span style="color:var(--accent);font-size:.78rem">&#10003; current</span>' : '')
+        + '<div style="color:var(--muted);font-size:.85rem;margin-top:2px">' + label + ' &middot; ' + exp + '</div></div>'
+        + '<a href="/plans.html?dialect=' + encodeURIComponent(d) + '" style="text-decoration:none;flex:none">'
+        + '<button class="pill outline" style="cursor:pointer">' + (ent.tier === 'explorer' || ent.tier === 'basic' ? 'Choose a plan' : 'Change plan') + '</button></a>'
+        + '</div>';
+    }).join('');
+  })();
 
   /* ---- Learning dialect ----
      Stored in the same tt_dialect key the app reads, so switching here changes

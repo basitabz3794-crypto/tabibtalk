@@ -9191,7 +9191,10 @@ function _ttDownloadBlob(blob, filename){
       // every signed-in account gets full access, exactly as if on Lifetime.
       // The tier they really own is untouched server-side, so re-enabling
       // plans instantly restores normal gating.
-      fetch('/api/site-config', { credentials:'same-origin' })
+      // Resolved PER DIALECT: without ?dialect=, this always answers for
+      // Egyptian, which is exactly what silently upgraded Hejazi/Khaleeji
+      // explorer accounts to Basic — Egyptian's plans mode, not their own.
+      fetch('/api/site-config?dialect=' + encodeURIComponent(ttDialect()), { credentials:'same-origin' })
         .then(function(r){ return r.json(); })
         .then(function(cfg){
           // New-plans mode: Basic is the automatic free baseline — nobody sits
@@ -9315,11 +9318,26 @@ function ttGoAccount(){
         + row('College', user.college||'—')
         + row('Nationality', user.nationality||'—')
         + row('Year / grade', user.grade||'—')
-        + row('Current plan', planLabel)
+        // The dialect is stated outright, and the plan is labelled WITH it —
+        // "Gulf (Khaleeji) · Advanced", never a bare "Advanced" — because a plan
+        // only ever applies to the dialect it was bought for, and one student
+        // can hold a different plan in each of the three.
+        + row('Learning dialect', ttDia().label)
+        + row('Current plan', ttDia().label + ' · ' + planLabel)
         + row('Status', expiryLine)
+        + '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">'
+        +   '<div style="font-weight:700;font-size:.92rem;margin-bottom:4px;color:var(--text-dark)">Switch dialect</div>'
+        +   '<div style="font-size:.84rem;color:var(--muted);margin-bottom:10px">Each dialect keeps its own progress, streak, bookmarks and plan. Switching never loses anything &mdash; a plan you paid for stays with its own dialect and is waiting when you come back.</div>'
+        +   '<div style="display:grid;gap:8px">' + ttDialectChoices() + '</div>'
+        +   '<div id="acct-dialect-status" style="margin-top:8px;font-size:.82rem;color:var(--accent)"></div>'
+        + '</div>'
         + '<div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">'
         + '<button class="btn-primary" style="flex:1;min-width:130px" onclick="closeAccountModal();if(window.openOnboardModal)openOnboardModal(true)">👤 Personal details</button>'
-        + '<a href="/plans.html" style="flex:1;min-width:130px;text-decoration:none"><button class="btn-primary" style="width:100%">'+(user.tier==='explorer'?'Choose a plan':'Change plan')+'</button></a>'
+        // Carry the dialect explicitly. Without it the plans page falls through
+        // to whichever dialect is recorded on the account server-side, which is
+        // not necessarily the one being read right now — which is how students
+        // in Egyptian were being shown another dialect's plans.
+        + '<a href="/plans.html?dialect='+encodeURIComponent(ttDialect())+'" style="flex:1;min-width:130px;text-decoration:none"><button class="btn-primary" style="width:100%">'+(user.tier==='explorer'||user.tier==='basic'?'Choose a plan':'Change plan')+'</button></a>'
         + '<button class="pill outline acct-logout" onclick="ttLogout()">Log out</button>'
         + '<button class="pill outline" onclick="closeAccountModal()">Close</button>'
         + '</div>';
@@ -9329,6 +9347,66 @@ function ttGoAccount(){
     });
 }
 window.ttGoAccount=ttGoAccount;
+
+/* The three dialect buttons in the account panel. The dialect you are already
+   in is shown as current and is not clickable. */
+function ttDialectChoices(){
+  var cur = ttDialect();
+  var order = ['eg','hejazi','khaleeji'];
+  var html = '';
+  for(var i=0;i<order.length;i++){
+    var d = order[i], dia = ttDia(d), isCur = (d === cur);
+    html += '<button type="button"'
+      + (isCur ? '' : ' onclick="ttSwitchDialect(\'' + d + '\')"')
+      + ' style="text-align:left;padding:11px 13px;border-radius:11px;font:inherit;'
+      + 'cursor:' + (isCur ? 'default' : 'pointer') + ';color:var(--text-dark);'
+      + 'background:' + (isCur ? 'var(--secondary)' : 'transparent') + ';'
+      + 'border:1.5px solid ' + (isCur ? 'var(--primary)' : 'var(--border)') + '">'
+      + '<b>' + dia.label + '</b>'
+      + (isCur ? ' <span style="color:var(--primary);font-size:.78rem">&#10003; current</span>' : '')
+      + '</button>';
+  }
+  return html;
+}
+window.ttDialectChoices = ttDialectChoices;
+
+/* Switch dialect from inside the app. Two things have to happen, and both
+   matter:
+
+   1. The SERVER is told, through the same /api/auth/dialect endpoint the
+      standalone account page already uses. Skipping this was the original bug:
+      the browser and the account disagreed about which dialect the student was
+      in, so anything trusting the account — the plans page above all — offered
+      the wrong dialect's plans.
+
+   2. The page is RELOADED carrying ?dialect=. A dialect's wording is applied to
+      the phrase database as the page parses, so it cannot be swapped in place;
+      and because the plan differs per dialect, the tier has to be re-synced as
+      well. One reload does both.
+
+   Nothing is forfeited by switching: a paid plan stays parked on the dialect it
+   was bought for, and switching back restores it exactly. */
+function ttSwitchDialect(pick){
+  var el = document.getElementById('acct-dialect-status');
+  if(el) el.textContent = 'Switching…';
+  var dev; try{ dev = localStorage.getItem('tt_device_id'); }catch(e){ dev = ''; }
+  fetch('/api/auth/dialect', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'x-device-id': dev || '' },
+    body: JSON.stringify({ dialect: pick })
+  })
+  .then(function(r){ if(!r.ok) throw new Error('switch failed'); return r.json(); })
+  .then(function(){
+    try{ localStorage.setItem('tt_dialect', JSON.stringify(pick)); }catch(e){}
+    window.location.href = '/app.html?dialect=' + encodeURIComponent(pick);
+  })
+  .catch(function(){
+    // Deliberately do NOT change the local dialect if the server refused — that
+    // is exactly the split-brain this function exists to prevent.
+    if(el) el.textContent = 'Could not switch just now — please try again.';
+  });
+}
+window.ttSwitchDialect = ttSwitchDialect;
 
 /* Log out from inside the app (My Account -> next to "Change plan").
    Ends the server session, then clears the cached tier and this account's

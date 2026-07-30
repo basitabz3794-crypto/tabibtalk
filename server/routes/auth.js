@@ -2,14 +2,26 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const firebase = require('../data/firebase');
-const { computeExpiry, isExpired, accessTierForPlan, baselineTier, normaliseDialect, configForDialect } = require('../data/plans');
+const { computeExpiry, isExpired, accessTierForPlan, baselineTier, normaliseDialect, configForDialect, DIALECTS } = require('../data/plans');
 const entitlements = require('../data/entitlements');
 
 const router = express.Router();
 const MAX_DEVICES = 3;
 
-// Build the safe public view of a user (never leaks the password hash).
-function publicUser(user) {
+// Build the safe public view of a user (never leaks the password hash). `cfg`
+// (site config) is optional — pass it when the caller already has it, so this
+// never triggers a second read of the same config in one request; when
+// omitted, the per-dialect summary below is fetched with its own read.
+async function publicUser(user, cfg) {
+  cfg = cfg || await store.getSiteConfig();
+  // What this account holds in EACH dialect — not just the one it is currently
+  // in. The account page shows this so a student can see (and buy) a plan for
+  // a dialect they are not standing in right now, without switching first.
+  const dialects = {};
+  DIALECTS.forEach((d) => {
+    const ent = entitlements.forDialect(user, d, cfg);
+    dialects[d] = { tier: ent.tier, planId: ent.planId, planExpiresAt: ent.planExpiresAt };
+  });
   return {
     id: user.id, email: user.email, name: user.name || '',
     phone: user.phone || '', college: user.college || '',
@@ -20,6 +32,7 @@ function publicUser(user) {
     // Which dialect this account learns in. Accounts created before dialects
     // existed carry no field and are Egyptian, which is all there was.
     dialect: user.dialect || 'eg',
+    dialects,
     createdAt: user.createdAt,
   };
 }
@@ -201,7 +214,7 @@ router.post('/firebase-session', async (req, res) => {
 
   user = await reconcileUser(user);
   req.session.userId = user.id;
-  res.json(publicUser(user));
+  res.json(await publicUser(user));
 });
 
 // ---- Device-limit appeal ----
@@ -266,7 +279,7 @@ router.get('/me', async (req, res) => {
   if (!user) return res.json({ user: null });
   if (user.status === 'banned') { req.session.destroy(() => {}); return res.json({ user: null, banned: true }); }
   user = await reconcileUser(user);
-  res.json({ user: publicUser(user) });
+  res.json({ user: await publicUser(user) });
 });
 
 // ---- Record the dialect a student is learning in ----
@@ -287,7 +300,7 @@ router.post('/dialect', async (req, res) => {
   const cfg = await store.getSiteConfig();
   const patch = entitlements.switchTo(user, dialect, cfg);
   const updated = await reconcileUser(await store.updateUser(user.id, patch), cfg);
-  res.json({ ok: true, user: publicUser(updated) });
+  res.json({ ok: true, user: await publicUser(updated, cfg) });
 });
 
 // ---- Password reset ----

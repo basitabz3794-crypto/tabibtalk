@@ -143,6 +143,25 @@ function renderHeader(activePage) {
       }
     })
     .catch(function () {});
+  // On the landing page only: a SIGNED-IN account already has a dialect of
+  // record (chosen at signup, or since via My Account), so "Open the Website"
+  // and "Plans" should go straight there instead of asking again with the
+  // chooser. An anonymous visitor has made no such choice yet, so the chooser
+  // stays the default for them. This runs after the initial render so it never
+  // delays first paint, and only touches the two links if it finds an account.
+  if (ttIsLandingPage()) {
+    fetch('/api/auth/me', { credentials: 'same-origin', headers: { 'x-device-id': getDeviceId() } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var d = data && data.user && data.user.dialect;
+        if (!TT_DIA_NAME[d]) return; // no account, or nothing recorded — keep the chooser
+        var plansA = el.querySelector('[data-plans-link]');
+        var appA = el.querySelector('[data-key="app"]');
+        if (plansA) plansA.href = '/plans.html?dialect=' + encodeURIComponent(d);
+        if (appA) appA.href = '/app.html?dialect=' + encodeURIComponent(d);
+      })
+      .catch(function () {});
+  }
 }
 
 /* NOTE: useBackButton() used to swap the top-right "Home" link for a "← Back"
@@ -215,10 +234,20 @@ async function openAppGuard(ev) {
   if (ev) ev.preventDefault();
   try {
     var user = await getCurrentUser();
-    if (user) { window.location.href = '/app.html'; }
-    else { window.location.href = '/login.html?next=/app.html'; }
+    if (user) {
+      // The ACCOUNT's dialect is authoritative, not whatever this browser's
+      // localStorage happens to hold. Without this, a signed-in student
+      // opening the site from a new device (or with storage cleared) was
+      // silently dropped into Egyptian regardless of which dialect they
+      // actually learn in — this hard-coded '/app.html' with no dialect at
+      // all, ignoring even the link's own href.
+      var d = (user.dialect && TT_DIA_NAME[user.dialect]) ? user.dialect : 'eg';
+      window.location.href = '/app.html?dialect=' + encodeURIComponent(d);
+    } else {
+      window.location.href = '/login.html?next=' + encodeURIComponent('/app.html');
+    }
   } catch (e) {
-    window.location.href = '/login.html?next=/app.html';
+    window.location.href = '/login.html?next=' + encodeURIComponent('/app.html');
   }
   return false;
 }
