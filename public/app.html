@@ -1394,9 +1394,55 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   window.__ttScopedKey = scoped;
   window.__ttScopedBases = Object.keys(SCOPED);
 
-  localStorage.getItem    = function(k){ return rawGet(scoped(k)); };
-  localStorage.setItem    = function(k, v){ return syncSet(scoped(k), v); };
-  localStorage.removeItem = function(k){ return rawDel(scoped(k)); };
+  // Installing these is NOT as simple as assigning them, and getting it wrong
+  // is silent.
+  //
+  // A Storage object has a named property setter, so `localStorage.getItem = fn`
+  // is allowed to mean "store an entry called getItem" rather than "override the
+  // method". Chrome shadows the prototype method as you would expect; Safari
+  // took the other reading — so on iPhones and iPads the whole per-dialect layer
+  // installed without error and then did absolutely nothing, leaving every
+  // dialect reading Egyptian's keys. It looked fine on desktop the entire time.
+  //
+  // defineProperty bypasses the named setter and defines a real own property.
+  // The result is then VERIFIED, and if it still has not taken we patch the
+  // prototype instead, guarded to localStorage so sessionStorage is untouched.
+  function installStorageOverride(name, fn) {
+    try {
+      Object.defineProperty(localStorage, name, { value: fn, writable: true, configurable: true });
+    } catch (e) { /* fall through to the check below */ }
+    if (localStorage[name] === fn) return true;
+
+    try {
+      var proto = Object.getPrototypeOf(localStorage) || Storage.prototype;
+      var original = proto[name];
+      Object.defineProperty(proto, name, {
+        value: function () {
+          // Only localStorage is scoped; sessionStorage keeps its own behaviour.
+          if (this === localStorage) return fn.apply(this, arguments);
+          return original.apply(this, arguments);
+        },
+        writable: true, configurable: true
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  var ok = true;
+  ok = installStorageOverride('getItem',    function(k){ return rawGet(scoped(k)); }) && ok;
+  ok = installStorageOverride('setItem',    function(k, v){ return syncSet(scoped(k), v); }) && ok;
+  ok = installStorageOverride('removeItem', function(k){ return rawDel(scoped(k)); }) && ok;
+
+  // Safari may already have written literal "getItem"/"setItem"/"removeItem"
+  // entries from an earlier visit under the old code. Harmless, but they are
+  // not app data and should not linger.
+  try { ['getItem','setItem','removeItem'].forEach(function(k){
+    if (Object.prototype.hasOwnProperty.call(localStorage, k) && typeof rawGet(k) === 'string') rawDel(k);
+  }); } catch(e){}
+
+  // Readable from the console, so "is per-dialect actually on?" is answerable
+  // on a real device instead of inferred.
+  window.__ttScopingActive = ok && localStorage.getItem !== rawGet;
 })();
 </script>
 
