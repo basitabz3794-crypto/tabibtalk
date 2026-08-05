@@ -1202,9 +1202,32 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   // per-dialect streak, bookmark and resume point read Egyptian's keys and
   // the dialects looked like they were sharing progress. They were not; the
   // dialect was being reset underneath them.
-  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1, tt_dialect: 1 };
+  // tt_sync_ack is this module's own bookkeeping (see below). It must never be
+  // uploaded or hydrated — and it is deliberately NOT in KEEP_ON_WIPE, so an
+  // account switch clears it along with the previous account's progress.
+  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1, tt_dialect: 1, tt_sync_ack: 1 };
   // Keys kept when wiping a previous account's data on account switch.
   var KEEP_ON_WIPE = { tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1 };
+
+  /* ---- Unsynced-work tracking -------------------------------------------
+     tt_sync_ack records, per key, the exact value the server last CONFIRMED it
+     stored. Comparing it with the current local value says whether this browser
+     is holding work the account never received:
+
+       local === acked  ->  clean; the server copy may be newer (another
+                            device), so the server wins on load.
+       local !== acked  ->  dirty; we have unsynced progress. Local wins and is
+                            re-sent, instead of being silently replaced.
+
+     sendBeacon/keepalive (below) made delivery reliable at unload, but a save
+     can still fail for other reasons — an expired session, a Firebase write
+     error, a dropped mobile connection, a cold-start timeout. When that
+     happened the patch was discarded and the next load overwrote the newer
+     local values with the stale server copy, so streaks and bookmarks visibly
+     went back to an old number and the newer ones were gone for good. */
+  var carryOver = {};   // dirty local values to push straight back up
+  function readAck(){ try{ return JSON.parse(localStorage.getItem('tt_sync_ack')||'{}')||{}; }catch(e){ return {}; } }
+  function writeAck(a){ try{ _origSetItem('tt_sync_ack', JSON.stringify(a)); }catch(e){} }
 
   function getDeviceId(){
     try{ var id=localStorage.getItem('tt_device_id'); if(!id){ id='dev-'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('tt_device_id',id);} return id; }catch(e){ return 'dev-unknown'; }
@@ -1244,13 +1267,37 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
         } catch(e){}
       }
 
-      // Hydrate from this account's server state. The server is the source of
-      // truth: keys it holds overwrite local. (For a brand-new account the
-      // state is empty and the wipe above already cleared the slate.)
+      // Hydrate from this account's server state, but only where this browser
+      // has nothing unsynced. The server is the source of truth for keys we
+      // last confirmed it stored; anything newer here is kept and re-sent.
+      // (For a brand-new account the state is empty, and on an account switch
+      // the wipe above already cleared both the progress and tt_sync_ack, so
+      // local reads as empty and the server copy wins — as it should.)
+      var ack = readAck();
       Object.keys(state).forEach(function(k){
         if (EXCLUDE[k]) return;
-        try { _origSetItem(k, state[k]); } catch(e){}
+        var sv = state[k];
+        var lv = null;
+        try { lv = localStorage.getItem(k); } catch(e){}
+        if (lv === null || lv === ack[k]) {
+          if (lv !== sv) { try { _origSetItem(k, sv); } catch(e){} }
+          ack[k] = sv;
+        } else {
+          carryOver[k] = lv;   // unsynced local progress — keep it, re-send it
+        }
       });
+      // Keys this browser holds that the account has never seen (a first sync,
+      // or saves that never landed) still need pushing up.
+      try {
+        for (var _i = 0; _i < localStorage.length; _i++) {
+          var _k = localStorage.key(_i);
+          if (!_k || EXCLUDE[_k] || _k.indexOf('tt_') !== 0) continue;
+          if (Object.prototype.hasOwnProperty.call(state, _k)) continue;
+          var _v = localStorage.getItem(_k);
+          if (_v !== null && _v !== ack[_k]) carryOver[_k] = _v;
+        }
+      } catch(e){}
+      writeAck(ack);
 
       // Settle which dialect this account learns in, NOW — before the scoping
       // layer below installs and before any app code reads or writes progress.
@@ -1294,13 +1341,31 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
         if (navigator.sendBeacon('/api/progress/save', blob)) return;
       } catch(e){ /* fall through to fetch */ }
     }
+    // A save that fails must never be dropped: put it back so the next flush
+    // retries it, and so tt_sync_ack still marks it dirty if the page is left
+    // before that happens. Only a confirmed 2xx marks the keys as acked.
+    // (Beacon sends above return early — delivery can't be confirmed, so those
+    // keys stay unacked on purpose and re-sync on the next load, which is
+    // idempotent and safer than assuming they arrived.)
     try {
       fetch('/api/progress/save', {
         method: 'POST', credentials: 'same-origin', keepalive: true,
         headers: { 'Content-Type': 'application/json', 'x-device-id': getDeviceId() },
         body: body,
-      }).catch(function(){});
-    } catch(e){}
+      }).then(function(r){
+        if (r && r.ok) {
+          var a = readAck();
+          Object.keys(patch).forEach(function(k){ a[k] = patch[k]; });
+          writeAck(a);
+        } else { requeue(patch); }
+      }).catch(function(){ requeue(patch); });
+    } catch(e){ requeue(patch); }
+  }
+  function requeue(patch){
+    Object.keys(patch).forEach(function(k){
+      if (!Object.prototype.hasOwnProperty.call(pending, k)) pending[k] = patch[k];
+    });
+    if (!flushTimer) flushTimer = setTimeout(function(){ doFlush(false); }, 5000);
   }
   function flush(){ doFlush(false); }
   window.__ttFlushProgress = function(){ doFlush(true); }; // used by logout to persist before wiping
@@ -1315,6 +1380,14 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') doFlush(true); });
   window.addEventListener('pagehide', function(){ doFlush(true); });
   window.addEventListener('beforeunload', function(){ doFlush(true); });
+
+  // Anything this browser held but never managed to sync goes up immediately.
+  if (Object.keys(carryOver).length) {
+    Object.keys(carryOver).forEach(function(k){
+      if (!Object.prototype.hasOwnProperty.call(pending, k)) pending[k] = carryOver[k];
+    });
+    doFlush(false);
+  }
 })();
 
 /* ============================================================
