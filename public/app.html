@@ -1177,6 +1177,46 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
 
 <script>
 /* ============================================================
+   Overriding a localStorage method, done once, correctly.
+   ============================================================
+   Two separate layers below wrap localStorage: the progress sync (which
+   queues every write for upload) and the per-dialect scoping. Both used to
+   install by plain assignment — `localStorage.setItem = fn` — and that is
+   NOT reliable.
+
+   A Storage object has a named property setter, so that line is genuinely
+   ambiguous: it can mean "override the method", or "store an entry called
+   setItem". Chrome takes the first reading. Safari takes the second. On
+   iPhones and iPads both layers therefore installed with no error and did
+   nothing at all — no progress was ever uploaded, and every dialect read
+   Egyptian's keys. Desktop was fine throughout, which is what made it so
+   hard to see.
+
+   defineProperty bypasses the named setter. The result is verified, and if
+   it still has not taken we patch the prototype, guarded to localStorage so
+   sessionStorage keeps its own behaviour.
+   ============================================================ */
+function ttInstallStorageOverride(name, fn) {
+  try {
+    Object.defineProperty(localStorage, name, { value: fn, writable: true, configurable: true });
+  } catch (e) { /* fall through to the verification below */ }
+  if (localStorage[name] === fn) return true;
+  try {
+    var proto = Object.getPrototypeOf(localStorage) || Storage.prototype;
+    var original = proto[name];
+    Object.defineProperty(proto, name, {
+      value: function () {
+        if (this === localStorage) return fn.apply(this, arguments);
+        return original.apply(this, arguments);
+      },
+      writable: true, configurable: true
+    });
+    return true;
+  } catch (e) { return false; }
+}
+window.ttInstallStorageOverride = ttInstallStorageOverride;
+
+/* ============================================================
    Per-account progress sync — runs FIRST, before any app code,
    so streak/time-spent/course-progress/bookmarks/saved-questions
    are hydrated from the signed-in user's account before the page
@@ -1369,13 +1409,20 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   }
   function flush(){ doFlush(false); }
   window.__ttFlushProgress = function(){ doFlush(true); }; // used by logout to persist before wiping
-  localStorage.setItem = function(key, value){
+  // Installed via the helper above, NOT by plain assignment. On Safari the
+  // assignment stored an entry called "setItem" instead of overriding the
+  // method, so nothing was ever queued and no progress from an iPhone or iPad
+  // ever reached the server — which is why a refresh appeared to "put the old
+  // numbers back": the phone's changes had never been saved, so hydration
+  // simply restored the last state the server knew about.
+  var syncInstalled = ttInstallStorageOverride('setItem', function(key, value){
     _origSetItem(key, value);
     if (EXCLUDE[key] || String(key).indexOf('tt_') !== 0) return;
     pending[key] = value;
     if (flushTimer) clearTimeout(flushTimer);
     flushTimer = setTimeout(flush, 900);
-  };
+  });
+  window.__ttSyncActive = syncInstalled;
   // Flush reliably whenever the page is being backgrounded or left.
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') doFlush(true); });
   window.addEventListener('pagehide', function(){ doFlush(true); });
@@ -1477,34 +1524,13 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
   // installed without error and then did absolutely nothing, leaving every
   // dialect reading Egyptian's keys. It looked fine on desktop the entire time.
   //
-  // defineProperty bypasses the named setter and defines a real own property.
-  // The result is then VERIFIED, and if it still has not taken we patch the
-  // prototype instead, guarded to localStorage so sessionStorage is untouched.
-  function installStorageOverride(name, fn) {
-    try {
-      Object.defineProperty(localStorage, name, { value: fn, writable: true, configurable: true });
-    } catch (e) { /* fall through to the check below */ }
-    if (localStorage[name] === fn) return true;
-
-    try {
-      var proto = Object.getPrototypeOf(localStorage) || Storage.prototype;
-      var original = proto[name];
-      Object.defineProperty(proto, name, {
-        value: function () {
-          // Only localStorage is scoped; sessionStorage keeps its own behaviour.
-          if (this === localStorage) return fn.apply(this, arguments);
-          return original.apply(this, arguments);
-        },
-        writable: true, configurable: true
-      });
-      return true;
-    } catch (e) { return false; }
-  }
-
+  // Uses the shared ttInstallStorageOverride defined above the sync layer —
+  // the same install both layers depend on, so there is one implementation to
+  // get right rather than two.
   var ok = true;
-  ok = installStorageOverride('getItem',    function(k){ return rawGet(scoped(k)); }) && ok;
-  ok = installStorageOverride('setItem',    function(k, v){ return syncSet(scoped(k), v); }) && ok;
-  ok = installStorageOverride('removeItem', function(k){ return rawDel(scoped(k)); }) && ok;
+  ok = ttInstallStorageOverride('getItem',    function(k){ return rawGet(scoped(k)); }) && ok;
+  ok = ttInstallStorageOverride('setItem',    function(k, v){ return syncSet(scoped(k), v); }) && ok;
+  ok = ttInstallStorageOverride('removeItem', function(k){ return rawDel(scoped(k)); }) && ok;
 
   // Safari may already have written literal "getItem"/"setItem"/"removeItem"
   // entries from an earlier visit under the old code. Harmless, but they are
