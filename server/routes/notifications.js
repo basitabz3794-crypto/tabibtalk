@@ -16,6 +16,10 @@ function requireLogin(req, res, next) {
 // readAt because each is answered individually.
 router.get('/me', requireLogin, async (req, res) => {
   const user = await store.findUserById(req.session.userId);
+  // A session can outlive its account — deleted in the admin hub, or removed
+  // during testing. That is not an error worth a 500; an empty bell is the
+  // honest answer, and the auth gate will move them on.
+  if (!user) return res.json({ notifications: [], personal: [], unreadCount: 0 });
   const [broadcasts, personal] = await Promise.all([
     store.listNotifications(),
     store.listUserNotifications(req.session.userId),

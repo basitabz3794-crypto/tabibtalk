@@ -5795,6 +5795,23 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
         document.querySelectorAll('#tabbar .tab').forEach(function(t){ t.classList.remove('active'); });
         el.classList.add('active');
     }
+    /* Light the tab that matches the page actually being shown.
+       selectTab() only fires when a tab itself is clicked, so arriving at Feed
+       or the Leaderboard from the side menu used to leave the tab bar showing
+       the previous page as current. This keeps the two in step however the page
+       was reached. */
+    function ttSyncTabTo(pageId){
+        var bar=document.getElementById('tabbar'); if(!bar) return;
+        var tabs=bar.querySelectorAll('.tab'); var matched=null;
+        tabs.forEach(function(t){
+            var oc=t.getAttribute('onclick')||'';
+            if(oc.indexOf("'"+pageId+"'")>=0) matched=t;
+        });
+        if(!matched) return;   // a page with no tab of its own leaves the bar alone
+        tabs.forEach(function(t){ t.classList.remove('active'); });
+        matched.classList.add('active');
+    }
+    window.ttSyncTabTo=ttSyncTabTo;
     function goTool(kind){
         var map = { flashcards:'page-flashcards', quiz:'page-quiz-hub', ai:'page-ai',
                     practice:'page-ai', translate:'page-translate', smart:'page-smart-tools' };
@@ -8369,7 +8386,9 @@ function buildDrawer(){
   var body=document.getElementById('drawer-body'); if(!body) return;
   var h='<div class="drawer-group">Course</div><div class="drawer-link" onclick="navigate(\'page-course\')">\uD83D\uDCDA Course (Study Paths)</div>';
   h+='<div class="drawer-group">Smart Features</div>';
-  [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streak','page-streak']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
+  [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streaks and analysis','page-streak'],['\uD83C\uDFC6 Leaderboard','page-leaderboard'],['\uD83D\uDCE3 Feed','page-feed']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
+  /* Friends opens a panel rather than a page, so it is appended separately. */
+  h+='<div class="drawer-link" onclick="closeDrawer();ttOpenFriends()">\uD83E\uDD1D Friends</div>';
   var groups={}; SUBJECTS.forEach(function(s){ (groups[s.grp]=groups[s.grp]||[]).push(s); });
   Object.keys(groups).forEach(function(g){ h+='<div class="drawer-group">'+g+'</div>'; groups[g].forEach(function(s){ h+='<div class="drawer-link" onclick="navigate(\''+s.page+'\')">'+s.label+'</div>'; }); });
   body.innerHTML=h;
@@ -8575,7 +8594,9 @@ function buildDrawer(){
   var body=document.getElementById('drawer-body'); if(!body) return;
   var h='<div class="drawer-group">Course</div><div class="drawer-link" onclick="navigate(\'page-course\')">\uD83D\uDCDA Course (Study Paths)</div>';
   h+='<div class="drawer-group">Smart Features</div>';
-  [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streak','page-streak']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
+  [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streaks and analysis','page-streak'],['\uD83C\uDFC6 Leaderboard','page-leaderboard'],['\uD83D\uDCE3 Feed','page-feed']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
+  /* Friends opens a panel rather than a page, so it is appended separately. */
+  h+='<div class="drawer-link" onclick="closeDrawer();ttOpenFriends()">\uD83E\uDD1D Friends</div>';
   h+='<div class="drawer-group">Unlocked Courses <span class="drawer-hint">Fully unlocked study paths \u00b7 Pro</span></div>';
   var order=['Foundations','Internal Medicine','Specialties','Reference']; var byGrp={};
   SUBJECTS.forEach(function(s){ if(s.k==='franco-alpha') { (byGrp['Foundations']=byGrp['Foundations']||[]).push(s); return;} (byGrp[s.grp]=byGrp[s.grp]||[]).push(s); });
@@ -9187,7 +9208,9 @@ function buildDrawer(){
   var body=document.getElementById('drawer-body'); if(!body) return;
   var h='<div class="drawer-group">Course</div><div class="drawer-link" onclick="navigate(\'page-course\')">\uD83D\uDCDA Course (Study Paths)</div>';
   h+='<div class="drawer-group">Smart Features</div>';
-  [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streak','page-streak']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
+  [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streaks and analysis','page-streak'],['\uD83C\uDFC6 Leaderboard','page-leaderboard'],['\uD83D\uDCE3 Feed','page-feed']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
+  /* Friends opens a panel rather than a page, so it is appended separately. */
+  h+='<div class="drawer-link" onclick="closeDrawer();ttOpenFriends()">\uD83E\uDD1D Friends</div>';
   h+='<div class="drawer-group">Unlocked Courses <span class="drawer-hint">Fully unlocked study paths \u2014 an effective bedside history-taking companion &amp; reference</span></div>';
   var CATS={'Foundations':[],'Internal Medicine':[],'Specialties':[],'Dictionary':[]};
   SUBJECTS.forEach(function(s){
@@ -9958,29 +9981,43 @@ function ttRenderSharedStreaks(){
       }
       var h='';
       (d.streaks||[]).forEach(function(s){
+        var names=(s.partners||[]).map(function(p){ return p.name; });
         h+='<div class="ss-card'+(s.atRisk?' at-risk':'')+'">'
-          +'<div class="ss-top"><div>'
-          +  '<button type="button" class="who-btn" onclick="ttOpenProfile(\''+esc(s.partner.id)+'\')"><b>'+esc(s.partner.name)+'</b></button>'
-          +  (s.partner.college?'<div class="ss-uni">'+esc(s.partner.college)+'</div>':'')
+          +'<div class="ss-top"><div class="ss-who">'
+          + (s.isGroup
+              ? '<b>You and '+names.length+' others</b><div class="ss-members">'
+                + (s.partners||[]).map(function(p){
+                    return '<button type="button" class="ss-chip'+(p.owesToday?' owes':'')+'"'
+                      +' onclick="ttOpenProfile(\''+esc(p.id)+'\')" title="'+esc(p.college||'')+'">'
+                      + esc(p.name)+(p.owesToday?' •':'')+'</button>';
+                  }).join('')
+                + '</div>'
+              : '<button type="button" class="who-btn" onclick="ttOpenProfile(\''+esc(s.partner.id)+'\')"><b>'+esc(s.partner.name)+'</b></button>'
+                + (s.partner.college?'<div class="ss-uni">'+esc(s.partner.college)+'</div>':''))
           +'</div><div class="ss-days"><span>'+s.days+'</span> day'+(s.days===1?'':'s')+'</div></div>';
         if(s.atRisk){
+          var owing=(s.partners||[]).filter(function(p){ return p.owesToday; }).map(function(p){ return p.name; });
           h+='<div class="ss-warn">⚠️ '+(s.waitingOnMe
-              ? 'Study today or you both lose it.'
-              : 'Waiting on '+esc(s.partner.name)+' to study today.')+'</div>';
+              ? (s.isGroup?'Study today or everyone loses it.':'Study today or you both lose it.')
+              : 'Waiting on '+esc(owing.join(', '))+' to study today.')+'</div>';
         } else if(s.bothToday){
-          h+='<div class="ss-ok">✓ You have both studied today.</div>';
+          h+='<div class="ss-ok">✓ '+(s.isGroup?'Everyone has studied today.':'You have both studied today.')+'</div>';
         }
         h+='<div class="ss-acts">'
           + (s.freezeAvailable
               ? '<button type="button" class="pill outline" onclick="ttUseFreeze(\''+esc(s.id)+'\')">❄️ Use this week’s freeze</button>'
               : '<span class="ss-note">Freeze used this week</span>')
-          + '<button type="button" class="pill outline" onclick="ttEndSharedStreak(\''+esc(s.id)+'\')">End</button>'
+          + (s.canAddMore
+              ? '<button type="button" class="pill outline" onclick="ttInviteStreak(\''+esc(s.id)+'\')">+ Add friend</button>'
+              : '')
+          + '<button type="button" class="pill outline" onclick="ttEndSharedStreak(\''+esc(s.id)+'\','+(s.isGroup?'true':'false')+')">'
+          + (s.isGroup?'Leave':'End')+'</button>'
           +'</div></div>';
       });
       if(!(d.streaks||[]).length){
-        h+='<div class="ss-empty">You are not sharing a streak yet. Invite a friend and you will keep it going together — if one of you misses a day, you both lose it.</div>';
+        h+='<div class="ss-empty">You are not sharing a streak yet. Invite friends and you will keep it going together — if one person misses a day, everyone loses it.</div>';
       }
-      h+='<button type="button" class="pill" onclick="ttInviteStreak()">+ Invite a friend</button>';
+      h+='<button type="button" class="pill" onclick="ttInviteStreak()">+ Start a streak with friends</button>';
       box.innerHTML=h;
       // Let a partner know their streak is at risk. Server-side this is capped
       // at one message per person per day.
@@ -10006,25 +10043,33 @@ function ttUseFreeze(id){
 }
 window.ttUseFreeze=ttUseFreeze;
 
-function ttEndSharedStreak(id){
-  if(!confirm('End this shared streak?\n\nYour own daily streak is not affected.')) return;
+function ttEndSharedStreak(id, isGroup){
+  var msg = isGroup
+    ? 'Leave this streak?\n\nThe others keep theirs going. Your own daily streak is not affected.'
+    : 'End this shared streak?\n\nYour own daily streak is not affected.';
+  if(!confirm(msg)) return;
   fetch('/api/streaks/'+encodeURIComponent(id),{method:'DELETE',credentials:'same-origin'})
-    .then(function(){ toast('Shared streak ended',2400); ttRenderSharedStreaks(); })
-    .catch(function(){ toast('Could not end it just now.',3000); });
+    .then(function(r){ return r.json(); })
+    .then(function(j){ toast(j.left?'You left the streak':'Shared streak ended',2400); ttRenderSharedStreaks(); })
+    .catch(function(){ toast('Could not do that just now.',3000); });
 }
 window.ttEndSharedStreak=ttEndSharedStreak;
 
 /* Pick a friend to invite. Only friends appear, which is also enforced on the
    server — an invitation cannot be used to reach a stranger. */
-function ttInviteStreak(){
+function ttInviteStreak(streakId){
   if(document.getElementById('tt-friends')) return;
   var ov=document.createElement('div');
   ov.id='tt-friends';
   ov.innerHTML='<div class="pf-card" role="dialog" aria-modal="true" aria-labelledby="si-h">'
     +'<button type="button" class="pf-x" onclick="ttCloseFriends()" aria-label="Close">&times;</button>'
-    +'<h2 id="si-h" class="pf-name">Invite a friend</h2>'
-    +'<div class="pf-empty" style="margin-bottom:10px">You will keep the streak together. If either of you misses a day, you both lose it.</div>'
-    +'<div id="fr-list" class="pf-loading">Loading…</div></div>';
+    +'<h2 id="si-h" class="pf-name">'+(streakId?'Add to this streak':'Start a streak')+'</h2>'
+    +'<div class="pf-empty" style="margin-bottom:10px">'
+    + (streakId
+        ? 'They join the streak you already have. Everyone has to study each day — if one person misses, everyone loses it.'
+        : 'Invite one friend to begin, then add more from the streak itself. Everyone has to study each day — if one person misses, everyone loses it.')
+    +'</div>'
+    +'<div id="fr-list" class="pf-loading" data-streak="'+esc(streakId||'')+'">Loading…</div></div>';
   ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseFriends(); });
   document.body.appendChild(ov);
   fetch('/api/friends',{credentials:'same-origin'})
@@ -10037,7 +10082,7 @@ function ttInviteStreak(){
         ? f.map(function(x){
             return '<div class="fr-row"><div class="fr-who"><b>'+esc(x.name)+'</b>'
               +(x.college?'<span class="fr-uni">'+esc(x.college)+'</span>':'')+'</div>'
-              +'<button type="button" class="pf-btn fr-x" onclick="ttSendStreakInvite(\''+esc(x.id)+'\')">Invite</button></div>';
+              +'<button type="button" class="pf-btn fr-x" onclick="ttSendStreakInvite(\''+esc(x.id)+'\',\''+esc(streakId||'')+'\')">Invite</button></div>';
           }).join('')
         : '<div class="pf-empty">Add a friend first — tap anyone’s name in the Feed or on the leaderboard.</div>';
     })
@@ -10048,9 +10093,10 @@ function ttInviteStreak(){
 }
 window.ttInviteStreak=ttInviteStreak;
 
-function ttSendStreakInvite(toId){
+function ttSendStreakInvite(toId, streakId){
   fetch('/api/streaks/invite',{method:'POST',credentials:'same-origin',
-    headers:{'Content-Type':'application/json'}, body:JSON.stringify({toId:toId})})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(streakId ? {toId:toId, streakId:streakId} : {toId:toId})})
     .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
     .then(function(res){
       if(!res.ok){ toast(res.j.error||'Could not send that invitation.',4000); return; }
@@ -11209,6 +11255,7 @@ window.fillStreakScore=fillStreakScore;
   try{
     var _n=window.navigate;
     window.navigate=function(id,nh){ _n(id,nh);
+      try{ ttSyncTabTo(id); }catch(e){}
       if(id==='page-leaderboard'){ try{ renderLeaderboard(); }catch(e){ console.error('leaderboard',e); } }
       if(id==='page-feed'){ try{ renderFeed(); }catch(e){ console.error('feed',e); } }
     };

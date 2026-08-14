@@ -36,6 +36,20 @@ function firstName(u) {
 // who already invited you cannot produce two competing streaks.
 function pairKey(a, b) { return [a, b].sort().join('__'); }
 
+// A streak used to be strictly two people, stored as `a` and `b`. It now holds
+// a members list so three or more can keep one together. Records written under
+// the old shape are read through this, so existing streaks keep working with no
+// migration and no risk to anyone mid-streak.
+function membersOf(rec) {
+  if (Array.isArray(rec.members) && rec.members.length) return rec.members.slice();
+  return [rec.a, rec.b].filter(Boolean);
+}
+
+// A ceiling, because every extra person makes the streak harder to keep: with
+// "everyone must study today", one quiet member ends it for all of them. Eight
+// is generous without being unkeepable.
+const MAX_MEMBERS = 8;
+
 const DAY = 86400000;
 function dayStr(t) { return new Date(t).toISOString().slice(0, 10); }
 
@@ -69,31 +83,36 @@ function weekKey(t) {
 // counting starts at yesterday and today is added as a bonus if both have
 // already studied — otherwise opening the app in the morning would look like
 // the streak had just been lost.
-function computeShared(rec, aDays, bDays, now) {
+// `daysByMember` is { userId -> Set of 'YYYY-MM-DD' }. Every member has to be
+// covered on a day for it to count — with three people that is a harder promise
+// than with two, which is the nature of a group streak.
+function computeShared(rec, daysByMember, now) {
   const freezes = rec.freezes || {};
-  const covered = (userId, days, ds) =>
-    days.has(ds) || Object.values(freezes[userId] || {}).indexOf(ds) >= 0;
+  const members = membersOf(rec);
+  const covered = (userId, ds) =>
+    (daysByMember[userId] || new Set()).has(ds) ||
+    Object.values(freezes[userId] || {}).indexOf(ds) >= 0;
+  const allCovered = (ds) => members.every(m => covered(m, ds));
 
   const today = dayStr(now);
-  const bothToday = covered(rec.a, aDays, today) && covered(rec.b, bDays, today);
+  const bothToday = allCovered(today);
 
   let count = 0;
   for (let i = 1; i < 400; i++) {
     const ds = dayStr(now - i * DAY);
-    if (covered(rec.a, aDays, ds) && covered(rec.b, bDays, ds)) count++;
+    if (allCovered(ds)) count++;
     else break;
   }
   if (bothToday) count++;
 
   // Who still has to study today to keep it alive.
-  const waitingOn = [];
-  if (!covered(rec.a, aDays, today)) waitingOn.push(rec.a);
-  if (!covered(rec.b, bDays, today)) waitingOn.push(rec.b);
+  const waitingOn = members.filter(m => !covered(m, today));
 
   return {
     days: count,
     bothToday,
     waitingOn,
+    members,
     // At risk once a streak exists and someone still has not studied today.
     atRisk: count > 0 && waitingOn.length > 0,
   };
@@ -114,25 +133,40 @@ router.get('/', requireLogin, async (req, res) => {
     ]);
     const now = Date.now();
     const out = await Promise.all(recs.map(async (rec) => {
-      const otherId = rec.a === me ? rec.b : rec.a;
-      const other = await store.findUserById(otherId);
-      const s = computeShared(rec, studyDays(progress[rec.a]), studyDays(progress[rec.b]), now);
+      const members = membersOf(rec);
+      const daysByMember = {};
+      members.forEach(m => { daysByMember[m] = studyDays(progress[m]); });
+      const s = computeShared(rec, daysByMember, now);
+
+      const others = members.filter(m => m !== me);
+      const people = await Promise.all(others.map(id => store.findUserById(id)));
+      const partners = people.filter(Boolean).map(p => ({
+        id: p.id, name: firstName(p), college: (p.college || '').trim(),
+        owesToday: s.waitingOn.indexOf(p.id) >= 0,
+      }));
+
       return {
         id: rec.id,
-        partner: other ? { id: other.id, name: firstName(other), college: (other.college || '').trim() } : null,
+        isGroup: members.length > 2,
+        memberCount: members.length,
+        // Kept for a two-person streak so nothing that reads `partner` breaks.
+        partner: partners.length === 1 ? partners[0] : null,
+        partners,
+        canAddMore: members.length < MAX_MEMBERS,
         days: s.days,
         bothToday: s.bothToday,
         atRisk: s.atRisk,
         waitingOnMe: s.waitingOn.indexOf(me) >= 0,
-        waitingOnPartner: s.waitingOn.indexOf(otherId) >= 0,
+        waitingOnPartner: s.waitingOn.some(id => id !== me),
         freezeAvailable: !freezeUsedThisWeek(rec, me, now),
         startedAt: rec.startedAt,
       };
     }));
     res.json({
-      streaks: out.filter(s => s.partner),
+      streaks: out.filter(s => s.partners.length),
       canShare: canShareStreak(meUser && meUser.tier),
       tier: meUser && meUser.tier,
+      maxMembers: MAX_MEMBERS,
     });
   } catch (err) {
     console.error('[streaks] list failed:', err.message);
@@ -155,21 +189,39 @@ router.post('/invite', requireLogin, async (req, res) => {
   if (!(await store.areFriends(me, toId))) {
     return res.status(403).json({ error: 'You can only share a streak with a friend.' });
   }
-  if (await store.findSharedStreak(pairKey(me, toId))) {
+  // Inviting into an EXISTING streak turns it into a group. Only a member may
+  // do that, and only up to the ceiling.
+  const streakId = (req.body || {}).streakId;
+  let target = null;
+  if (streakId) {
+    target = await store.findSharedStreak(streakId);
+    if (!target) return res.status(404).json({ error: 'That streak no longer exists.' });
+    const members = membersOf(target);
+    if (members.indexOf(me) < 0) return res.status(403).json({ error: 'That is not your streak.' });
+    if (members.indexOf(toId) >= 0) return res.json({ ok: true, already: true });
+    if (members.length >= MAX_MEMBERS) {
+      return res.status(409).json({ error: 'A streak can hold up to ' + MAX_MEMBERS + ' people.' });
+    }
+  } else if (await store.findSharedStreak(pairKey(me, toId))) {
     return res.json({ ok: true, already: true });
   }
+
   const existing = await store.pendingStreakInviteBetween(me, toId);
   if (existing) return res.json({ ok: true, inviteId: existing.id, already: true });
 
   const now = new Date().toISOString();
   const inv = await store.createStreakInvite({
-    id: nanoid(), fromId: me, toId, status: 'pending', createdAt: now,
+    id: nanoid(), fromId: me, toId, streakId: streakId || null,
+    status: 'pending', createdAt: now,
   });
+  const groupSize = target ? membersOf(target).length : 1;
   await store.addUserNotification(toId, {
     id: nanoid(),
     type: 'streak-invite',
-    title: firstName(meUser) + ' wants to keep a streak with you',
-    body: 'You both have to study each day — if one of you misses, you both lose it.',
+    title: target
+      ? firstName(meUser) + ' invited you to a streak with ' + groupSize + ' others'
+      : firstName(meUser) + ' wants to keep a streak with you',
+    body: 'Everyone has to study each day — if one person misses, everyone loses it.',
     inviteId: inv.id,
     fromId: me,
     createdAt: now, readAt: null, actioned: null,
@@ -200,9 +252,35 @@ router.post('/respond', requireLogin, async (req, res) => {
 
   if (!accept) return res.json({ ok: true, status: 'rejected' });
 
+  // Joining an existing streak makes it a group; otherwise start a new pair.
+  if (inv.streakId) {
+    const rec = await store.findSharedStreak(inv.streakId);
+    if (!rec) return res.status(404).json({ error: 'That streak no longer exists.' });
+    const members = membersOf(rec);
+    if (members.indexOf(me) < 0) {
+      if (members.length >= MAX_MEMBERS) {
+        return res.status(409).json({ error: 'That streak is already full.' });
+      }
+      members.push(me);
+      // Written as `members` from here on; a and b are dropped so there is one
+      // shape rather than two half-truths.
+      const next = Object.assign({}, rec, { members });
+      delete next.a; delete next.b;
+      await store.saveSharedStreak(rec.id, next);
+    }
+    // Everyone already in it hears about the new arrival.
+    await Promise.all(members.filter(m => m !== me).map(m => store.addUserNotification(m, {
+      id: nanoid(), type: 'streak-started',
+      title: firstName(meUser) + ' joined your streak',
+      body: 'Everyone has to study each day to keep it going.',
+      fromId: me, createdAt: now, readAt: null, actioned: null,
+    })));
+    return res.json({ ok: true, status: 'joined', members: members.length });
+  }
+
   const key = pairKey(me, inv.fromId);
   await store.saveSharedStreak(key, {
-    id: key, a: [me, inv.fromId].sort()[0], b: [me, inv.fromId].sort()[1],
+    id: key, members: [me, inv.fromId].sort(),
     startedAt: now, freezes: {},
   });
   await store.addUserNotification(inv.fromId, {
@@ -221,7 +299,7 @@ router.post('/:id/freeze', requireLogin, async (req, res) => {
   const me = req.session.userId;
   const rec = await store.findSharedStreak(req.params.id);
   if (!rec) return res.status(404).json({ error: 'That streak no longer exists.' });
-  if (rec.a !== me && rec.b !== me) return res.status(403).json({ error: 'That is not your streak.' });
+  if (membersOf(rec).indexOf(me) < 0) return res.status(403).json({ error: 'That is not your streak.' });
 
   const now = Date.now();
   if (freezeUsedThisWeek(rec, me, now)) {
@@ -231,14 +309,15 @@ router.post('/:id/freeze', requireLogin, async (req, res) => {
   freezes[me] = Object.assign({}, freezes[me], { [weekKey(now)]: dayStr(now) });
   await store.saveSharedStreak(rec.id, Object.assign({}, rec, { freezes }));
 
-  const otherId = rec.a === me ? rec.b : rec.a;
+  // Everyone else in the streak is told it is safe for today.
   const meUser = await store.findUserById(me);
-  await store.addUserNotification(otherId, {
+  const stamp = new Date().toISOString();
+  await Promise.all(membersOf(rec).filter(m => m !== me).map(m => store.addUserNotification(m, {
     id: nanoid(), type: 'streak-freeze',
     title: firstName(meUser) + ' used a freeze today',
-    body: 'Your streak together is safe for today.',
-    fromId: me, createdAt: new Date().toISOString(), readAt: null, actioned: null,
-  });
+    body: 'Your streak is safe for today.',
+    fromId: me, createdAt: stamp, readAt: null, actioned: null,
+  })));
   res.json({ ok: true });
 });
 
@@ -247,9 +326,20 @@ router.delete('/:id', requireLogin, async (req, res) => {
   const me = req.session.userId;
   const rec = await store.findSharedStreak(req.params.id);
   if (!rec) return res.json({ ok: true });
-  if (rec.a !== me && rec.b !== me) return res.status(403).json({ error: 'That is not your streak.' });
+  const members = membersOf(rec);
+  if (members.indexOf(me) < 0) return res.status(403).json({ error: 'That is not your streak.' });
+
+  // Leaving a group of three or more only removes you — the others keep theirs.
+  // A pair has nothing left to be a streak, so it ends.
+  if (members.length > 2) {
+    const rest = members.filter(m => m !== me);
+    const next = Object.assign({}, rec, { members: rest });
+    delete next.a; delete next.b;
+    await store.saveSharedStreak(rec.id, next);
+    return res.json({ ok: true, left: true, remaining: rest.length });
+  }
   await store.deleteSharedStreak(rec.id);
-  res.json({ ok: true });
+  res.json({ ok: true, ended: true });
 });
 
 // ---- Warn a partner whose streak is about to lapse ----
@@ -266,7 +356,9 @@ router.post('/nudge', requireLogin, async (req, res) => {
     const today = dayStr(now);
     let sent = 0;
     for (const rec of recs) {
-      const s = computeShared(rec, studyDays(progress[rec.a]), studyDays(progress[rec.b]), now);
+      const byMember = {};
+      membersOf(rec).forEach(m => { byMember[m] = studyDays(progress[m]); });
+      const s = computeShared(rec, byMember, now);
       if (!s.atRisk || s.days < 1) continue;
       for (const uid of s.waitingOn) {
         if (uid === me) continue;              // never nudge yourself
@@ -293,4 +385,6 @@ module.exports = router;
 module.exports.computeShared = computeShared;
 module.exports.studyDays = studyDays;
 module.exports.pairKey = pairKey;
+module.exports.membersOf = membersOf;
+module.exports.MAX_MEMBERS = MAX_MEMBERS;
 module.exports.canShareStreak = canShareStreak;

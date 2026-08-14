@@ -334,7 +334,12 @@ async function deleteSharedStreak(id) {
 }
 async function listSharedStreaks(userId) {
   const snap = await db().ref('sharedStreaks').once('value');
-  return Object.values(snap.val() || {}).filter(r => r.a === userId || r.b === userId);
+  // Records written before group streaks used `a`/`b`; newer ones use
+  // `members`. Both shapes are matched so an existing streak keeps working.
+  return Object.values(snap.val() || {}).filter((r) => {
+    if (Array.isArray(r.members)) return r.members.indexOf(userId) >= 0;
+    return r.a === userId || r.b === userId;
+  });
 }
 
 async function createStreakInvite(rec) { return putOne('streakInvites', rec.id, rec); }
