@@ -883,6 +883,55 @@
         .qb-save { display:inline-block; }
         .prog { background: var(--border); border-radius: 999px; height: 12px; overflow: hidden; }
         .prog-bar { background: linear-gradient(90deg, var(--primary), var(--primary-light)); height: 100%; border-radius: 999px; transition: width .4s ease; }
+        /* ---------- Topic study: one phrase at a time ---------- */
+        .cat-toolbar { display:flex; justify-content:flex-end; margin: -6px 0 10px; }
+        .cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+            padding: 20px 18px 16px; box-shadow: 0 4px 18px rgba(20,52,42,.06); }
+        .cat-step { font-size: .78rem; font-weight: 800; letter-spacing: .10em; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 8px; }
+        .cat-prog { height: 8px; margin-bottom: 16px; }
+        /* The phrase keeps the app's standard 3-cell row so every existing row
+           behaviour attaches; it is only laid out to read as one card. On a
+           phone the cells stack, which is what stops a long phrase forcing the
+           page sideways. */
+        .cat-table { width: 100%; border-collapse: collapse; }
+        .cat-table td { border: none; padding: 7px 0; vertical-align: top; word-break: break-word; }
+        .cat-table td:nth-child(1) { font-size: 1.16rem; font-weight: 700; color: var(--text-dark); line-height: 1.45; }
+        .cat-table td:nth-child(2) { font-size: 1.55rem; line-height: 1.75; color: var(--accent); direction: rtl; text-align: right; }
+        .cat-table td:nth-child(3) { font-size: 1rem; color: var(--muted); font-style: italic; }
+        @media (min-width: 760px) {
+          .cat-table td:nth-child(2) { font-size: 1.75rem; }
+        }
+        .cat-hint { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);
+            font-size: .8rem; color: var(--muted); line-height: 1.6; }
+        .cat-nav { display:flex; align-items:center; gap: 12px; margin-top: 16px; }
+        .cat-count { flex: none; min-width: 62px; text-align:center; font-weight: 800; color: var(--muted); font-size: .9rem; }
+        .cat-btn { flex: 1 1 0; min-height: 48px; padding: 12px 14px; border-radius: 14px;
+            border: 1.5px solid var(--border); background: var(--surface); color: var(--text-dark);
+            font: inherit; font-weight: 700; cursor: pointer; transition: all .16s ease; }
+        .cat-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+        .cat-btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        .cat-btn:active:not(:disabled) { transform: translateY(1px); }
+        .cat-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .cat-btn.primary:hover:not(:disabled) { color: #fff; filter: brightness(1.06); }
+        .cat-btn:disabled { opacity: .40; cursor: default; }
+        .cat-done { margin-top: 18px; text-align: center; }
+        .cat-done-t { font-weight: 700; color: var(--text-dark); }
+
+        /* Topic walkthrough */
+        #tt-topic-tut { position: fixed; inset: 0; z-index: 10060; display:flex; align-items:center;
+            justify-content:center; padding: 18px; background: rgba(2,5,10,.60); backdrop-filter: blur(5px); }
+        #tt-topic-tut .tut-card { background: var(--surface); color: var(--text-dark);
+            border: 1px solid var(--border); border-radius: 20px; padding: 24px;
+            max-width: 460px; width: 100%; max-height: 86vh; overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0,0,0,.35); }
+        #tt-topic-tut .tut-h { font-size: 1.22rem; margin: 0 0 14px; color: var(--primary); }
+        #tt-topic-tut .tut-row { display:flex; gap: 13px; align-items:flex-start; margin-bottom: 14px; }
+        #tt-topic-tut .tut-ico { font-size: 1.35rem; line-height: 1.2; flex: none; }
+        #tt-topic-tut .tut-t { font-weight: 700; font-size: .95rem; }
+        #tt-topic-tut .tut-d { font-size: .87rem; color: var(--muted); line-height: 1.55; margin-top: 2px; }
+        #tt-topic-tut .tut-go { width: 100%; margin-top: 4px; }
+
         .qa-analysis { margin-bottom: 14px; }
         .qa-analysis-top { display:flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 6px; color: var(--text-dark); font-weight: 600; }
         /* Leaderboard view switch. Sized for a finger (44px), wraps rather than
@@ -7807,14 +7856,154 @@ function renderPathList(){
   body.innerHTML=h;
 }
 function openCat(i){ if(!(catUnlocked(PATH.key,i)||pathPassed(PATH.key,i))) return; PATH.cat=i; navigate('page-path-cat'); renderCat(i); }
+/* ---------- Topic study: one phrase at a time ----------
+
+   The topic used to dump every phrase into one long table. It now presents a
+   single phrase at a time with Previous/Next, which is how a language course
+   is normally studied and is far easier to work through on a phone.
+
+   The phrase is deliberately rendered as the SAME
+   <table><tr><td>en</td><td>ar</td><td>fr</td></tr></table> markup the rest of
+   the app uses. Every phrase-level feature in this product attaches to that
+   shape by delegation — scanTableRows() adds the English voice and the share
+   button, scanVoice() adds the Arabic voice, the document-level click/swipe
+   handlers open the patient reply, and swipe-left bookmarks the row. Keeping
+   the markup identical means all of it keeps working without a single feature
+   being reimplemented, and anything added to rows later works here too.
+
+   The cursor is intentionally NOT persisted. tt_path remains the only record of
+   progress — which sections are passed, set by the subtest — and adding a
+   second stored position would be exactly the competing progress system this
+   must avoid. */
+var CATPOS = 0;
+
 function renderCat(i){
-  var body=document.getElementById('path-cat-body'); var cats=catsOf(PATH.key); var c=cats[i];
+  CATPOS = 0;
+  var cats=catsOf(PATH.key); var c=cats[i];
+  var body=document.getElementById('path-cat-body');
   body.innerHTML='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-path\')">&larr; Back To Sections</button><span class="ctx-chip">Section '+(i+1)+'</span></div>'
-    +'<h1 class="tool-title">'+c.title+'</h1><p class="tool-sub">Study these '+c.items.length+' phrases, then take the subtest. You need 70% to unlock the next section.</p>'
-    +'<div id="path-cat-table"></div>'
-    +'<button class="start-quiz-btn" style="margin-top:18px" onclick="startSubtest('+i+')">Take Subtest &rarr;</button>';
-  try{ if(typeof renderTables==='function') renderTables([c],'path-cat-table'); }catch(e){ console.error('cat table',e); }
+    +'<h1 class="tool-title">'+esc(c.title)+'</h1>'
+    +'<p class="tool-sub">Work through these '+c.items.length+' phrases one at a time, then take the subtest. You need 70% to unlock the next section.</p>'
+    +'<div class="cat-toolbar">'
+    +  '<button type="button" class="pill outline" onclick="ttTopicTutorial(true)" aria-label="Show me how this works">&#9432; How it works</button>'
+    +'</div>'
+    +'<div id="cat-stage" aria-live="polite"></div>'
+    +'<div class="cat-nav">'
+    +  '<button type="button" class="cat-btn" id="cat-prev" onclick="catStep(-1)" aria-label="Previous phrase">&larr; Previous</button>'
+    +  '<div class="cat-count" id="cat-count"></div>'
+    +  '<button type="button" class="cat-btn primary" id="cat-next" onclick="catStep(1)" aria-label="Next phrase">Next &rarr;</button>'
+    +'</div>'
+    +'<div id="cat-end"></div>';
+  catPaint();
+  // First visit to any topic gets the walkthrough, once.
+  try{ ttTopicTutorial(false); }catch(e){}
 }
+
+/* Renders the phrase at CATPOS. */
+function catPaint(){
+  var cats=catsOf(PATH.key); var c=cats[PATH.cat]; if(!c) return;
+  var items=c.items||[]; var n=items.length;
+  if(!n){ document.getElementById('cat-stage').innerHTML='<p class="fc-count">This section has no phrases yet.</p>'; return; }
+  CATPOS=Math.max(0, Math.min(CATPOS, n-1));
+  var it=items[CATPOS];
+
+  // Identical markup to every other phrase table in the app, so all the
+  // existing row behaviour attaches to it.
+  document.getElementById('cat-stage').innerHTML =
+    '<div class="cat-card">'
+    + '<div class="cat-step">Phrase ' + (CATPOS+1) + ' of ' + n + '</div>'
+    + '<div class="prog cat-prog"><div class="prog-bar" style="width:' + Math.round((CATPOS+1)/n*100) + '%"></div></div>'
+    + '<table class="cat-table"><tr>'
+    +   '<td>' + it.q_en + '</td><td>' + it.q_ar + '</td><td>' + it.q_fr + '</td>'
+    + '</tr></table>'
+    + '<div class="cat-hint">Tap the phrase for the patient&rsquo;s reply &middot; &#128266; to hear it &middot; swipe left to bookmark</div>'
+    + '</div>';
+
+  document.getElementById('cat-count').textContent = (CATPOS+1) + ' / ' + n;
+  var prev=document.getElementById('cat-prev'), next=document.getElementById('cat-next');
+  prev.disabled = (CATPOS===0);
+  next.disabled = (CATPOS>=n-1);
+
+  // The subtest appears once the last phrase is reached — it is the end of the
+  // topic, and it is startSubtest(PATH.cat), so it can only ever be THIS
+  // topic's test.
+  var end=document.getElementById('cat-end');
+  end.innerHTML = (CATPOS>=n-1)
+    ? '<div class="cat-done"><div class="cat-done-t">&#127881; That&rsquo;s every phrase in this section.</div>'
+      + '<button class="start-quiz-btn" style="margin-top:12px" onclick="startSubtest(' + PATH.cat + ')">Take the subtest for &ldquo;' + esc(c.title) + '&rdquo; &rarr;</button></div>'
+    : '';
+
+  // Re-run the existing decorators so this row gets its voice, share and
+  // reply behaviour immediately rather than waiting on the observer.
+  try{ if(typeof scanVoice==='function') scanVoice(); }catch(e){}
+  try{ if(typeof scanTableRows==='function') scanTableRows(); }catch(e){}
+  try{ if(typeof applyRephraseDOM==='function') applyRephraseDOM(); }catch(e){}
+}
+window.catPaint=catPaint;
+
+function catStep(d){
+  var c=catsOf(PATH.key)[PATH.cat]; if(!c) return;
+  var n=(c.items||[]).length;
+  var next=CATPOS+d;
+  if(next<0||next>=n) return;
+  CATPOS=next; catPaint();
+  try{ var s=document.getElementById('cat-stage'); if(s) s.scrollIntoView({block:'nearest'}); }catch(e){}
+}
+window.catStep=catStep;
+
+/* Arrow keys move through the topic, but never while typing. */
+document.addEventListener('keydown', function(e){
+  var sec=document.getElementById('page-path-cat');
+  if(!sec || sec.style.display==='none' || !sec.classList.contains('active')) {
+    if(!sec || !document.getElementById('cat-stage')) return;
+  }
+  if(!document.getElementById('cat-stage')) return;
+  var t=e.target; if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable)) return;
+  if(e.key==='ArrowLeft'){ catStep(-1); }
+  else if(e.key==='ArrowRight'){ catStep(1); }
+});
+
+/* Topic walkthrough.
+   Shown once, then only on request via "How it works". The flag lives inside
+   tt_onboard — an existing key that already syncs per account and per dialect —
+   so no new stored state is introduced and an experienced student is never
+   walked through it twice. */
+function ttTopicTutorial(force){
+  var ob = (typeof ttOnboard==='function') ? (ttOnboard()||{}) : {};
+  if(!force && ob.topicTutSeen) return;
+  if(document.getElementById('tt-topic-tut')) return;
+
+  var steps=[
+    ['&#128172;','The patient&rsquo;s reply','Tap the phrase (or swipe it right) to see how a patient would answer &mdash; in Arabic, Franco and English.'],
+    ['&#128266;','Hear it spoken','Use the speaker beside the English and the Arabic to hear the phrase in your dialect&rsquo;s voice.'],
+    ['&#128278;','Keep a phrase','Swipe a phrase left to save it to your bookmarks. They stay in your account.'],
+    ['&#128257;','Share it','The share button sends the phrase as a card you can send to anyone.'],
+    ['&#10145;','Move through','Use Previous and Next &mdash; or the arrow keys &mdash; and the subtest appears at the end.']
+  ];
+  var ov=document.createElement('div');
+  ov.id='tt-topic-tut';
+  ov.innerHTML='<div class="tut-card" role="dialog" aria-modal="true" aria-labelledby="tut-h">'
+    +'<h2 id="tut-h" class="tut-h">How this section works</h2>'
+    +'<div class="tut-list">'
+    + steps.map(function(s){ return '<div class="tut-row"><span class="tut-ico" aria-hidden="true">'+s[0]+'</span>'
+        +'<div><div class="tut-t">'+s[1]+'</div><div class="tut-d">'+s[2]+'</div></div></div>'; }).join('')
+    +'</div>'
+    +'<button type="button" class="start-quiz-btn tut-go" onclick="ttCloseTopicTutorial()">Got it &mdash; start studying</button>'
+    +'</div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseTopicTutorial(); });
+  document.body.appendChild(ov);
+  try{ var b=ov.querySelector('.tut-go'); if(b) b.focus(); }catch(e){}
+}
+window.ttTopicTutorial=ttTopicTutorial;
+
+function ttCloseTopicTutorial(){
+  var ov=document.getElementById('tt-topic-tut'); if(ov) ov.remove();
+  try{
+    var ob=(typeof ttOnboard==='function') ? (ttOnboard()||{}) : {};
+    if(!ob.topicTutSeen){ ob.topicTutSeen=true; _sj('tt_onboard', ob); }
+  }catch(e){}
+}
+window.ttCloseTopicTutorial=ttCloseTopicTutorial;
 function startSubtest(i){
   var items = (i==='final') ? extractQuizData(db[PATH.key]) : extractQuizData([catsOf(PATH.key)[i]]);
   QZ.type=PATH.key; QZ.qbank=false; QZ.label=PATH.label+(i==='final'?' — Final':' — '+catsOf(PATH.key)[i].title);
