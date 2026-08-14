@@ -46,13 +46,49 @@ function readAll(user) {
   return out;
 }
 
+// Lifetime is the one plan that is NOT parked on the dialect it was bought in.
+//
+// Every other plan stays where it was purchased — buying Advanced for Egyptian
+// grants nothing in Hejazi — because each dialect is sold separately. Lifetime
+// is sold as the opposite of that: one payment covering every dialect, and any
+// dialect added later. So holding it anywhere means holding it everywhere.
+//
+// Finding it is a scan of the entitlement map rather than a flag on the
+// account, which means it needs no migration and cannot fall out of step: the
+// two students who already own Lifetime are recognised by the record they
+// already have.
+function lifetimeEntitlement(user) {
+  const all = readAll(user);
+  const found = Object.keys(all).find(d => all[d] && all[d].tier === 'lifetime');
+  return found ? all[found] : null;
+}
+
 // What this user is entitled to in one dialect. A dialect they have never
 // bought in returns that dialect's baseline and nothing else — no plan, no
-// expiry, no carried-over tier.
+// expiry, no carried-over tier. The single exception is Lifetime, above.
 function forDialect(user, dialect, siteConfig) {
   const d = normaliseDialect(dialect);
   const all = readAll(user);
+
+  // Lifetime is checked BEFORE this dialect's own record, and that ordering
+  // matters. A student who owns Lifetime and has since visited another dialect
+  // already has an 'explorer' entry sitting there from that visit; returning it
+  // would lock a lifetime owner out of the very dialects their payment was
+  // meant to cover. Both of the existing Lifetime accounts were in exactly that
+  // position. Lifetime therefore outranks whatever a dialect happens to hold.
+  const life = lifetimeEntitlement(user);
+  if (life) {
+    return {
+      tier: 'lifetime',
+      planId: life.planId || 'lifetime',
+      planActivatedAt: life.planActivatedAt || null,
+      planExpiresAt: null,        // lifetime never expires, in any dialect
+      subStatus: life.subStatus || 'active',
+    };
+  }
+
   if (all[d] && all[d].tier) return Object.assign({}, all[d]);
+
   return {
     tier: baselineTier(configForDialect(siteConfig, d)),
     planId: null,
@@ -90,4 +126,4 @@ function grant(user, dialect, ent, siteConfig) {
   return patch;
 }
 
-module.exports = { FIELDS, readAll, forDialect, switchTo, grant };
+module.exports = { FIELDS, readAll, forDialect, switchTo, grant, lifetimeEntitlement };

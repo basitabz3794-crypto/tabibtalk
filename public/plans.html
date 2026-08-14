@@ -131,6 +131,9 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
       <button data-aud="explorer" role="tab" aria-selected="false">Explorer</button>
       <button class="on" data-aud="student" role="tab" aria-selected="true">Student</button>
       <button data-aud="professional" role="tab" aria-selected="false">Professional</button>
+      <!-- Lifetime is an audience like the others, so choosing it swaps the
+           cards below exactly as Student/Professional/Explorer do. -->
+      <button data-aud="lifetime" role="tab" aria-selected="false">Lifetime</button>
     </div>
     <div class="seg period" role="tablist" aria-label="Choose billing period">
       <button class="on" data-period="monthly">Monthly</button>
@@ -281,7 +284,17 @@ const FEATURES = {
   student: ['Full access to the learning app', 'Franco, Communication & Ethics, History', 'Course study paths with subtests', 'Flashcards & Quiz Hub', 'AI Patient (2 scenarios)', 'Bookmark & Conversations', 'Detailed analysis (Flashcards & Quiz Hub)', 'Translate, Search & Streak', 'Streaks and analytics'],
   professional: ['Everything in Student, plus:', 'All specialties & Internal-Medicine systems — fully unlocked', 'Full QBank (exam-style questions)', 'Detailed analysis (Quiz Hub, Flashcards & QBank)', 'Bedside history-taking reference', 'Priority access to new content', 'Streaks and analytics'],
 };
-const HINTS = { explorer: 'Free forever — create an account and start exploring today.', student: 'Recommended for 1st, 2nd & 3rd-year students.', professional: 'For highly-motivated 1st–2nd years, 3rd–5th-year students, interns, GPs & residents — especially doctors practising in Gulf countries.' };
+// Lifetime is the one plan that is not tied to a single dialect, which is the
+// whole of its value — so its feature list says so first.
+FEATURES.lifetime = [
+  'Every dialect — Egyptian, Saudi (Hejazi) and Gulf (Khaleeji)',
+  'Every dialect and language added in future, at no extra cost',
+  'New features as they are released',
+  'Everything in Professional, in all three dialects',
+  'Full QBank, all specialties and Internal-Medicine systems',
+  'One payment — no renewal, no expiry',
+];
+const HINTS = { explorer: 'Free forever — create an account and start exploring today.', student: 'Recommended for 1st, 2nd & 3rd-year students.', professional: 'For highly-motivated 1st–2nd years, 3rd–5th-year students, interns, GPs & residents — especially doctors practising in Gulf countries.', lifetime: 'One payment, kept for good — and it covers every dialect, including any added later.' };
 
 let audience = 'student';
 let period = 'monthly';
@@ -311,6 +324,32 @@ function render() {
   // Explorer has no billing periods: hide the Monthly/6-Month/12-Month toggle
   // and show a single free-plan box with a direct way in.
   const periodSeg = document.querySelector('.seg.period');
+
+  // Lifetime is a single one-off purchase, so like Explorer it has no billing
+  // period. Selecting it replaces the Student/Professional cards entirely —
+  // #cards is rewritten, so the previous audience's boxes are gone rather than
+  // hidden. The standalone Lifetime banner further down the page is hidden
+  // whenever this segment exists, so Lifetime is offered in exactly one place
+  // instead of two competing ones.
+  if (audience === 'lifetime') {
+    if (periodSeg) periodSeg.style.display = 'none';
+    const lt = ALL_PLANS.lifetime || { priceNow: 99, inr: 0, egp: 0, offerNote: 'pay once, yours forever' };
+    document.getElementById('cards').innerHTML = `
+      <div class="tier-card featured" style="grid-column:1/-1;max-width:560px;margin:0 auto">
+        <span class="ribbon">All dialects · forever</span>
+        <div class="plan-name">${dialectPlan('Lifetime')}</div>
+        <div class="plan-term">One payment — no renewal, no expiry</div>
+        <div class="price-row"><span class="price-now">$${lt.priceNow}</span></div>
+        <div class="price-fx">&#8776; ₹${(lt.inr||0).toLocaleString('en-IN')} INR &middot; E£${(lt.egp||0).toLocaleString()} EGP</div>
+        <div class="price-sub">${lt.offerNote || ''}</div>
+        <ul class="feats">${FEATURES.lifetime.map(f => `<li>${f}</li>`).join('')}</ul>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="choosePaid('lifetime','Lifetime')">Get Lifetime Access</button>
+        </div>
+      </div>`;
+    return;
+  }
+
   if (audience === 'explorer') {
     if (periodSeg) periodSeg.style.display = 'none';
     document.getElementById('cards').innerHTML = `
@@ -644,11 +683,12 @@ function renderNewPlans() {
     }
     renderNewPlans();
   } else {
-    if (ALL_PLANS.lifetime) {
-      const lt = ALL_PLANS.lifetime;
-      document.getElementById('lt-price-block').innerHTML = `<span class="lt-now">$${lt.priceNow}</span>`;
-      document.getElementById('lt-price-fx').textContent = `≈ ₹${(lt.inr||0).toLocaleString('en-IN')} INR · E£${(lt.egp||0).toLocaleString()} EGP`;
-    }
+    // Lifetime now has its own segment beside Student and Professional, so the
+    // standalone banner further down would be a second, competing place to buy
+    // the same plan. Hidden rather than deleted, so nothing else that refers to
+    // it can break.
+    const ltBanner = document.querySelector('.lifetime');
+    if (ltBanner) ltBanner.style.display = 'none';
     render();
   }
   await loadPaymentDetails();
