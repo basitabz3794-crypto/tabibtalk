@@ -229,6 +229,58 @@ async function listShares() {
   return newestFirst(await getAll('shares'), 'createdAt');
 }
 
+// Shares made in the last `days` days. The sharing allowance is a rolling
+// window rather than a lifetime cap, and it matches how long a Feed post stays
+// visible: a phrase counts against the allowance for exactly as long as it is
+// on the Feed.
+async function countRecentSharesForUser(userId, days) {
+  const since = Date.now() - days * 86400000;
+  return (await getAll('shares')).filter(s =>
+    s.userId === userId && Date.parse(s.createdAt || 0) >= since
+  ).length;
+}
+
+// ---------- Tabib Talk Feed ----------
+// A feed post is a share that was published internally. It is stored
+// separately from `shares` so the existing share log and its limits are
+// untouched, and so the Feed can be read without pulling unrelated records.
+async function createFeedPost(post) {
+  return putOne('feed', post.id, post);
+}
+
+// Only the visible window is ever read. Feed posts are never deleted — they
+// simply stop being returned once they are older than `days`, so a bookmark
+// made from one keeps working forever.
+async function listFeedPosts(days) {
+  const since = Date.now() - days * 86400000;
+  const all = await getAll('feed');
+  return newestFirst(all.filter(p => Date.parse(p.createdAt || 0) >= since), 'createdAt');
+}
+
+async function findFeedPost(id) {
+  return getOne('feed', id);
+}
+
+// Likes are stored as feedLikes/<postId>/<userId> = timestamp.
+//
+// The user id IS the key, which is what makes this correct under concurrency:
+// two people liking at the same moment write two different keys and neither can
+// overwrite the other, and the same person liking twice writes the same key
+// twice — so a double-tap or a retried request cannot inflate the count. No
+// read-modify-write, so no lost updates and no transaction needed.
+async function setFeedLike(postId, userId, liked) {
+  const ref = db().ref(`feedLikes/${postId}/${userId}`);
+  if (liked) await ref.set(new Date().toISOString());
+  else await ref.remove();
+  return liked;
+}
+
+// One read for every post's likes, so rendering the Feed is not N+1.
+async function getAllFeedLikes() {
+  const snap = await db().ref('feedLikes').once('value');
+  return snap.val() || {};
+}
+
 // ---------- Single config objects ----------
 async function getConfig(path) {
   const snap = await db().ref(path).once('value');
@@ -304,7 +356,8 @@ module.exports = {
   listDevicesForUser, findDevice, createDevice, updateDevice, listAllDevices,
   getAppState, mergeAppState,
   createNotification, listNotifications, deleteNotification,
-  createShare, countSharesForUser, listShares,
+  createShare, countSharesForUser, countRecentSharesForUser, listShares,
+  createFeedPost, listFeedPosts, findFeedPost, setFeedLike, getAllFeedLikes,
   getPlanOverrides, setPlanOverride,
   getPaymentConfig, setPaymentConfig,
   getFxConfig, setFxConfig,

@@ -9,29 +9,39 @@ function requireLogin(req, res, next) {
   next();
 }
 
-// How many phrases each tier may share, in total, per account.
+// How many phrases each tier may share PER WEEK.
+//
+// This used to be a lifetime cap per account, which meant a long-standing
+// subscriber eventually ran out for good. It is now a rolling seven-day
+// allowance, so it refreshes continuously and matches how long a Feed post
+// stays visible — a phrase counts against the allowance for exactly as long as
+// it is on the Feed.
+const SHARE_WINDOW_DAYS = 7;
 const SHARE_LIMITS = {
-  explorer: 0,
-  student: 2,
-  professional: 5,
-  lifetime: 5,
-  basic: 2,
-  advanced: 5,
+  explorer: 1,
+  basic: 3,
+  student: 5,
+  professional: 10,
+  advanced: 10,
+  lifetime: 10,
 };
-
+// Unknown/absent tier falls back to the free baseline rather than to zero, so a
+// tier added later can never silently lock sharing out entirely.
+function limitFor(tier) {
+  return SHARE_LIMITS[tier] != null ? SHARE_LIMITS[tier] : SHARE_LIMITS.explorer;
+}
 router.post('/record', requireLogin, async (req, res) => {
   const { phraseEn, phraseAr, phraseFr } = req.body || {};
   if (!phraseEn && !phraseAr) return res.status(400).json({ error: 'Nothing to share.' });
 
   const user = await store.findUserById(req.session.userId);
-  const limit = SHARE_LIMITS[user.tier] != null ? SHARE_LIMITS[user.tier] : 0;
-  const used = await store.countSharesForUser(user.id);
+  const limit = limitFor(user.tier);
+  const used = await store.countRecentSharesForUser(user.id, SHARE_WINDOW_DAYS);
 
   if (used >= limit) {
     return res.status(403).json({
-      error: limit === 0
-        ? 'Sharing phrases isn\'t available on your current plan.'
-        : `You've reached your sharing limit (${limit}) for your plan.`,
+      error: `You've used all ${limit} of your shares for this week. Your allowance refreshes as your earlier shares pass seven days old.`,
+      limit, used,
     });
   }
 
@@ -53,9 +63,14 @@ router.post('/record', requireLogin, async (req, res) => {
 // Lets the frontend show "X of Y shares used" without needing to attempt a share first.
 router.get('/status', requireLogin, async (req, res) => {
   const user = await store.findUserById(req.session.userId);
-  const limit = SHARE_LIMITS[user.tier] != null ? SHARE_LIMITS[user.tier] : 0;
-  const used = await store.countSharesForUser(user.id);
-  res.json({ limit, used, remaining: Math.max(0, limit - used) });
+  const limit = limitFor(user.tier);
+  const used = await store.countRecentSharesForUser(user.id, SHARE_WINDOW_DAYS);
+  res.json({ limit, used, remaining: Math.max(0, limit - used), windowDays: SHARE_WINDOW_DAYS });
 });
 
 module.exports = router;
+// Exported so the Feed route enforces exactly the same allowance — one
+// definition of who may share how often, rather than two that can drift.
+module.exports.SHARE_LIMITS = SHARE_LIMITS;
+module.exports.SHARE_WINDOW_DAYS = SHARE_WINDOW_DAYS;
+module.exports.limitFor = limitFor;

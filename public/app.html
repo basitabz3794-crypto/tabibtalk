@@ -883,6 +883,70 @@
         .qb-save { display:inline-block; }
         .prog { background: var(--border); border-radius: 999px; height: 12px; overflow: hidden; }
         .prog-bar { background: linear-gradient(90deg, var(--primary), var(--primary-light)); height: 100%; border-radius: 999px; transition: width .4s ease; }
+        /* ---------- Share chooser (bottom sheet on phones) ---------- */
+        #tt-share-choose { position: fixed; inset: 0; z-index: 10070; display:flex; align-items:flex-end;
+            justify-content:center; background: rgba(2,5,10,.58); backdrop-filter: blur(4px); }
+        @media (min-width: 640px) { #tt-share-choose { align-items: center; } }
+        #tt-share-choose .sc-sheet { background: var(--surface); color: var(--text-dark); width: 100%;
+            max-width: 460px; border-radius: 22px 22px 0 0; padding: 14px 18px 20px;
+            box-shadow: 0 -12px 40px rgba(0,0,0,.28); max-height: 88vh; overflow-y: auto; }
+        @media (min-width: 640px) { #tt-share-choose .sc-sheet { border-radius: 20px; padding-top: 20px; } }
+        #tt-share-choose .sc-grip { width: 42px; height: 4px; border-radius: 999px; background: var(--border);
+            margin: 0 auto 12px; }
+        @media (min-width: 640px) { #tt-share-choose .sc-grip { display:none; } }
+        #tt-share-choose .sc-h { font-size: 1.12rem; margin: 0 0 6px; color: var(--primary); }
+        #tt-share-choose .sc-phrase { font-size: .88rem; color: var(--muted); margin-bottom: 14px;
+            word-break: break-word; }
+        #tt-share-choose .sc-opt { display:flex; align-items:flex-start; gap: 13px; width: 100%;
+            text-align: left; padding: 15px; margin-bottom: 10px; border-radius: 15px;
+            border: 1.5px solid var(--border); background: transparent; font: inherit; color: inherit;
+            cursor: pointer; min-height: 62px; transition: border-color .16s ease, background .16s ease; }
+        #tt-share-choose .sc-opt:hover { border-color: var(--primary); background: var(--secondary); }
+        #tt-share-choose .sc-opt:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        #tt-share-choose .sc-opt:active { transform: translateY(1px); }
+        #tt-share-choose .sc-opt:disabled, #tt-share-choose .sc-opt.busy { opacity: .6; cursor: default; }
+        #tt-share-choose .sc-ico { font-size: 1.4rem; line-height: 1.1; flex: none; }
+        #tt-share-choose .sc-txt b { display:block; font-size: .97rem; }
+        #tt-share-choose .sc-txt small { display:block; color: var(--muted); font-size: .82rem;
+            line-height: 1.5; margin-top: 3px; }
+        #tt-share-choose .sc-note { font-size: .8rem; color: var(--muted); text-align:center;
+            min-height: 18px; margin: 2px 0 10px; }
+        #tt-share-choose .sc-cancel { width: 100%; min-height: 46px; border-radius: 13px;
+            border: none; background: var(--secondary); color: var(--text-dark); font: inherit;
+            font-weight: 700; cursor: pointer; }
+
+        /* ---------- Feed ---------- */
+        .feed-card { background: var(--surface); border: 1px solid var(--border); border-radius: 17px;
+            padding: 15px 16px; margin-bottom: 13px; box-shadow: 0 3px 12px rgba(20,52,42,.05); }
+        .feed-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 10px;
+            margin-bottom: 10px; }
+        .feed-who b { font-size: .96rem; color: var(--text-dark); }
+        .feed-when { display:block; font-size: .78rem; color: var(--muted); margin-top: 1px; }
+        .feed-dia { flex: none; font-size: .7rem; font-weight: 800; letter-spacing: .04em;
+            text-transform: uppercase; color: var(--primary); background: var(--secondary);
+            padding: 4px 9px; border-radius: 999px; }
+        .feed-table { width: 100%; border-collapse: collapse; }
+        .feed-table td { border: none; padding: 5px 0; vertical-align: top; word-break: break-word; }
+        .feed-table td:nth-child(1) { font-size: 1.02rem; font-weight: 650; color: var(--text-dark); line-height: 1.45; }
+        .feed-table td:nth-child(2) { font-size: 1.4rem; line-height: 1.7; color: var(--accent); direction: rtl; text-align: right; }
+        .feed-table td:nth-child(3) { font-size: .93rem; color: var(--muted); font-style: italic; }
+        .feed-lesson { font-size: .76rem; color: var(--muted); margin-top: 8px; }
+        .feed-actions { display:flex; gap: 9px; margin-top: 12px; padding-top: 11px;
+            border-top: 1px solid var(--border); }
+        .feed-act { display:inline-flex; align-items:center; gap: 7px; min-height: 42px; padding: 9px 15px;
+            border-radius: 12px; border: 1.5px solid var(--border); background: transparent;
+            color: var(--muted); font: inherit; font-weight: 700; font-size: .87rem; cursor: pointer;
+            transition: all .15s ease; }
+        .feed-act:hover { border-color: var(--primary); color: var(--primary); }
+        .feed-act:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        .feed-act:active { transform: translateY(1px); }
+        .feed-act.on { color: #c0392b; border-color: #e8b4ae; background: rgba(192,57,43,.07); }
+        .feed-n { font-variant-numeric: tabular-nums; }
+        .feed-empty { text-align:center; padding: 34px 18px; color: var(--muted); }
+        .feed-empty-ico { font-size: 2.3rem; margin-bottom: 10px; }
+        .feed-empty-t { font-weight: 700; color: var(--text-dark); margin-bottom: 6px; }
+        .feed-empty-d { font-size: .88rem; line-height: 1.6; }
+
         /* ---------- Topic study: one phrase at a time ---------- */
         .cat-toolbar { display:flex; justify-content:flex-end; margin: -6px 0 10px; }
         .cat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
@@ -1673,6 +1737,7 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
             <!-- Conversations sits directly right of QBank, then Leaderboard. -->
             <button class="tab" onclick="selectTab(this); navigate('page-conversations')">Conversations</button>
             <button class="tab" onclick="selectTab(this); navigate('page-leaderboard')">🏆 Leaderboard</button>
+            <button class="tab" onclick="selectTab(this); navigate('page-feed')">📣 Feed</button>
         </nav>
     </header>
 
@@ -4457,6 +4522,7 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
         <div id="page-saved" class="page-section"><div class="tool-wrap" id="saved-body"></div></div>
         <div id="page-streak" class="page-section"><div class="tool-wrap" id="streak-body"></div></div>
         <div id="page-leaderboard" class="page-section"><div class="tool-wrap" id="leaderboard-body"></div></div>
+        <div id="page-feed" class="page-section"><div class="tool-wrap" id="feed-body"></div></div>
         <div id="page-qanalysis" class="page-section"><div class="tool-wrap" id="qanalysis-body"></div></div>
         <div id="page-chapter" class="page-section"><div class="tool-wrap" id="chapter-body"></div></div>
         <div id="page-chapter-cat" class="page-section"><div class="tool-wrap" id="chapter-cat-body"></div></div>
@@ -9402,10 +9468,216 @@ window.showLanding = showLanding; window.chooseTier = chooseTier;
 /* Item 4: Trilingual phrase sharing — checks the server-side rate limit first
    (Student max 2, Professional/Lifetime max 5, Explorer none), then generates
    a downloadable branded image of the phrase via html2canvas. */
-function shareRow(en, ar, fr){
-  shareParts([{ label:null, en:en, ar:ar, fr:fr }], 'tabib-talk-phrase.png');
+/* Tapping share on a phrase now asks WHERE, rather than assuming.
+   The social/local path is the existing shareParts() flow, completely
+   untouched — the image, the Web Share API and the download fallback all
+   behave exactly as they did. The new option publishes to the Feed. */
+function shareRow(en, ar, fr, lesson){
+  ttShareChooser(en, ar, fr, lesson || '');
 }
 window.shareRow = shareRow;
+
+function ttCloseShareChooser(){
+  var o=document.getElementById('tt-share-choose'); if(o) o.remove();
+}
+window.ttCloseShareChooser = ttCloseShareChooser;
+
+function ttShareChooser(en, ar, fr, lesson){
+  if(document.getElementById('tt-share-choose')) return;
+  var ov=document.createElement('div');
+  ov.id='tt-share-choose';
+  ov.innerHTML='<div class="sc-sheet" role="dialog" aria-modal="true" aria-labelledby="sc-h">'
+    +'<div class="sc-grip" aria-hidden="true"></div>'
+    +'<h2 id="sc-h" class="sc-h">Share this phrase</h2>'
+    +'<div class="sc-phrase">'+esc((en||'').slice(0,90))+'</div>'
+    +'<button type="button" class="sc-opt" id="sc-feed">'
+    +  '<span class="sc-ico" aria-hidden="true">📣</span>'
+    +  '<span class="sc-txt"><b>Share to Tabib Talk Feed</b>'
+    +  '<small>Other students see it for a week. They can like it and save it.</small></span></button>'
+    +'<button type="button" class="sc-opt" id="sc-social">'
+    +  '<span class="sc-ico" aria-hidden="true">📤</span>'
+    +  '<span class="sc-txt"><b>Share outside Tabib Talk</b>'
+    +  '<small>Send it as an image to WhatsApp, Telegram or anywhere else.</small></span></button>'
+    +'<div class="sc-note" id="sc-note"></div>'
+    +'<button type="button" class="sc-cancel" onclick="ttCloseShareChooser()">Cancel</button>'
+    +'</div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseShareChooser(); });
+  document.body.appendChild(ov);
+
+  // Show the remaining weekly allowance so the choice is informed.
+  try{
+    fetch('/api/shares/status',{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){
+      var n=document.getElementById('sc-note'); if(!n||!s) return;
+      n.textContent = s.remaining>0
+        ? (s.remaining + ' of ' + s.limit + ' shares left this week')
+        : ('You have used all ' + s.limit + ' shares for this week');
+    }).catch(function(){});
+  }catch(e){}
+
+  document.getElementById('sc-social').onclick=function(){
+    ttCloseShareChooser();
+    // Unchanged existing behaviour.
+    shareParts([{ label:null, en:en, ar:ar, fr:fr }], 'tabib-talk-phrase.png');
+  };
+
+  document.getElementById('sc-feed').onclick=function(){
+    var btn=this;
+    if(btn.disabled) return;
+    // Disabled + labelled while in flight, so a second tap on a slow
+    // connection cannot start a second share. The server also collapses an
+    // identical repeat within two minutes.
+    btn.disabled=true;
+    btn.classList.add('busy');
+    btn.querySelector('b').textContent='Sharing…';
+    fetch('/api/feed/share',{
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phraseEn:en, phraseAr:ar, phraseFr:fr, lesson:lesson, dialect: ttDialect() })
+    })
+    .then(function(r){ return r.json().then(function(j){ return { ok:r.ok, j:j }; }); })
+    .then(function(res){
+      ttCloseShareChooser();
+      if(!res.ok){ toast(res.j && res.j.error ? res.j.error : 'Could not share that just now.', 4200); return; }
+      toast(res.j.duplicate ? 'Already shared to the Feed ✓' : 'Shared to the Tabib Talk Feed ✓', 3000);
+      // If the Feed is on screen, refresh it so the post appears immediately.
+      try{ if(document.getElementById('feed-list')) renderFeed(); }catch(e){}
+    })
+    .catch(function(){
+      ttCloseShareChooser();
+      toast('Could not reach Tabib Talk — check your connection.', 4000);
+    });
+  };
+}
+window.ttShareChooser = ttShareChooser;
+
+/* ---------- Tabib Talk Feed ---------- */
+function ttFeedWhen(iso){
+  var t=Date.parse(iso); if(!isFinite(t)) return '';
+  var now=Date.now(), diff=now-t;
+  if(diff < 60000) return 'Shared just now';
+  if(diff < 3600000) return 'Shared ' + Math.floor(diff/60000) + ' min ago';
+  var d=new Date(t), today=new Date();
+  var sameDay = d.toDateString()===today.toDateString();
+  if(sameDay) return 'Shared today';
+  var y=new Date(today.getTime()-86400000);
+  if(d.toDateString()===y.toDateString()) return 'Shared yesterday';
+  return 'Shared ' + d.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+}
+
+function renderFeed(){
+  var body=document.getElementById('feed-body'); if(!body) return;
+  if(!document.getElementById('feed-list')){
+    body.innerHTML='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Feed</span></div>'
+      +'<h1 class="tool-title">📣 Tabib Talk Feed</h1>'
+      +'<p class="tool-sub">Phrases students have shared over the past week. Like the ones you find useful, and bookmark any you want to keep &mdash; a bookmark stays in your account permanently, even after the post leaves the feed.</p>'
+      +'<div id="feed-list" class="fc-count">Loading the feed…</div>';
+  }
+  var served=(location.protocol==='http:'||location.protocol==='https:');
+  if(!served){ document.getElementById('feed-list').innerHTML='The feed needs the website version of the app.'; return; }
+
+  fetch('/api/feed',{credentials:'same-origin'})
+    .then(function(r){ if(!r.ok) throw new Error('feed'); return r.json(); })
+    .then(function(d){
+      var el=document.getElementById('feed-list'); if(!el) return;
+      var posts=d.posts||[];
+      if(!posts.length){
+        el.innerHTML='<div class="feed-empty"><div class="feed-empty-ico" aria-hidden="true">📣</div>'
+          +'<div class="feed-empty-t">Nothing shared yet this week</div>'
+          +'<div class="feed-empty-d">Open any lesson, tap the share button on a phrase and choose <b>Share to Tabib Talk Feed</b> to be the first.</div></div>';
+        return;
+      }
+      el.innerHTML=posts.map(function(p){ return ttFeedCard(p); }).join('');
+    })
+    .catch(function(){
+      var el=document.getElementById('feed-list');
+      if(el) el.innerHTML='<div class="feed-empty"><div class="feed-empty-t">Could not load the feed</div>'
+        +'<div class="feed-empty-d">Check your connection, then <button type="button" class="pill outline" onclick="renderFeed()">try again</button></div></div>';
+    });
+}
+window.renderFeed=renderFeed;
+
+var TT_DIA_SHORT={eg:'Egyptian',hejazi:'Hejazi',khaleeji:'Khaleeji'};
+
+function ttFeedCard(p){
+  return '<article class="feed-card" id="fc-'+esc(p.id)+'">'
+    + '<div class="feed-top">'
+    +   '<div class="feed-who"><b>'+esc(p.name)+'</b>'
+    +     '<span class="feed-when">'+esc(ttFeedWhen(p.createdAt))+'</span></div>'
+    +   '<span class="feed-dia">'+esc(TT_DIA_SHORT[p.dialect]||'Egyptian')+'</span>'
+    + '</div>'
+    // Same 3-cell row shape as everywhere else, so the voice buttons and the
+    // patient-reply popup attach to feed phrases exactly as they do in lessons.
+    + '<table class="feed-table"><tr>'
+    +   '<td>'+p.phraseEn+'</td><td>'+p.phraseAr+'</td><td>'+p.phraseFr+'</td>'
+    + '</tr></table>'
+    + (p.lesson ? '<div class="feed-lesson">From '+esc(p.lesson)+'</div>' : '')
+    + '<div class="feed-actions">'
+    +   '<button type="button" class="feed-act'+(p.likedByMe?' on':'')+'" id="fl-'+esc(p.id)+'"'
+    +     ' onclick="ttFeedLike(\''+esc(p.id)+'\')" aria-pressed="'+(p.likedByMe?'true':'false')+'"'
+    +     ' aria-label="Like this phrase">'
+    +     '<span aria-hidden="true">'+(p.likedByMe?'♥':'♡')+'</span>'
+    +     '<span class="feed-n" id="fn-'+esc(p.id)+'">'+p.likes+'</span></button>'
+    +   '<button type="button" class="feed-act" onclick="ttFeedBookmark(\''+esc(p.id)+'\')" aria-label="Save to my bookmarks">'
+    +     '<span aria-hidden="true">🔖</span><span>Bookmark</span></button>'
+    + '</div></article>';
+}
+
+/* Like / unlike. The button flips immediately so it feels instant, then the
+   server's true count replaces it — if the request fails the button goes back,
+   so it can never show a like that was not recorded. */
+function ttFeedLike(id){
+  var btn=document.getElementById('fl-'+id), num=document.getElementById('fn-'+id);
+  if(!btn || btn.dataset.busy) return;
+  btn.dataset.busy='1';
+  var wasOn=btn.classList.contains('on');
+  var wasN=parseInt(num.textContent||'0',10)||0;
+  btn.classList.toggle('on', !wasOn);
+  btn.setAttribute('aria-pressed', !wasOn ? 'true' : 'false');
+  btn.querySelector('span[aria-hidden]').textContent = !wasOn ? '♥' : '♡';
+  num.textContent = String(Math.max(0, wasN + (!wasOn ? 1 : -1)));
+
+  fetch('/api/feed/'+encodeURIComponent(id)+'/like',{
+    method:'POST', credentials:'same-origin',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ liked: !wasOn })
+  })
+  .then(function(r){ if(!r.ok) throw new Error('like'); return r.json(); })
+  .then(function(j){
+    // The server count is authoritative — this is what keeps two people
+    // liking at the same moment showing the correct total for both.
+    num.textContent=String(j.likes);
+    btn.classList.toggle('on', !!j.likedByMe);
+    btn.setAttribute('aria-pressed', j.likedByMe ? 'true' : 'false');
+    btn.querySelector('span[aria-hidden]').textContent = j.likedByMe ? '♥' : '♡';
+  })
+  .catch(function(){
+    btn.classList.toggle('on', wasOn);
+    btn.setAttribute('aria-pressed', wasOn ? 'true' : 'false');
+    btn.querySelector('span[aria-hidden]').textContent = wasOn ? '♥' : '♡';
+    num.textContent=String(wasN);
+    toast('Could not save that like — check your connection.', 3200);
+  })
+  .then(function(){ delete btn.dataset.busy; });
+}
+window.ttFeedLike=ttFeedLike;
+
+/* Bookmarking a feed phrase uses the EXISTING bookmark system, which is
+   already per-user, per-dialect and synced to the account. That is what makes
+   a bookmark outlive the post: the phrase is copied into this student's own
+   bookmarks, so when the post drops off the feed after seven days the bookmark
+   is entirely unaffected. */
+function ttFeedBookmark(id){
+  var card=document.getElementById('fc-'+id); if(!card) return;
+  var tds=card.querySelectorAll('.feed-table td');
+  if(tds.length<3) return;
+  addBM({
+    en:(tds[0].innerText||'').trim(),
+    ar:(tds[1].innerText||'').trim(),
+    fr:(tds[2].innerText||'').trim(),
+    dept:'Tabib Talk Feed'
+  });
+}
+window.ttFeedBookmark=ttFeedBookmark;
 
 /* Shares one or more labeled phrase blocks as a single branded image — used
    for a plain phrase table row (1 block) and for "Doctor Asks / Patient
@@ -10381,7 +10653,10 @@ window.fillStreakScore=fillStreakScore;
 (function(){
   try{
     var _n=window.navigate;
-    window.navigate=function(id,nh){ _n(id,nh); if(id==='page-leaderboard'){ try{ renderLeaderboard(); }catch(e){ console.error('leaderboard',e); } } };
+    window.navigate=function(id,nh){ _n(id,nh);
+      if(id==='page-leaderboard'){ try{ renderLeaderboard(); }catch(e){ console.error('leaderboard',e); } }
+      if(id==='page-feed'){ try{ renderFeed(); }catch(e){ console.error('feed',e); } }
+    };
   }catch(e){}
 })();
 
