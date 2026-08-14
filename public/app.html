@@ -961,6 +961,44 @@
         #tt-profile .pf-hist-w { color: var(--muted); font-size: .82rem; white-space: nowrap; }
         #tt-profile .pf-empty { font-size: .86rem; color: var(--muted); line-height: 1.6; }
 
+        /* ---------- Friends ---------- */
+        #tt-friends { position: fixed; inset: 0; z-index: 10080; display:flex; align-items:center;
+            justify-content:center; padding: 18px; background: rgba(2,5,10,.60); backdrop-filter: blur(5px); }
+        .pf-friend { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .pf-friend-wait { color: var(--muted); font-size: .85rem; }
+        .pf-friend-on { font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+        .pf-friend-note { font-size: .86rem; color: var(--muted); margin-bottom: 8px; }
+        .pf-friend-row { display:flex; gap: 8px; }
+        .pf-btn { flex: 1 1 auto; min-height: 44px; padding: 11px 16px; border-radius: 12px;
+            border: 1.5px solid var(--primary); background: var(--primary); color:#fff;
+            font: inherit; font-weight: 700; cursor: pointer; }
+        .pf-btn:hover:not(:disabled) { filter: brightness(1.06); }
+        .pf-btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        .pf-btn:active:not(:disabled) { transform: translateY(1px); }
+        .pf-btn:disabled { opacity:.55; cursor: default; }
+        .pf-btn.ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+        .pf-btn.ghost:hover { border-color: var(--primary); color: var(--primary); }
+        .fr-row { display:flex; align-items:center; gap: 10px; padding: 11px 0;
+            border-bottom: 1px solid var(--border); }
+        .fr-row:last-child { border-bottom: none; }
+        .fr-who { flex:1; min-width:0; text-align:left; background:none; border:none; padding:0;
+            font: inherit; color: inherit; cursor: pointer; }
+        .fr-who:hover b { color: var(--primary); }
+        .fr-who:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+        .fr-uni { display:block; font-size: .78rem; color: var(--muted); margin-top: 2px;
+            word-break: break-word; }
+        .fr-x { flex: none; min-height: 38px; padding: 8px 13px; font-size: .84rem; }
+        /* Personal notification cards */
+        .notif-sub { font-size: .8rem; color: var(--muted); margin-top: 3px; }
+        .notif-acts { display:flex; gap: 8px; margin-top: 10px; }
+        .notif-btn { flex: 1 1 auto; min-height: 40px; padding: 9px 14px; border-radius: 11px;
+            border: 1.5px solid var(--primary); background: var(--primary); color: #fff;
+            font: inherit; font-weight: 700; font-size: .86rem; cursor: pointer; }
+        .notif-btn.ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+        .notif-btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        .notif-done { margin-top: 8px; font-size: .84rem; font-weight: 700; color: var(--muted); }
+        .notif-item.notif-new { border-left: 3px solid var(--primary); padding-left: 10px; }
+
         /* ---------- Feed ---------- */
         .feed-card { background: var(--surface); border: 1px solid var(--border); border-radius: 17px;
             padding: 15px 16px; margin-bottom: 13px; box-shadow: 0 3px 12px rgba(20,52,42,.05); }
@@ -8825,14 +8863,61 @@ window.addFrancoVoice=addFrancoVoice;
 
 /* ---------- Notifications: German ad popup ---------- */
 var __ttNotifCache = [];
+var __ttPersonalCache = [];
 var __ttNotifiedGerman = false;
+
+/* One personal notification. A friend request keeps its Accept/Decline buttons
+   until it is answered; once answered the buttons are replaced by the outcome,
+   so an old card cannot be acted on twice. */
+function ttPersonalNotifHtml(n){
+  var d = new Date(n.createdAt); var when = isNaN(d) ? '' : d.toLocaleDateString();
+  var h = '<div class="notif-item'+(n.readAt?'':' notif-new')+'">'
+        + '<div class="notif-item-msg"><b>'+esc(n.title||'')+'</b>'
+        + (n.body ? '<div class="notif-sub">🎓 '+esc(n.body)+'</div>' : '');
+  if (n.type === 'friend-request') {
+    h += n.actioned
+      ? '<div class="notif-done">'+(n.actioned==='accepted'?'✓ You accepted':'Declined')+'</div>'
+      : '<div class="notif-acts">'
+        + '<button type="button" class="notif-btn" onclick="ttNotifRespond(\''+esc(n.requestId)+'\',true)">Accept</button>'
+        + '<button type="button" class="notif-btn ghost" onclick="ttNotifRespond(\''+esc(n.requestId)+'\',false)">Decline</button>'
+        + '</div>';
+  }
+  h += '</div><div class="notif-item-date">'+when+'</div></div>';
+  return h;
+}
+
+/* Answering from the bell. Re-fetches afterwards so the card shows the outcome
+   rather than being patched in place and drifting from the server. */
+function ttNotifRespond(requestId, accept){
+  fetch('/api/friends/respond',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({requestId:requestId, accept:!!accept})})
+    .then(function(r){ return r.json(); })
+    .then(function(){
+      toast(accept?'You are now friends ✓':'Request declined', 2600);
+      return fetch('/api/notifications/me',{credentials:'same-origin'}).then(function(r){ return r.json(); });
+    })
+    .then(function(d){
+      __ttPersonalCache = d.personal || [];
+      __ttNotifCache = d.notifications || [];
+      var ov=document.getElementById('notif-overlay');
+      if(ov){ closeNotif(); showNotif(); }
+    })
+    .catch(function(){ toast('Could not save that just now.', 3000); });
+}
+window.ttNotifRespond=ttNotifRespond;
 function showNotif(){
   if(document.getElementById('notif-overlay')) return;
   var bell = document.getElementById('notif-bell-btn'); if(bell) bell.classList.remove('has-unread');
   var served = (location.protocol==='http:'||location.protocol==='https:');
   var broadcastHtml = '';
+  // This student's own notifications come first — a friend request is waiting on
+  // an answer, so it should not sit below general announcements.
+  if (__ttPersonalCache.length) {
+    broadcastHtml += '<div class="notif-broadcast-list">'
+      + __ttPersonalCache.map(ttPersonalNotifHtml).join('') + '</div>';
+  }
   if (__ttNotifCache.length) {
-    broadcastHtml = '<div class="notif-broadcast-list">' + __ttNotifCache.map(function(n){
+    broadcastHtml += '<div class="notif-broadcast-list">' + __ttNotifCache.map(function(n){
       var d = new Date(n.createdAt); var when = isNaN(d) ? '' : d.toLocaleDateString();
       var msg = (n.message||'').replace(/</g,'&lt;');
       return '<div class="notif-item"><div class="notif-item-msg">'+msg+'</div><div class="notif-item-date">'+when+'</div></div>';
@@ -8931,6 +9016,9 @@ function ttCheckNotifications(){
     .then(function(data){
       if (!data) return;
       __ttNotifCache = data.notifications || [];
+      // Friend requests and the like. The unread count already includes them,
+      // so the bell lights up for a request exactly as for an announcement.
+      __ttPersonalCache = data.personal || [];
       var bell = document.getElementById('notif-bell-btn');
       if (bell) bell.classList.toggle('has-unread', data.unreadCount > 0);
     })
@@ -9663,8 +9751,10 @@ function ttOpenProfile(userRef){
           + '<div class="pf-empty">No top-10 finishes recorded yet. Weekly results are kept from now on, so places won from this week appear here.</div>';
       }
 
+      h+='<div id="pf-friend" class="pf-friend"></div>';
       b.className='';
       b.innerHTML=h;
+      if(!p.isMe) ttFriendButton(userRef);
     })
     .catch(function(){
       var b=document.getElementById('pf-body');
@@ -9672,6 +9762,124 @@ function ttOpenProfile(userRef){
     });
 }
 window.ttOpenProfile=ttOpenProfile;
+
+/* The one button on a profile, whose label depends entirely on where the two
+   of you stand. The state is read from the server rather than assumed, so it
+   cannot show "Add friend" to someone you are already friends with. */
+function ttFriendButton(userRef){
+  var box=document.getElementById('pf-friend'); if(!box) return;
+  box.innerHTML='<span class="pf-friend-wait">…</span>';
+  fetch('/api/friends/status/'+encodeURIComponent(userRef),{credentials:'same-origin'})
+    .then(function(r){ return r.json(); })
+    .then(function(s){
+      var b=document.getElementById('pf-friend'); if(!b) return;
+      if(s.status==='self'){ b.innerHTML=''; return; }
+      if(s.status==='friends'){
+        b.innerHTML='<div class="pf-friend-on">✓ Friends</div>'
+          +'<button type="button" class="pf-btn ghost" onclick="ttUnfriend(\''+esc(userRef)+'\')">Remove friend</button>';
+        return;
+      }
+      if(s.status==='requested'){
+        b.innerHTML='<button type="button" class="pf-btn" disabled>Request sent</button>';
+        return;
+      }
+      if(s.status==='awaiting-me'){
+        b.innerHTML='<div class="pf-friend-note">They asked to be your friend.</div>'
+          +'<div class="pf-friend-row">'
+          +'<button type="button" class="pf-btn" onclick="ttRespondFriend(\''+esc(s.requestId)+'\',true,\''+esc(userRef)+'\')">Accept</button>'
+          +'<button type="button" class="pf-btn ghost" onclick="ttRespondFriend(\''+esc(s.requestId)+'\',false,\''+esc(userRef)+'\')">Decline</button>'
+          +'</div>';
+        return;
+      }
+      b.innerHTML='<button type="button" class="pf-btn" onclick="ttAddFriend(\''+esc(userRef)+'\')">+ Add friend</button>';
+    })
+    .catch(function(){ var b=document.getElementById('pf-friend'); if(b) b.innerHTML=''; });
+}
+window.ttFriendButton=ttFriendButton;
+
+function ttAddFriend(userRef){
+  var box=document.getElementById('pf-friend');
+  if(box) box.innerHTML='<button type="button" class="pf-btn" disabled>Sending…</button>';
+  fetch('/api/friends/request',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({toId:userRef})})
+    .then(function(r){ return r.json(); })
+    .then(function(){ ttFriendButton(userRef); toast('Friend request sent ✓',2600); })
+    .catch(function(){ ttFriendButton(userRef); toast('Could not send that request.',3000); });
+}
+window.ttAddFriend=ttAddFriend;
+
+function ttRespondFriend(requestId, accept, userRef){
+  var box=document.getElementById('pf-friend');
+  if(box) box.innerHTML='<button type="button" class="pf-btn" disabled>Saving…</button>';
+  fetch('/api/friends/respond',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({requestId:requestId, accept:!!accept})})
+    .then(function(r){ return r.json(); })
+    .then(function(){
+      if(userRef) ttFriendButton(userRef);
+      toast(accept?'You are now friends ✓':'Request declined',2600);
+      try{ if(typeof refreshNotifBadge==='function') refreshNotifBadge(); }catch(e){}
+    })
+    .catch(function(){ if(userRef) ttFriendButton(userRef); toast('Could not save that.',3000); });
+}
+window.ttRespondFriend=ttRespondFriend;
+
+function ttUnfriend(userRef){
+  if(!confirm('Remove this friend?\n\nYou can always add them again later.')) return;
+  var box=document.getElementById('pf-friend');
+  if(box) box.innerHTML='<button type="button" class="pf-btn" disabled>Removing…</button>';
+  fetch('/api/friends/'+encodeURIComponent(userRef),{method:'DELETE',credentials:'same-origin'})
+    .then(function(){ ttFriendButton(userRef); toast('Removed',2200);
+      try{ if(document.getElementById('fr-list')) ttRenderFriends(); }catch(e){} })
+    .catch(function(){ ttFriendButton(userRef); toast('Could not remove them just now.',3000); });
+}
+window.ttUnfriend=ttUnfriend;
+
+/* ---------- Friends list ---------- */
+function ttCloseFriends(){ var o=document.getElementById('tt-friends'); if(o) o.remove(); }
+window.ttCloseFriends=ttCloseFriends;
+
+function ttOpenFriends(){
+  if(document.getElementById('tt-friends')) return;
+  var ov=document.createElement('div');
+  ov.id='tt-friends';
+  ov.innerHTML='<div class="pf-card" role="dialog" aria-modal="true" aria-labelledby="fr-h">'
+    +'<button type="button" class="pf-x" onclick="ttCloseFriends()" aria-label="Close">&times;</button>'
+    +'<h2 id="fr-h" class="pf-name">Friends</h2>'
+    +'<div id="fr-list" class="pf-loading">Loading…</div></div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseFriends(); });
+  document.body.appendChild(ov);
+  ttRenderFriends();
+}
+window.ttOpenFriends=ttOpenFriends;
+
+function ttRenderFriends(){
+  var el=document.getElementById('fr-list'); if(!el) return;
+  fetch('/api/friends',{credentials:'same-origin'})
+    .then(function(r){ if(!r.ok) throw new Error('friends'); return r.json(); })
+    .then(function(d){
+      var box=document.getElementById('fr-list'); if(!box) return;
+      box.className='';
+      var f=d.friends||[];
+      if(!f.length){
+        box.innerHTML='<div class="pf-empty">No friends yet. Tap anyone’s name in the Feed or on the leaderboard and choose <b>Add friend</b>.</div>';
+        return;
+      }
+      box.innerHTML=f.map(function(x){
+        return '<div class="fr-row">'
+          +'<button type="button" class="fr-who" onclick="ttCloseFriends();ttOpenProfile(\''+esc(x.id)+'\')">'
+          +  '<b>'+esc(x.name)+'</b>'
+          +  (x.college?'<span class="fr-uni">'+esc(x.college)+'</span>':'')
+          +'</button>'
+          +'<button type="button" class="pf-btn ghost fr-x" onclick="ttUnfriend(\''+esc(x.id)+'\')">Remove</button>'
+          +'</div>';
+      }).join('');
+    })
+    .catch(function(){
+      var box=document.getElementById('fr-list');
+      if(box){ box.className=''; box.innerHTML='<div class="pf-empty">Could not load your friends — check your connection.</div>'; }
+    });
+}
+window.ttRenderFriends=ttRenderFriends;
 
 /* ---------- Tabib Talk Feed ---------- */
 function ttFeedWhen(iso){
@@ -10207,6 +10415,7 @@ function ttGoAccount(){
         + '</div>'
         + '<div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">'
         + '<button class="btn-primary" style="flex:1;min-width:130px" onclick="closeAccountModal();if(window.openOnboardModal)openOnboardModal(true)">👤 Personal details</button>'
+        + '<button class="btn-primary" style="flex:1;min-width:130px" onclick="ttOpenFriends()">🤝 Friends</button>'
         // Carry the dialect explicitly. Without it the plans page falls through
         // to whichever dialect is recorded on the account server-side, which is
         // not necessarily the one being read right now — which is how students

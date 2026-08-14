@@ -240,6 +240,83 @@ async function countRecentSharesForUser(userId, days) {
   ).length;
 }
 
+// ---------- Personal notifications ----------
+//
+// The existing notifications collection is a BROADCAST from the admin to
+// everyone, and the bell reads all of it. A friend request has to reach one
+// person, so it lives under that person's id instead. Both are merged when the
+// bell is opened, so there is one notification surface rather than two.
+//
+// Kept separate rather than adding a userId to the broadcast collection: every
+// student would then have to read and filter the whole collection, which gets
+// worse as the site grows.
+async function addUserNotification(userId, notif) {
+  await db().ref(`userNotifications/${userId}/${notif.id}`).set(notif);
+  return notif;
+}
+async function listUserNotifications(userId) {
+  const snap = await db().ref(`userNotifications/${userId}`).once('value');
+  return newestFirst(Object.values(snap.val() || {}), 'createdAt');
+}
+async function patchUserNotification(userId, id, patch) {
+  const ref = db().ref(`userNotifications/${userId}/${id}`);
+  const cur = (await ref.once('value')).val();
+  if (!cur) return null;
+  await ref.update(patch);
+  return Object.assign({}, cur, patch);
+}
+async function markUserNotificationsRead(userId) {
+  const snap = await db().ref(`userNotifications/${userId}`).once('value');
+  const all = snap.val() || {};
+  const now = new Date().toISOString();
+  const updates = {};
+  Object.keys(all).forEach((k) => { if (!all[k].readAt) updates[`${k}/readAt`] = now; });
+  if (Object.keys(updates).length) await db().ref(`userNotifications/${userId}`).update(updates);
+  return Object.keys(updates).length;
+}
+
+// ---------- Friends ----------
+//
+// A friendship is stored twice, once under each person — friends/<a>/<b> and
+// friends/<b>/<a>. Writing both sides means "who are my friends" is a single
+// read of one node instead of a scan of every friendship in the system, and
+// because the friend's id is the KEY, accepting the same request twice is
+// idempotent rather than creating a duplicate.
+async function addFriendEdge(userId, friendId, record) {
+  await db().ref(`friends/${userId}/${friendId}`).set(record);
+}
+async function removeFriendEdge(userId, friendId) {
+  await db().ref(`friends/${userId}/${friendId}`).remove();
+}
+async function listFriendIds(userId) {
+  const snap = await db().ref(`friends/${userId}`).once('value');
+  return Object.entries(snap.val() || {}).map(([id, v]) => ({ id, since: v && v.since }));
+}
+async function areFriends(a, b) {
+  const snap = await db().ref(`friends/${a}/${b}`).once('value');
+  return snap.exists();
+}
+
+async function createFriendRequest(reqRec) {
+  return putOne('friendRequests', reqRec.id, reqRec);
+}
+async function findFriendRequest(id) {
+  return getOne('friendRequests', id);
+}
+async function updateFriendRequest(id, patch) {
+  return patchOne('friendRequests', id, patch);
+}
+// Any request still awaiting an answer between two people, in either
+// direction — used to stop a second request being sent while one is open.
+async function pendingRequestBetween(a, b) {
+  const all = await getAll('friendRequests');
+  return all.find(r => r.status === 'pending' &&
+    ((r.fromId === a && r.toId === b) || (r.fromId === b && r.toId === a)));
+}
+async function listPendingRequestsFor(userId) {
+  return (await getAll('friendRequests')).filter(r => r.status === 'pending' && r.toId === userId);
+}
+
 // ---------- Weekly results history ----------
 //
 // The leaderboard has always been computed live for the current week and then
@@ -376,6 +453,10 @@ module.exports = {
   createShare, countSharesForUser, countRecentSharesForUser, listShares,
   createFeedPost, listFeedPosts, findFeedPost, setFeedLike, getAllFeedLikes,
   saveWeekResult, listWeekResults,
+  addUserNotification, listUserNotifications, patchUserNotification, markUserNotificationsRead,
+  addFriendEdge, removeFriendEdge, listFriendIds, areFriends,
+  createFriendRequest, findFriendRequest, updateFriendRequest,
+  pendingRequestBetween, listPendingRequestsFor,
   getPlanOverrides, setPlanOverride,
   getPaymentConfig, setPaymentConfig,
   getFxConfig, setFxConfig,
