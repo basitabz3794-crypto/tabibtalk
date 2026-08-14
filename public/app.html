@@ -915,6 +915,52 @@
             border: none; background: var(--secondary); color: var(--text-dark); font: inherit;
             font-weight: 700; cursor: pointer; }
 
+        /* ---------- Student profile ---------- */
+        /* A name is a real button, so it works with a mouse, a finger and a
+           keyboard, and reads as interactive rather than as plain text. */
+        .who-btn { background:none; border:none; padding:0; font:inherit; color:inherit;
+            cursor:pointer; text-align:left; text-decoration:underline;
+            text-decoration-style:dotted; text-underline-offset:3px; }
+        .who-btn:hover { color: var(--primary); }
+        .who-btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+        #tt-profile { position: fixed; inset: 0; z-index: 10080; display:flex; align-items:center;
+            justify-content:center; padding: 18px; background: rgba(2,5,10,.60); backdrop-filter: blur(5px); }
+        #tt-profile .pf-card { position:relative; background: var(--surface); color: var(--text-dark);
+            border: 1px solid var(--border); border-radius: 20px; padding: 24px 22px;
+            max-width: 420px; width: 100%; max-height: 86vh; overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0,0,0,.35); }
+        #tt-profile .pf-x { position:absolute; top:12px; right:14px; width:36px; height:36px;
+            border-radius:10px; border:1px solid var(--border); background:var(--secondary);
+            color:var(--text-dark); font-size:1.2rem; cursor:pointer; display:grid; place-items:center; }
+        #tt-profile .pf-loading { color: var(--muted); padding: 20px 0; text-align:center; }
+        #tt-profile .pf-name { font-size: 1.35rem; margin: 0 34px 4px 0; color: var(--primary); }
+        #tt-profile .pf-you { font-size:.7rem; font-weight:800; text-transform:uppercase;
+            letter-spacing:.06em; color: var(--muted); background: var(--secondary);
+            padding: 3px 8px; border-radius: 999px; vertical-align: middle; }
+        #tt-profile .pf-uni { font-size: .92rem; color: var(--text-dark); margin-bottom: 16px;
+            word-break: break-word; }
+        #tt-profile .pf-uni.pf-none { color: var(--muted); font-style: italic; }
+        #tt-profile .pf-stats { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            margin-bottom: 16px; }
+        #tt-profile .pf-stat { background: var(--secondary); border-radius: 13px; padding: 12px 6px;
+            text-align:center; }
+        #tt-profile .pf-n { font-size: 1.35rem; font-weight: 800; color: var(--primary);
+            font-variant-numeric: tabular-nums; }
+        #tt-profile .pf-l { font-size: .72rem; color: var(--muted); line-height: 1.35; margin-top: 2px; }
+        #tt-profile .pf-best { border: 1.5px solid var(--primary); border-radius: 14px;
+            padding: 13px 15px; margin-bottom: 16px; background: var(--secondary); }
+        #tt-profile .pf-best-l { font-size: .7rem; font-weight: 800; letter-spacing: .09em;
+            text-transform: uppercase; color: var(--muted); }
+        #tt-profile .pf-best-v { font-size: 1.05rem; font-weight: 700; margin-top: 3px; }
+        #tt-profile .pf-best-w { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+        #tt-profile .pf-hist-h { font-size: .74rem; font-weight: 800; letter-spacing: .09em;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+        #tt-profile .pf-hist-row { display:flex; justify-content:space-between; gap: 10px;
+            padding: 9px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+        #tt-profile .pf-hist-row:last-child { border-bottom: none; }
+        #tt-profile .pf-hist-w { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+        #tt-profile .pf-empty { font-size: .86rem; color: var(--muted); line-height: 1.6; }
+
         /* ---------- Feed ---------- */
         .feed-card { background: var(--surface); border: 1px solid var(--border); border-radius: 17px;
             padding: 15px 16px; margin-bottom: 13px; box-shadow: 0 3px 12px rgba(20,52,42,.05); }
@@ -9550,6 +9596,83 @@ function ttShareChooser(en, ar, fr, lesson){
 }
 window.ttShareChooser = ttShareChooser;
 
+/* ---------- Student profile ----------
+   Opens from any name in the app. Shows where they study, how their shared
+   phrases have been received, and what they have won — all derived server-side
+   from records the student cannot edit. */
+function ttCloseProfile(){
+  var o=document.getElementById('tt-profile'); if(o) o.remove();
+}
+window.ttCloseProfile=ttCloseProfile;
+
+function ttOrdinal(n){
+  if(n===1) return '1st'; if(n===2) return '2nd'; if(n===3) return '3rd';
+  return n + 'th';
+}
+
+function ttOpenProfile(userRef){
+  if(!userRef || document.getElementById('tt-profile')) return;
+  var ov=document.createElement('div');
+  ov.id='tt-profile';
+  ov.innerHTML='<div class="pf-card" role="dialog" aria-modal="true" aria-labelledby="pf-name">'
+    +'<button type="button" class="pf-x" onclick="ttCloseProfile()" aria-label="Close">&times;</button>'
+    +'<div id="pf-body" class="pf-loading">Loading…</div></div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseProfile(); });
+  document.body.appendChild(ov);
+
+  fetch('/api/profile/'+encodeURIComponent(userRef),{credentials:'same-origin'})
+    .then(function(r){ if(!r.ok) throw new Error('profile'); return r.json(); })
+    .then(function(d){
+      var b=document.getElementById('pf-body'); if(!b) return;
+      var p=d.profile;
+      var stat=function(v,l){ return '<div class="pf-stat"><div class="pf-n">'+v+'</div><div class="pf-l">'+l+'</div></div>'; };
+
+      var h='<h2 id="pf-name" class="pf-name">'+esc(p.name)+(p.isMe?' <span class="pf-you">you</span>':'')+'</h2>';
+      h+= p.college
+        ? '<div class="pf-uni">🎓 '+esc(p.college)+'</div>'
+        : '<div class="pf-uni pf-none">No university on their profile yet</div>';
+
+      h+='<div class="pf-stats">'
+        + stat(p.likesReceived, 'like'+(p.likesReceived===1?'':'s')+' received')
+        + stat(p.postCount, 'phrase'+(p.postCount===1?'':'s')+' shared')
+        + stat(p.awardCount, 'week'+(p.awardCount===1?'':'s')+' in the top 10')
+        + '</div>';
+
+      if(p.best){
+        h+='<div class="pf-best">'
+          + '<div class="pf-best-l">Best result</div>'
+          + '<div class="pf-best-v">'+(p.best.award?esc(p.best.award.emoji)+' ':'')
+          + (p.best.award?esc(p.best.award.title):(ttOrdinal(p.best.rank)+' place'))
+          + '</div>'
+          + '<div class="pf-best-w">'+ttOrdinal(p.best.rank)+' place · week '
+          + esc(String(p.best.week||'').split('-W')[1]||'') + ' of ' + esc(String(p.best.year||'')) + '</div>'
+          + '</div>';
+      }
+
+      if(p.placings && p.placings.length){
+        h+='<div class="pf-hist-h">Weekly results</div><div class="pf-hist">'
+          + p.placings.map(function(w){
+              return '<div class="pf-hist-row"><span>'+(w.award?esc(w.award.emoji)+' ':'')
+                + ttOrdinal(w.rank)+' place</span>'
+                + '<span class="pf-hist-w">week '+esc(String(w.week||'').split('-W')[1]||'')
+                + ' · '+esc(String(w.year||''))+'</span></div>';
+            }).join('')
+          + '</div>';
+      } else {
+        h+='<div class="pf-hist-h">Weekly results</div>'
+          + '<div class="pf-empty">No top-10 finishes recorded yet. Weekly results are kept from now on, so places won from this week appear here.</div>';
+      }
+
+      b.className='';
+      b.innerHTML=h;
+    })
+    .catch(function(){
+      var b=document.getElementById('pf-body');
+      if(b){ b.className=''; b.innerHTML='<div class="pf-empty">Could not load that profile — check your connection.</div>'; }
+    });
+}
+window.ttOpenProfile=ttOpenProfile;
+
 /* ---------- Tabib Talk Feed ---------- */
 function ttFeedWhen(iso){
   var t=Date.parse(iso); if(!isFinite(t)) return '';
@@ -9601,7 +9724,10 @@ var TT_DIA_SHORT={eg:'Egyptian',hejazi:'Hejazi',khaleeji:'Khaleeji'};
 function ttFeedCard(p){
   return '<article class="feed-card" id="fc-'+esc(p.id)+'">'
     + '<div class="feed-top">'
-    +   '<div class="feed-who"><b>'+esc(p.name)+'</b>'
+    +   '<div class="feed-who">'
+    +     (p.userRef
+          ? '<button type="button" class="who-btn" onclick="ttOpenProfile(\''+esc(p.userRef)+'\')" aria-label="See '+esc(p.name)+'’s profile"><b>'+esc(p.name)+'</b></button>'
+          : '<b>'+esc(p.name)+'</b>')
     +     '<span class="feed-when">'+esc(ttFeedWhen(p.createdAt))+'</span></div>'
     +   '<span class="feed-dia">'+esc(TT_DIA_SHORT[p.dialect]||'Egyptian')+'</span>'
     + '</div>'
@@ -10575,9 +10701,13 @@ function ttLbPaint(d){
       var isMe = d.me && d.me.rank === e.rank && ob.nick === e.nick;
       return '<div class="qa-analysis" style="' + (isMe ? 'outline:2px solid #f5b544;outline-offset:3px;border-radius:12px;padding:6px 8px;' : '') + '">'
         + '<div class="qa-analysis-top"><span style="font-size:1.05rem;min-width:0">' + medal + ' ' + esc(e.emoji || '') + ' '
-        +   '<button type="button" id="lb-name-' + idx + '" onclick="ttLbWho(' + idx + ')" aria-expanded="false"'
-        +     ' title="Show university" style="background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'
-        +     '<b>' + esc(e.nick) + '</b></button>'
+        // The name opens the full profile — university, likes received and
+        // places won — rather than only revealing the university inline.
+        +   (e.userRef
+              ? '<button type="button" class="who-btn" id="lb-name-' + idx + '"'
+                + ' onclick="ttOpenProfile(\'' + esc(e.userRef) + '\')"'
+                + ' aria-label="See ' + esc(e.nick) + '’s profile"><b>' + esc(e.nick) + '</b></button>'
+              : '<b>' + esc(e.nick) + '</b>')
         + (e.award ? ' <span style="font-size:.72rem;font-weight:800;letter-spacing:.04em;color:var(--amber);text-transform:uppercase">' + e.award.emoji + ' ' + esc(e.award.title) + '</span>' : '')
         + ((e.dialects && e.dialects.length) ? ' <span style="font-size:.7rem;font-weight:700;letter-spacing:.03em;color:var(--muted)">' + esc(e.dialects.join(' + ')) + '</span>' : '')
         + '</span><span class="d-c" style="white-space:nowrap">' + e.score + ' pts</span></div>'

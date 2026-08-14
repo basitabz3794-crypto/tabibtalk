@@ -240,6 +240,23 @@ async function countRecentSharesForUser(userId, days) {
   ).length;
 }
 
+// ---------- Weekly results history ----------
+//
+// The leaderboard has always been computed live for the current week and then
+// forgotten, so there was no record of who won what. A profile that shows "3rd
+// place, week 33 of 2026" needs one, so each week's top ten is written down as
+// it is computed.
+//
+// Keyed by the week ("2026-W33"), so re-computing the same week overwrites its
+// own record rather than accumulating duplicates — the write is idempotent and
+// costs one record per week.
+async function saveWeekResult(week, record) {
+  return putOne('awardHistory', week, record);
+}
+async function listWeekResults() {
+  return newestFirst(await getAll('awardHistory'), 'weekStart');
+}
+
 // ---------- Tabib Talk Feed ----------
 // A feed post is a share that was published internally. It is stored
 // separately from `shares` so the existing share log and its limits are
@@ -358,6 +375,7 @@ module.exports = {
   createNotification, listNotifications, deleteNotification,
   createShare, countSharesForUser, countRecentSharesForUser, listShares,
   createFeedPost, listFeedPosts, findFeedPost, setFeedLike, getAllFeedLikes,
+  saveWeekResult, listWeekResults,
   getPlanOverrides, setPlanOverride,
   getPaymentConfig, setPaymentConfig,
   getFxConfig, setFxConfig,

@@ -294,6 +294,10 @@ router.get('/', requireLogin, async (req, res) => {
     // the row expands to show, and it is institution-level, not personal.
     top: all.slice(0, 10).map(({ userId, byDialect, dialects, ...pub }) => ({
       ...pub,
+      // So a name on the board opens the same profile a name on the Feed does.
+      // The per-dialect point split stays private; this only identifies who the
+      // row belongs to.
+      userRef: userId,
       dialects: (dialects || []).map((d) => DIALECT_LABEL[d] || d),
     })),
     universities: universities.slice(0, 10),
@@ -302,6 +306,28 @@ router.get('/', requireLogin, async (req, res) => {
     topUniversity: universities.length ? universities[0] : null,
   };
   cache = { at: Date.now(), key, payload, all };
+
+  // Write this week's top ten down so a profile can show what someone won and
+  // when. Keyed by week, so this overwrites its own record rather than piling
+  // up, and it runs at most once a minute because the cache above gates it.
+  //
+  // Deliberately not awaited and never allowed to fail the request: the
+  // leaderboard must still render if this write does not land.
+  if (all.length) {
+    store.saveWeekResult(key, {
+      week: key,
+      weekStart: new Date(start).toISOString(),
+      savedAt: new Date().toISOString(),
+      top: all.slice(0, AWARDS.length).map(e => ({
+        userId: e.userId,           // server-side only; never returned to a browser
+        nick: e.nick,
+        college: e.college || '',
+        score: e.score,
+        rank: e.rank,
+        award: e.award || null,
+      })),
+    }).catch(err => console.error('[leaderboard] could not save week result:', err.message));
+  }
 
   res.json({ ...payload, me: meView(all.find(e => e.userId === req.session.userId)) });
 });

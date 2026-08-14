@@ -38,6 +38,13 @@ function publicPost(p, likes, meId) {
   const likeIds = Object.keys(likeMap);
   return {
     id: p.id,
+    // Who posted it, so their name can open their profile. This is a
+    // deliberate reversal of the earlier rule that no account id ever left the
+    // server: profiles are now a feature, and a name has to resolve to
+    // somebody. It is only ever usable to read the same public profile the
+    // name already implies — university, likes received and places won — and
+    // /api/profile requires a signed-in caller.
+    userRef: p.userId,
     name: p.userName || 'A student',
     dialect: p.dialect || 'eg',
     phraseEn: p.phraseEn || '',
