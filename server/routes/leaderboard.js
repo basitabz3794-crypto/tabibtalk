@@ -131,6 +131,97 @@ function scoreFor(state, weekStartMs) {
   return out;
 }
 
+// ---- Universities ----
+//
+// The college a student typed at signup (user.college) is the single
+// authoritative source. It is free text, so "Cairo University", "cairo
+// university " and "Cairo  University" are the same institution and must not
+// become three rows. Grouping is done on a normalised key; the label shown is
+// the spelling used by the most students, so the board reflects how they
+// actually write it rather than whoever registered first.
+// Words that describe the KIND of institution rather than which one it is.
+// Real signups contain "Cairo University Faculty of Medicine", "Cairo
+// university", "Cairo" and "Kasr al ainy school of medicine,cairo" — all one
+// place. Stripping these leaves the distinctive part, which is what identifies
+// the institution.
+const COLLEGE_STOPWORDS = new Set([
+  'university', 'universite', 'univ', 'faculty', 'faculties', 'school', 'college',
+  'institute', 'academy', 'medicine', 'medical', 'med', 'of', 'the', 'for', 'and',
+  'in', 'at', 'a', 'el', 'al', 'department', 'dept',
+  'جامعة', 'كلية', 'الطب', 'طب', 'معهد',
+]);
+
+function collegeTokens(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9؀-ۿ]+/g, ' ')  // keep Arabic — some type it in Arabic
+    .trim()
+    .split(/\s+/)
+    .filter(t => t && !COLLEGE_STOPWORDS.has(t));
+}
+
+function collegeKey(name) {
+  const t = collegeTokens(name);
+  // Everything was a stopword ("Faculty of Medicine" with no place): fall back to
+  // the plain normalised string rather than lumping unrelated schools together.
+  if (!t.length) {
+    return String(name || '').toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g, ' ').trim().replace(/\s+/g, ' ');
+  }
+  return t.slice().sort().join(' ');
+}
+
+// Ranks universities by the SUM of their students' weekly scores, never by
+// headcount: a large college with idle students must not outrank a small,
+// active one. Only students who actually scored this week are counted, which is
+// the same rule the individual board uses.
+function buildUniversityBoard(entries) {
+  const groups = new Map();
+  entries.forEach((e) => {
+    const key = collegeKey(e.college);
+    if (!key) return;                    // no college on file — cannot be attributed
+    let g = groups.get(key);
+    if (!g) { g = { key, score: 0, members: 0, spellings: new Map() }; groups.set(key, g); }
+    g.score += e.score;
+    g.members += 1;
+    const label = String(e.college).trim();
+    g.spellings.set(label, (g.spellings.get(label) || 0) + 1);
+  });
+
+  // Second pass: fold a group into another when its distinctive words CONTAIN
+  // all of that other group's words. "kasr ainy cairo" contains "cairo", so it
+  // is Cairo's medical school and belongs on Cairo's row — which is how the
+  // institution is normally written ("Cairo University — Kasr Al Ainy").
+  // Unrelated names share no containment, so "ain shams" stays its own row.
+  // The larger group always absorbs the smaller, never the reverse.
+  const list = [...groups.values()].map(g => ({ ...g, words: new Set(g.key.split(' ')) }));
+  list.sort((a, b) => b.members - a.members || b.score - a.score);
+  const merged = [];
+  list.forEach((g) => {
+    const host = merged.find(h =>
+      h.words.size < g.words.size && [...h.words].every(w => g.words.has(w))
+    );
+    if (host) {
+      host.score += g.score;
+      host.members += g.members;
+      g.spellings.forEach((n, label) => host.spellings.set(label, (host.spellings.get(label) || 0) + n));
+    } else {
+      merged.push(g);
+    }
+  });
+
+  const board = merged.map((g) => {
+    let best = '', bestN = -1;
+    g.spellings.forEach((n, label) => { if (n > bestN) { bestN = n; best = label; } });
+    return { name: best, score: g.score, members: g.members };
+  });
+
+  // Ties resolve by more students, then alphabetically — deterministic, so the
+  // #1 notification does not flip between equal universities on every rebuild.
+  board.sort((a, b) => b.score - a.score || b.members - a.members || a.name.localeCompare(b.name));
+  board.forEach((u, i) => { u.rank = i + 1; });
+  return board;
+}
+
 // One computation per minute per server instance is plenty — every request in
 // between serves the cached board. `all` (which carries userIds for the "me"
 // lookup) stays server-side; only the id-free `payload` is ever sent.
@@ -145,6 +236,9 @@ function meView(entry) {
     testPts: entry.testPts,
     streakBonus: entry.streakBonus,
     award: entry.award || null,
+    // Same authoritative signup field the board and the university ranking use,
+    // so the notification's tag can never disagree with the row.
+    college: entry.college || '',
     // Own row only: a student may see their own per-dialect split.
     dialects: (entry.dialects || []).map((d) => DIALECT_LABEL[d] || d),
     byDialect: Object.keys(entry.byDialect || {}).reduce((acc, d) => {
@@ -172,6 +266,9 @@ router.get('/', requireLogin, async (req, res) => {
         userId: u.id,
         nick: (ob.nick || (u.name || '').trim().split(/\s+/)[0] || 'Student').slice(0, 24),
         emoji: ob.emoji || '🩺',
+        // From the signup profile — the one authoritative source for every
+        // place a university is shown. Never re-entered anywhere else.
+        college: (u.college || '').trim().slice(0, 90),
         ...s,
       };
     })
@@ -183,16 +280,26 @@ router.get('/', requireLogin, async (req, res) => {
     if (i < AWARDS.length) e.award = AWARDS[i];
   });
 
+  // Built from the SAME scored entries the individual board uses, so the two can
+  // never disagree about who scored what.
+  const universities = buildUniversityBoard(all);
+
   const payload = {
     week: key,
     weekStart: new Date(start).toISOString(),
     // Public rows carry nickname + emoji + total + the contributing dialects
     // only — never account ids, and never the per-dialect point split, which
     // would say more about another student's habits than the board needs to.
+    // College IS included: it is what the university board aggregates and what
+    // the row expands to show, and it is institution-level, not personal.
     top: all.slice(0, 10).map(({ userId, byDialect, dialects, ...pub }) => ({
       ...pub,
       dialects: (dialects || []).map((d) => DIALECT_LABEL[d] || d),
     })),
+    universities: universities.slice(0, 10),
+    // So the app can show "#1 — X" without re-deriving it, and can tell whether
+    // the leader has actually changed before raising a notification.
+    topUniversity: universities.length ? universities[0] : null,
   };
   cache = { at: Date.now(), key, payload, all };
 

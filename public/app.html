@@ -266,6 +266,37 @@
         .tab:hover { color: var(--primary); background: var(--secondary); }
         .tab.active { background: var(--primary); color: #fff; box-shadow: 0 6px 14px rgba(20,52,42,.22); }
 
+        /* Course — the primary learning path.
+           Emphasis is deliberately restrained: the same pill shape, a little
+           more weight and size, the accent colour and a soft ring. It should
+           read as "start here", not as a different kind of control. Padding
+           only grows slightly so the tab row still fits a small phone without
+           wrapping or scrolling sideways. */
+        .tab.tab-primary { color: var(--primary); background: var(--secondary);
+            font-size: 1.09rem; font-weight: 800; padding: 11px 20px;
+            border: 1.5px solid color-mix(in srgb, var(--primary) 35%, transparent);
+            box-shadow: 0 2px 10px rgba(20,52,42,.10); }
+        .tab.tab-primary .tab-ico { margin-right: 7px; font-size: 1.05em; line-height: 1; }
+        .tab.tab-primary:hover { background: var(--primary); color: #fff; border-color: var(--primary);
+            box-shadow: 0 8px 18px rgba(20,52,42,.24); }
+        .tab.tab-primary:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        .tab.tab-primary:active { transform: translateY(1px); box-shadow: 0 3px 8px rgba(20,52,42,.20); }
+        /* When it is the open tab it uses the standard active treatment, so the
+           row still has exactly one obviously-selected item. */
+        .tab.tab-primary.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        /* Browsers without color-mix still get a visible ring. */
+        @supports not (color: color-mix(in srgb, red 50%, transparent)) {
+          .tab.tab-primary { border-color: rgba(20,52,42,.28); }
+        }
+        /* The tab strip is a horizontal scroller by design, so Course keeps its
+           emphasis on phones too — an iPhone at 375px should still see the
+           primary path clearly. Only the padding is trimmed, so it adds very
+           little width over a plain tab. */
+        @media (max-width: 420px) {
+          .tab.tab-primary { padding: 10px 15px; }
+          .tab.tab-primary .tab-ico { margin-right: 5px; }
+        }
+
         /* ---------- Hero ---------- */
         .hero { padding: 22px 4px 8px; }
         .hero-pill { display: inline-flex; align-items: center; gap: 8px; background: var(--secondary);
@@ -853,7 +884,19 @@
         .prog { background: var(--border); border-radius: 999px; height: 12px; overflow: hidden; }
         .prog-bar { background: linear-gradient(90deg, var(--primary), var(--primary-light)); height: 100%; border-radius: 999px; transition: width .4s ease; }
         .qa-analysis { margin-bottom: 14px; }
-        .qa-analysis-top { display:flex; justify-content: space-between; margin-bottom: 6px; color: var(--text-dark); font-weight: 600; }
+        .qa-analysis-top { display:flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 6px; color: var(--text-dark); font-weight: 600; }
+        /* Leaderboard view switch. Sized for a finger (44px), wraps rather than
+           scrolls on a narrow phone, and keeps a visible focus ring so it can be
+           used from a keyboard. */
+        .lb-tabs { display: flex; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
+        .lb-tab { flex: 1 1 auto; min-width: 130px; min-height: 44px; padding: 11px 18px;
+          border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface);
+          color: var(--muted); font: inherit; font-weight: 700; cursor: pointer;
+          transition: background .16s ease, color .16s ease, border-color .16s ease; }
+        .lb-tab:hover { border-color: var(--primary); color: var(--text-dark); }
+        .lb-tab:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+        .lb-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .lb-tab:active { transform: translateY(1px); }
         .qa-analysis-top .d-c { color: var(--accent); font-weight: 800; }
         .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
         .cal-h { text-align:center; color: var(--muted); font-weight: 700; font-size: .78rem; padding: 4px 0; }
@@ -1568,14 +1611,19 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
         </div>
         <nav class="tabbar" id="tabbar">
             <button class="tab active" onclick="selectTab(this); navigate('page-main-menu')">Home</button>
-            <button class="tab" onclick="selectTab(this); navigate('page-course')">Course</button>
+            <!-- Course is the backbone of the product, so it reads as the primary
+                 path: a book mark, heavier type and the accent treatment. Same
+                 pill shape and spacing as its neighbours so it is emphasis, not a
+                 different component. Behaviour is unchanged. -->
+            <button class="tab tab-primary" onclick="selectTab(this); navigate('page-course')" aria-label="Course — the main learning path"><span class="tab-ico" aria-hidden="true">📘</span>Course</button>
             <button class="tab" onclick="selectTab(this); goTool('flashcards')">Flashcards <span class="pro-badge">PRO</span></button>
             <button class="tab" onclick="selectTab(this); goTool('quiz')">Quiz Hub</button>
             <button class="tab" onclick="selectTab(this); goTool('ai')">AI Patient <span class="pro-badge">PRO</span></button>
             <button class="tab" onclick="selectTab(this); goTool('translate')">Translate</button>
             <button class="tab" onclick="selectTab(this); navigate('page-qbank')">QBank <span class="pro-badge">PRO</span></button>
-            <button class="tab" onclick="selectTab(this); navigate('page-leaderboard')">🏆 Leaderboard</button>
+            <!-- Conversations sits directly right of QBank, then Leaderboard. -->
             <button class="tab" onclick="selectTab(this); navigate('page-conversations')">Conversations</button>
+            <button class="tab" onclick="selectTab(this); navigate('page-leaderboard')">🏆 Leaderboard</button>
         </nav>
     </header>
 
@@ -8527,7 +8575,17 @@ function showNotif(){
         var items='';
         if(d.top && d.top.length){
           var t=d.top[0];
-          items+='<div class="notif-item"><div class="notif-item-msg">🏆 <b>Weekly topper:</b> '+esc(t.emoji||'')+' '+esc(t.nick)+' leads week '+esc(d.week)+' with '+t.score+' pts'+(t.award?' — '+t.award.emoji+' '+esc(t.award.title):'')+'.</div><div class="notif-item-date">Live standings</div></div>';
+          // The topper's university sits under their name as a secondary line,
+          // matching how the row itself reads. Students with no college on file
+          // simply have no tag — never a placeholder.
+          items+='<div class="notif-item"><div class="notif-item-msg">🏆 <b>Weekly topper:</b> '+esc(t.emoji||'')+' '+esc(t.nick)+' leads week '+esc(d.week)+' with '+t.score+' pts'+(t.award?' — '+t.award.emoji+' '+esc(t.award.title):'')+'.'
+            +(t.college?'<div style="margin-top:3px;font-size:.8rem;opacity:.75">🎓 '+esc(t.college)+'</div>':'')
+            +'</div><div class="notif-item-date">Live standings</div></div>';
+        }
+        // Top university — the same live standings, read the other way.
+        if(d.topUniversity && d.topUniversity.name){
+          var tu=d.topUniversity;
+          items+='<div class="notif-item"><div class="notif-item-msg">🏆 <b>University leaderboard:</b> #1 — '+esc(tu.name)+' with '+tu.score+' pts from '+tu.members+' student'+(tu.members===1?'':'s')+' this week.</div><div class="notif-item-date">Live standings</div></div>';
         }
         if(d.me){
           items+='<div class="notif-item"><div class="notif-item-msg">'+(d.me.award
@@ -9944,6 +10002,11 @@ function renderLeaderboard(){
   var body=document.getElementById('leaderboard-body'); if(!body) return;
   var h='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Leaderboard</span></div>';
   h+='<h1 class="tool-title">🏆 Weekly Leaderboard</h1><p class="tool-sub">Earn points every week: 1 point per minute of study, up to 10 per test you finish, plus 5 × your streak. One board for all three dialects — study in more than one and every point still counts towards the same total. Resets every Monday — the top 10 win a league award.</p>';
+  // Two views of the same week. Individual is the default, as it always was.
+  h+='<div class="lb-tabs" role="tablist" aria-label="Leaderboard view">'
+    +'<button class="lb-tab active" role="tab" aria-selected="true" id="lb-tab-ind" onclick="ttLbTab(\'individual\')">Individual</button>'
+    +'<button class="lb-tab" role="tab" aria-selected="false" id="lb-tab-uni" onclick="ttLbTab(\'university\')">University</button>'
+    +'</div>';
   h+='<div id="lb-content" class="fc-count">Loading this week\'s standings…</div>';
   body.innerHTML=h;
   var served=(location.protocol==='http:'||location.protocol==='https:');
@@ -9952,48 +10015,156 @@ function renderLeaderboard(){
   fetch('/api/leaderboard',{ credentials:'same-origin', headers:{ 'x-device-id':dev||'' } })
     .then(function(r){ if(!r.ok) throw new Error('unauth'); return r.json(); })
     .then(function(d){
-      var el=document.getElementById('lb-content'); if(!el) return;
-      var ob=ttOnboard()||{};
-      var meHtml='';
-      if(d.me){
-        meHtml='<div class="stat-card" style="margin-bottom:18px;padding:18px">'
-          +'<div class="lbl">Your week ('+esc(d.week)+')'+(d.me.award?' · '+d.me.award.emoji+' '+esc(d.me.award.title):'')+'</div>'
-          +'<div class="val a3" style="font-size:1.9rem">'+d.me.score+' pts <span style="font-size:1rem;color:var(--muted)">· rank #'+d.me.rank+'</span></div>'
-          +'<div class="fc-count" style="margin-top:6px">⏱ '+d.me.minutes+' study min &nbsp;·&nbsp; 📝 '+d.me.testPts+' test pts &nbsp;·&nbsp; 🔥 '+d.me.streakBonus+' streak bonus</div>'
-          /* Which dialect(s) these points came from. Split shown only when
-             there is more than one, so a single-dialect student sees no noise. */
-          +((d.me.dialects&&d.me.dialects.length)
-              ? '<div class="fc-count" style="margin-top:4px;opacity:.8">🗣 '+esc(d.me.dialects.join(' + '))
-                  +(Object.keys(d.me.byDialect||{}).length>1
-                      ? ' — '+Object.keys(d.me.byDialect).map(function(k){ return esc(k)+' '+d.me.byDialect[k]; }).join(' · ')+' pts'
-                      : '')
-                +'</div>'
-              : '')
-          +'</div>';
-      } else {
-        meHtml='<div class="stat-card" style="margin-bottom:18px;padding:18px"><div class="lbl">Your week</div><div class="fc-count">No points yet — study a few minutes or finish a quiz and you\'re on the board!</div></div>';
-      }
-      var rows='';
-      if(d.top && d.top.length){
-        rows=d.top.map(function(e,idx){
-          var medal=['🥇','🥈','🥉'][idx]||('<span style="opacity:.6">#'+e.rank+'</span>');
-          var isMe = d.me && d.me.rank===e.rank && ob.nick===e.nick;
-          return '<div class="qa-analysis" style="'+(isMe?'outline:2px solid #f5b544;outline-offset:3px;border-radius:12px;padding:6px 8px;':'')+'">'
-            +'<div class="qa-analysis-top"><span style="font-size:1.05rem">'+medal+' '+esc(e.emoji||'')+' <b>'+esc(e.nick)+'</b>'
-            +((e.dialects&&e.dialects.length)?' <span style="font-size:.7rem;font-weight:700;letter-spacing:.03em;color:var(--muted)">'+esc(e.dialects.join(' + '))+'</span>':'')
-            +(e.award?' <span style="font-size:.72rem;font-weight:800;letter-spacing:.04em;color:var(--amber);text-transform:uppercase">'+e.award.emoji+' '+esc(e.award.title)+'</span>':'')
-            +'</span><span class="d-c">'+e.score+' pts</span></div>'
-            +'<div class="prog"><div class="prog-bar" style="width:'+Math.max(4,Math.round(e.score/Math.max(1,d.top[0].score)*100))+'%"></div></div></div>';
-        }).join('');
-      } else {
-        rows='<div class="fc-count">Nobody has scored this week yet — be the first!</div>';
-      }
-      el.innerHTML=meHtml+'<h3 class="mini-h">Top 10 · week '+esc(d.week)+'</h3>'+rows
-        +'<p class="fc-count" style="margin-top:16px;opacity:.75">Weekly league awards: 💎 Diamond → 🖤 Obsidian → 🤍 Pearl → 💜 Amethyst → 💚 Emerald → ❤️ Ruby → 💙 Sapphire → 🥇 Gold → 🥈 Silver → 🥉 Bronze.</p>';
+      // Both views come from this one payload; ttLbPaint renders whichever
+      // tab is selected, so switching is instant and costs no extra request.
+      TT_LB_DATA = d;
+      ttLbPaint(d);
+      try { ttLbMaybeNotifyTopUniversity(d); } catch(e){}
     })
     .catch(function(){ var el=document.getElementById('lb-content'); if(el) el.innerHTML='Could not load the leaderboard — check your connection (you need to be logged in).'; });
 }
 window.renderLeaderboard=renderLeaderboard;
+
+/* The last board fetched, so switching tabs is instant and does not re-hit the
+   API — the payload already carries both views of the same week. */
+var TT_LB_DATA = null, TT_LB_TAB = 'individual';
+
+function ttLbTab(which){
+  TT_LB_TAB = (which === 'university') ? 'university' : 'individual';
+  var i = document.getElementById('lb-tab-ind'), u = document.getElementById('lb-tab-uni');
+  if (i && u) {
+    var ind = TT_LB_TAB === 'individual';
+    i.classList.toggle('active', ind);  i.setAttribute('aria-selected', ind ? 'true' : 'false');
+    u.classList.toggle('active', !ind); u.setAttribute('aria-selected', !ind ? 'true' : 'false');
+  }
+  if (TT_LB_DATA) ttLbPaint(TT_LB_DATA);
+}
+window.ttLbTab = ttLbTab;
+
+/* Tapping a name reveals that student's university. It is a disclosure on the
+   row rather than a popup: it works identically with a mouse, a finger and a
+   keyboard, and nothing can end up trapped behind an overlay on a small screen. */
+function ttLbWho(idx){
+  var row = document.getElementById('lb-who-' + idx);
+  var btn = document.getElementById('lb-name-' + idx);
+  if (!row) return;
+  var open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : 'block';
+  if (btn) btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+}
+window.ttLbWho = ttLbWho;
+
+/* Paints whichever tab is selected from the already-fetched payload. */
+function ttLbPaint(d){
+  var el = document.getElementById('lb-content'); if (!el) return;
+  var ob = ttOnboard() || {};
+
+  if (TT_LB_TAB === 'university') {
+    var unis = d.universities || [];
+    var uh = '<div class="stat-card" style="margin-bottom:18px;padding:18px">'
+      + '<div class="lbl">How this is worked out</div>'
+      + '<div class="fc-count" style="margin-top:4px">Every university\'s total is the sum of its students\' points this week &mdash; not how many students it has. A small, active college can out-rank a large quiet one.</div></div>';
+    if (!unis.length) {
+      uh += '<div class="fc-count">No university has scored yet this week. Points appear here as soon as students with a college on their profile start studying.</div>';
+    } else {
+      uh += '<h3 class="mini-h">Top universities &middot; week ' + esc(d.week) + '</h3>';
+      uh += unis.map(function(u, i){
+        var medal = ['🥇','🥈','🥉'][i] || ('<span style="opacity:.6">#' + u.rank + '</span>');
+        var pct = Math.max(4, Math.round(u.score / Math.max(1, unis[0].score) * 100));
+        return '<div class="qa-analysis">'
+          + '<div class="qa-analysis-top">'
+          +   '<span style="font-size:1.02rem;min-width:0"><span style="margin-right:6px">' + medal + '</span>'
+          +     '<b style="word-break:break-word">' + esc(u.name) + '</b>'
+          +     '<span style="display:block;color:var(--muted);font-size:.78rem;margin-top:2px">'
+          +       u.members + ' student' + (u.members === 1 ? '' : 's') + ' scoring this week</span>'
+          +   '</span>'
+          +   '<span class="d-c" style="white-space:nowrap">' + u.score + ' pts</span>'
+          + '</div>'
+          + '<div class="prog"><div class="prog-bar" style="width:' + pct + '%"></div></div></div>';
+      }).join('');
+    }
+    el.innerHTML = uh;
+    return;
+  }
+
+  // ---- Individual (unchanged scoring; university now shown on tap) ----
+  var meHtml = '';
+  if (d.me) {
+    meHtml = '<div class="stat-card" style="margin-bottom:18px;padding:18px">'
+      + '<div class="lbl">Your week (' + esc(d.week) + ')' + (d.me.award ? ' · ' + d.me.award.emoji + ' ' + esc(d.me.award.title) : '') + '</div>'
+      + '<div class="val a3" style="font-size:1.9rem">' + d.me.score + ' pts <span style="font-size:1rem;color:var(--muted)">· rank #' + d.me.rank + '</span></div>'
+      + '<div class="fc-count" style="margin-top:6px">⏱ ' + d.me.minutes + ' study min &nbsp;·&nbsp; 📝 ' + d.me.testPts + ' test pts &nbsp;·&nbsp; 🔥 ' + d.me.streakBonus + ' streak bonus</div>'
+      + (d.me.college ? '<div class="fc-count" style="margin-top:4px;opacity:.8">🎓 ' + esc(d.me.college) + '</div>' : '')
+      + ((d.me.dialects && d.me.dialects.length)
+          ? '<div class="fc-count" style="margin-top:4px;opacity:.8">🗣 ' + esc(d.me.dialects.join(' + '))
+              + (Object.keys(d.me.byDialect || {}).length > 1
+                  ? ' — ' + Object.keys(d.me.byDialect).map(function(k){ return esc(k) + ' ' + d.me.byDialect[k]; }).join(' · ') + ' pts'
+                  : '')
+            + '</div>'
+          : '')
+      + '</div>';
+  } else {
+    meHtml = '<div class="stat-card" style="margin-bottom:18px;padding:18px"><div class="lbl">Your week</div><div class="fc-count">No points yet — study a few minutes or finish a quiz and you\'re on the board!</div></div>';
+  }
+
+  var rows = '';
+  if (d.top && d.top.length) {
+    rows = d.top.map(function(e, idx){
+      var medal = ['🥇','🥈','🥉'][idx] || ('<span style="opacity:.6">#' + e.rank + '</span>');
+      var isMe = d.me && d.me.rank === e.rank && ob.nick === e.nick;
+      return '<div class="qa-analysis" style="' + (isMe ? 'outline:2px solid #f5b544;outline-offset:3px;border-radius:12px;padding:6px 8px;' : '') + '">'
+        + '<div class="qa-analysis-top"><span style="font-size:1.05rem;min-width:0">' + medal + ' ' + esc(e.emoji || '') + ' '
+        +   '<button type="button" id="lb-name-' + idx + '" onclick="ttLbWho(' + idx + ')" aria-expanded="false"'
+        +     ' title="Show university" style="background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'
+        +     '<b>' + esc(e.nick) + '</b></button>'
+        + (e.award ? ' <span style="font-size:.72rem;font-weight:800;letter-spacing:.04em;color:var(--amber);text-transform:uppercase">' + e.award.emoji + ' ' + esc(e.award.title) + '</span>' : '')
+        + ((e.dialects && e.dialects.length) ? ' <span style="font-size:.7rem;font-weight:700;letter-spacing:.03em;color:var(--muted)">' + esc(e.dialects.join(' + ')) + '</span>' : '')
+        + '</span><span class="d-c" style="white-space:nowrap">' + e.score + ' pts</span></div>'
+        + '<div id="lb-who-' + idx + '" style="display:none;margin:4px 0 2px;font-size:.82rem;color:var(--muted);word-break:break-word">'
+        +   (e.college ? '🎓 ' + esc(e.college) : 'No university on their profile yet.')
+        + '</div>'
+        + '<div class="prog"><div class="prog-bar" style="width:' + Math.max(4, Math.round(e.score / Math.max(1, d.top[0].score) * 100)) + '%"></div></div></div>';
+    }).join('');
+  } else {
+    rows = '<div class="fc-count">Nobody has scored this week yet — be the first!</div>';
+  }
+
+  el.innerHTML = meHtml + '<h3 class="mini-h">Top 10 · week ' + esc(d.week) + '</h3>' + rows
+    + '<p class="fc-count" style="margin-top:16px;opacity:.75">Tap a name to see their university. Weekly league awards: 💎 Diamond → 🖤 Obsidian → 🤍 Pearl → 💜 Amethyst → 💚 Emerald → ❤️ Ruby → 💙 Sapphire → 🥇 Gold → 🥈 Silver → 🥉 Bronze.</p>';
+}
+window.ttLbPaint = ttLbPaint;
+
+/* Announce a CHANGE of top university, once.
+
+   The bell already lists the current #1 every time it is opened — that is a
+   live view and cannot duplicate. This is the other half: a toast at the moment
+   the lead actually changes hands. It fires only when the name differs from the
+   one last announced for the same week, so re-opening the board, switching tabs
+   or refreshing stays silent while the ranking holds. The marker is stored per
+   week, so a new week's first leader is announced afresh.
+
+   Ties are already resolved deterministically server-side (score, then student
+   count, then name), so two equal universities cannot flip-flop and notify on
+   every rebuild. */
+function ttLbMaybeNotifyTopUniversity(d){
+  var tu = d && d.topUniversity;
+  if (!tu || !tu.name) return;
+  var marker = 'tt_lb_top_uni';
+  var seen = null;
+  try { seen = JSON.parse(localStorage.getItem(marker) || 'null'); } catch(e){}
+  // Same leader, same week — nothing has changed, so say nothing.
+  if (seen && seen.week === d.week && seen.name === tu.name) return;
+  var firstEver = !seen;
+  try { localStorage.setItem(marker, JSON.stringify({ week: d.week, name: tu.name })); } catch(e){}
+  // Never toast on the very first sighting; there is no change to report yet.
+  if (firstEver) return;
+  try {
+    if (typeof toast === 'function') {
+      toast('🏆 ' + tu.name + ' now leads the University Leaderboard', 4200);
+    }
+  } catch(e){}
+}
+window.ttLbMaybeNotifyTopUniversity = ttLbMaybeNotifyTopUniversity;
 
 /* Streak page: show this week's score inline. */
 function fillStreakScore(){
