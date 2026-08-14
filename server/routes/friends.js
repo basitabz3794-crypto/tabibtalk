@@ -28,6 +28,34 @@ function brief(u) {
   return u ? { id: u.id, name: firstName(u), college: (u.college || '').trim() } : null;
 }
 
+// Close any request still open between two people, in either direction, and
+// take the buttons off whatever card is showing it.
+//
+// A request should never outlive the question it asks. Two people can end up
+// friends while an older request between them is still pending — they crossed
+// over, or they unfriended and re-added — and that leaves a card in someone's
+// bell inviting them to befriend a person they are already friends with.
+// Answering it would then have no effect, which is worse than it not being
+// there. Called wherever a friendship starts or is found to already exist.
+async function resolveStaleRequests(a, b, outcome, exceptId) {
+  const all = await store.listPendingRequestsBetween(a, b);
+  await Promise.all(all.map(async (r) => {
+    if (exceptId && r.id === exceptId) return;
+    await store.updateFriendRequest(r.id, {
+      status: outcome, respondedAt: new Date().toISOString(),
+    });
+    // The card lives with whoever was asked.
+    const cards = await store.listUserNotifications(r.toId);
+    const card = cards.find(n => n.requestId === r.id && !n.actioned);
+    if (card) {
+      await store.patchUserNotification(r.toId, card.id, {
+        actioned: 'accepted',        // they are friends — that is the outcome
+        readAt: card.readAt || new Date().toISOString(),
+      });
+    }
+  }));
+}
+
 // ---- Where do I stand with this person? ----
 // Drives the single button on their profile: Add friend / Requested / Respond /
 // Friends. Computed rather than stored, so it cannot go stale.
@@ -55,6 +83,10 @@ router.post('/request', requireLogin, async (req, res) => {
     return res.status(404).json({ error: 'That student could not be found.' });
   }
   if (await store.areFriends(me, toId)) {
+    // Already friends, so any request still sitting open between the two of us
+    // is meaningless. Close it rather than leaving a card in someone's bell
+    // asking them to befriend a person they are already friends with.
+    await resolveStaleRequests(me, toId, 'superseded');
     return res.json({ ok: true, status: 'friends' });
   }
   // One open request at a time between two people, whichever way it points —
@@ -126,6 +158,10 @@ router.post('/respond', requireLogin, async (req, res) => {
     store.addFriendEdge(me, reqRec.fromId, { since: now }),
     store.addFriendEdge(reqRec.fromId, me, { since: now }),
   ]);
+
+  // Now that they are friends, close anything else still open between them —
+  // a crossed request, or one left over from before they last unfriended.
+  await resolveStaleRequests(me, reqRec.fromId, 'superseded', reqRec.id);
 
   // Tell the sender it was accepted. A decline is deliberately NOT announced —
   // there is no kind way to send that, and it invites pestering.

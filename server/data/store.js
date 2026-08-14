@@ -316,6 +316,13 @@ async function pendingRequestBetween(a, b) {
 async function listPendingRequestsFor(userId) {
   return (await getAll('friendRequests')).filter(r => r.status === 'pending' && r.toId === userId);
 }
+// Every open request between two people, whichever way it points. Normally
+// there is at most one, but this returns them all so a tidy-up cannot miss a
+// second that slipped through.
+async function listPendingRequestsBetween(a, b) {
+  return (await getAll('friendRequests')).filter(r => r.status === 'pending' &&
+    ((r.fromId === a && r.toId === b) || (r.fromId === b && r.toId === a)));
+}
 
 // ---------- Shared streaks ----------
 //
@@ -490,7 +497,7 @@ module.exports = {
   addUserNotification, listUserNotifications, patchUserNotification, markUserNotificationsRead,
   addFriendEdge, removeFriendEdge, listFriendIds, areFriends,
   createFriendRequest, findFriendRequest, updateFriendRequest,
-  pendingRequestBetween, listPendingRequestsFor,
+  pendingRequestBetween, listPendingRequestsFor, listPendingRequestsBetween,
   saveSharedStreak, findSharedStreak, deleteSharedStreak, listSharedStreaks,
   createStreakInvite, findStreakInvite, updateStreakInvite, pendingStreakInviteBetween,
   getPlanOverrides, setPlanOverride,
