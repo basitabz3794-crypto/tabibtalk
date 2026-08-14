@@ -961,6 +961,33 @@
         #tt-profile .pf-hist-w { color: var(--muted); font-size: .82rem; white-space: nowrap; }
         #tt-profile .pf-empty { font-size: .86rem; color: var(--muted); line-height: 1.6; }
 
+        /* ---------- Shared streaks & awards ---------- */
+        .ss-card { background: var(--surface); border: 1px solid var(--border); border-radius: 15px;
+            padding: 14px 15px; margin-bottom: 11px; }
+        .ss-card.at-risk { border-color: #e8b4ae; background: rgba(192,57,43,.04); }
+        .ss-top { display:flex; justify-content:space-between; align-items:flex-start; gap: 12px; }
+        .ss-uni { font-size: .76rem; color: var(--muted); margin-top: 2px; word-break: break-word; }
+        .ss-days { flex:none; text-align:center; color: var(--muted); font-size: .72rem; }
+        .ss-days span { display:block; font-size: 1.5rem; font-weight: 800; color: var(--primary);
+            font-variant-numeric: tabular-nums; line-height: 1.1; }
+        .ss-warn { margin-top: 9px; font-size: .84rem; color: #c0392b; font-weight: 650; }
+        .ss-ok { margin-top: 9px; font-size: .84rem; color: var(--primary); font-weight: 650; }
+        .ss-acts { display:flex; gap: 8px; flex-wrap: wrap; margin-top: 11px; }
+        .ss-note { font-size: .78rem; color: var(--muted); align-self: center; }
+        .ss-empty, .aw-empty { font-size: .87rem; color: var(--muted); line-height: 1.6; margin-bottom: 11px; }
+        .ss-locked { text-align:center; padding: 20px 16px; background: var(--secondary);
+            border-radius: 15px; }
+        .ss-locked-t { font-weight: 800; margin-bottom: 6px; }
+        .ss-locked-d { font-size: .86rem; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
+        .aw-row { display:flex; align-items:center; gap: 12px; padding: 11px 0;
+            border-bottom: 1px solid var(--border); }
+        .aw-row:last-child { border-bottom: none; }
+        .aw-medal { font-size: 1.35rem; flex: none; }
+        .aw-t { flex:1; min-width:0; font-size: .93rem; }
+        .aw-w { display:block; font-size: .78rem; color: var(--muted); margin-top: 2px; }
+        .aw-pts { flex:none; font-weight: 800; color: var(--accent); font-size: .88rem;
+            font-variant-numeric: tabular-nums; }
+
         /* ---------- Friends ---------- */
         #tt-friends { position: fixed; inset: 0; z-index: 10080; display:flex; align-items:center;
             justify-content:center; padding: 18px; background: rgba(2,5,10,.60); backdrop-filter: blur(5px); }
@@ -7535,10 +7562,15 @@ function renderStreak(){
     +'<div class="stat-card"><div class="lbl">QBank — Correct</div><div class="val a2">'+(correct.qbank||0)+'</div></div>'
     +'<div class="stat-card"><div class="lbl">Course Quizzes — Correct</div><div class="val a3">'+(correct.course||0)+'</div></div></div>';
   h+='<h3 class="mini-h">Weekly leaderboard</h3><div id="streak-lb" class="fc-count">Loading your score…</div>';
+  // Studying with a friend, and the record of what you have won.
+  h+='<h3 class="mini-h">Streak with a friend</h3><div id="shared-streaks" class="fc-count">Loading…</div>';
+  h+='<h3 class="mini-h">Your awards</h3><div id="my-awards" class="fc-count">Loading…</div>';
   h+=testScoresHTML();
   h+='<h3 class="mini-h">This month</h3>'+calendarHTML();
   body.innerHTML=h;
   try{ if(typeof fillStreakScore==='function') fillStreakScore(); }catch(e){}
+  try{ ttRenderSharedStreaks(); }catch(e){}
+  try{ ttRenderMyAwards(); }catch(e){}
 }
 function setGoal(m){ _sj('tt_goal', m); renderStreak(); }
 function calendarHTML(){
@@ -8881,6 +8913,13 @@ function ttPersonalNotifHtml(n){
         + '<button type="button" class="notif-btn" onclick="ttNotifRespond(\''+esc(n.requestId)+'\',true)">Accept</button>'
         + '<button type="button" class="notif-btn ghost" onclick="ttNotifRespond(\''+esc(n.requestId)+'\',false)">Decline</button>'
         + '</div>';
+  } else if (n.type === 'streak-invite') {
+    h += n.actioned
+      ? '<div class="notif-done">'+(n.actioned==='accepted'?'✓ Streak started':'Declined')+'</div>'
+      : '<div class="notif-acts">'
+        + '<button type="button" class="notif-btn" onclick="ttNotifStreakRespond(\''+esc(n.inviteId)+'\',true)">Start it</button>'
+        + '<button type="button" class="notif-btn ghost" onclick="ttNotifStreakRespond(\''+esc(n.inviteId)+'\',false)">No thanks</button>'
+        + '</div>';
   }
   h += '</div><div class="notif-item-date">'+when+'</div></div>';
   return h;
@@ -8905,6 +8944,27 @@ function ttNotifRespond(requestId, accept){
     .catch(function(){ toast('Could not save that just now.', 3000); });
 }
 window.ttNotifRespond=ttNotifRespond;
+
+/* Answering a streak invitation from the bell. */
+function ttNotifStreakRespond(inviteId, accept){
+  fetch('/api/streaks/respond',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({inviteId:inviteId, accept:!!accept})})
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+    .then(function(res){
+      if(!res.ok){ toast(res.j.error||'Could not save that.', 4000); return; }
+      toast(accept?'Streak started — study every day 🔥':'Invitation declined', 3000);
+      return fetch('/api/notifications/me',{credentials:'same-origin'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          __ttPersonalCache = d.personal || [];
+          __ttNotifCache = d.notifications || [];
+          if(document.getElementById('notif-overlay')){ closeNotif(); showNotif(); }
+          try{ if(document.getElementById('shared-streaks')) ttRenderSharedStreaks(); }catch(e){}
+        });
+    })
+    .catch(function(){ toast('Could not save that just now.', 3000); });
+}
+window.ttNotifStreakRespond=ttNotifStreakRespond;
 function showNotif(){
   if(document.getElementById('notif-overlay')) return;
   var bell = document.getElementById('notif-bell-btn'); if(bell) bell.classList.remove('has-unread');
@@ -9880,6 +9940,162 @@ function ttRenderFriends(){
     });
 }
 window.ttRenderFriends=ttRenderFriends;
+
+/* ---------- Shared streaks ---------- */
+function ttRenderSharedStreaks(){
+  var el=document.getElementById('shared-streaks'); if(!el) return;
+  fetch('/api/streaks',{credentials:'same-origin'})
+    .then(function(r){ if(!r.ok) throw new Error('streaks'); return r.json(); })
+    .then(function(d){
+      var box=document.getElementById('shared-streaks'); if(!box) return;
+      box.className='';
+      if(!d.canShare){
+        box.innerHTML='<div class="ss-locked">'
+          +'<div class="ss-locked-t">🔒 Study a streak together</div>'
+          +'<div class="ss-locked-d">Keep a streak going with a friend — if either of you misses a day, you both lose it. Available on the paid plans.</div>'
+          +'<button class="pill" onclick="ttGoPlans()">See plans</button></div>';
+        return;
+      }
+      var h='';
+      (d.streaks||[]).forEach(function(s){
+        h+='<div class="ss-card'+(s.atRisk?' at-risk':'')+'">'
+          +'<div class="ss-top"><div>'
+          +  '<button type="button" class="who-btn" onclick="ttOpenProfile(\''+esc(s.partner.id)+'\')"><b>'+esc(s.partner.name)+'</b></button>'
+          +  (s.partner.college?'<div class="ss-uni">'+esc(s.partner.college)+'</div>':'')
+          +'</div><div class="ss-days"><span>'+s.days+'</span> day'+(s.days===1?'':'s')+'</div></div>';
+        if(s.atRisk){
+          h+='<div class="ss-warn">⚠️ '+(s.waitingOnMe
+              ? 'Study today or you both lose it.'
+              : 'Waiting on '+esc(s.partner.name)+' to study today.')+'</div>';
+        } else if(s.bothToday){
+          h+='<div class="ss-ok">✓ You have both studied today.</div>';
+        }
+        h+='<div class="ss-acts">'
+          + (s.freezeAvailable
+              ? '<button type="button" class="pill outline" onclick="ttUseFreeze(\''+esc(s.id)+'\')">❄️ Use this week’s freeze</button>'
+              : '<span class="ss-note">Freeze used this week</span>')
+          + '<button type="button" class="pill outline" onclick="ttEndSharedStreak(\''+esc(s.id)+'\')">End</button>'
+          +'</div></div>';
+      });
+      if(!(d.streaks||[]).length){
+        h+='<div class="ss-empty">You are not sharing a streak yet. Invite a friend and you will keep it going together — if one of you misses a day, you both lose it.</div>';
+      }
+      h+='<button type="button" class="pill" onclick="ttInviteStreak()">+ Invite a friend</button>';
+      box.innerHTML=h;
+      // Let a partner know their streak is at risk. Server-side this is capped
+      // at one message per person per day.
+      if((d.streaks||[]).some(function(s){ return s.atRisk && s.waitingOnPartner; })){
+        fetch('/api/streaks/nudge',{method:'POST',credentials:'same-origin'}).catch(function(){});
+      }
+    })
+    .catch(function(){
+      var box=document.getElementById('shared-streaks');
+      if(box){ box.className=''; box.innerHTML='<div class="ss-empty">Could not load your shared streaks.</div>'; }
+    });
+}
+window.ttRenderSharedStreaks=ttRenderSharedStreaks;
+
+function ttUseFreeze(id){
+  fetch('/api/streaks/'+encodeURIComponent(id)+'/freeze',{method:'POST',credentials:'same-origin'})
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+    .then(function(res){
+      toast(res.ok?'Freeze used — today is covered ❄️':(res.j.error||'Could not use the freeze.'), 3400);
+      ttRenderSharedStreaks();
+    })
+    .catch(function(){ toast('Could not use the freeze just now.',3000); });
+}
+window.ttUseFreeze=ttUseFreeze;
+
+function ttEndSharedStreak(id){
+  if(!confirm('End this shared streak?\n\nYour own daily streak is not affected.')) return;
+  fetch('/api/streaks/'+encodeURIComponent(id),{method:'DELETE',credentials:'same-origin'})
+    .then(function(){ toast('Shared streak ended',2400); ttRenderSharedStreaks(); })
+    .catch(function(){ toast('Could not end it just now.',3000); });
+}
+window.ttEndSharedStreak=ttEndSharedStreak;
+
+/* Pick a friend to invite. Only friends appear, which is also enforced on the
+   server — an invitation cannot be used to reach a stranger. */
+function ttInviteStreak(){
+  if(document.getElementById('tt-friends')) return;
+  var ov=document.createElement('div');
+  ov.id='tt-friends';
+  ov.innerHTML='<div class="pf-card" role="dialog" aria-modal="true" aria-labelledby="si-h">'
+    +'<button type="button" class="pf-x" onclick="ttCloseFriends()" aria-label="Close">&times;</button>'
+    +'<h2 id="si-h" class="pf-name">Invite a friend</h2>'
+    +'<div class="pf-empty" style="margin-bottom:10px">You will keep the streak together. If either of you misses a day, you both lose it.</div>'
+    +'<div id="fr-list" class="pf-loading">Loading…</div></div>';
+  ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseFriends(); });
+  document.body.appendChild(ov);
+  fetch('/api/friends',{credentials:'same-origin'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var box=document.getElementById('fr-list'); if(!box) return;
+      box.className='';
+      var f=d.friends||[];
+      box.innerHTML = f.length
+        ? f.map(function(x){
+            return '<div class="fr-row"><div class="fr-who"><b>'+esc(x.name)+'</b>'
+              +(x.college?'<span class="fr-uni">'+esc(x.college)+'</span>':'')+'</div>'
+              +'<button type="button" class="pf-btn fr-x" onclick="ttSendStreakInvite(\''+esc(x.id)+'\')">Invite</button></div>';
+          }).join('')
+        : '<div class="pf-empty">Add a friend first — tap anyone’s name in the Feed or on the leaderboard.</div>';
+    })
+    .catch(function(){
+      var box=document.getElementById('fr-list');
+      if(box){ box.className=''; box.innerHTML='<div class="pf-empty">Could not load your friends.</div>'; }
+    });
+}
+window.ttInviteStreak=ttInviteStreak;
+
+function ttSendStreakInvite(toId){
+  fetch('/api/streaks/invite',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({toId:toId})})
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+    .then(function(res){
+      if(!res.ok){ toast(res.j.error||'Could not send that invitation.',4000); return; }
+      toast(res.j.already?'Already invited':'Invitation sent ✓',2600);
+      ttCloseFriends(); ttRenderSharedStreaks();
+    })
+    .catch(function(){ toast('Could not send that invitation.',3000); });
+}
+window.ttSendStreakInvite=ttSendStreakInvite;
+
+/* ---------- Your awards ----------
+   Weekly places and league awards, newest first, each with the week and year
+   it was won. Recorded from the moment this shipped. */
+function ttRenderMyAwards(){
+  var el=document.getElementById('my-awards'); if(!el) return;
+  fetch('/api/auth/me',{credentials:'same-origin'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.user) throw new Error('anon');
+      return fetch('/api/profile/'+encodeURIComponent(d.user.id),{credentials:'same-origin'});
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var box=document.getElementById('my-awards'); if(!box) return;
+      box.className='';
+      var p=d.profile, list=(p&&p.placings)||[];
+      if(!list.length){
+        box.innerHTML='<div class="aw-empty">No top-10 finishes yet. Finish a week in the top ten and it is recorded here with the week it was won.</div>';
+        return;
+      }
+      box.innerHTML='<div class="aw-list">'+list.map(function(w){
+        return '<div class="aw-row">'
+          +'<span class="aw-medal">'+(w.award?esc(w.award.emoji):'🏅')+'</span>'
+          +'<span class="aw-t"><b>'+(w.award?esc(w.award.title):ttOrdinal(w.rank)+' place')+'</b>'
+          +'<span class="aw-w">'+ttOrdinal(w.rank)+' place · week '+esc(String(w.week||'').split('-W')[1]||'')
+          +' of '+esc(String(w.year||''))+'</span></span>'
+          +'<span class="aw-pts">'+w.score+' pts</span></div>';
+      }).join('')+'</div>';
+    })
+    .catch(function(){
+      var box=document.getElementById('my-awards');
+      if(box){ box.className=''; box.innerHTML='<div class="aw-empty">Could not load your awards.</div>'; }
+    });
+}
+window.ttRenderMyAwards=ttRenderMyAwards;
 
 /* ---------- Tabib Talk Feed ---------- */
 function ttFeedWhen(iso){

@@ -317,6 +317,35 @@ async function listPendingRequestsFor(userId) {
   return (await getAll('friendRequests')).filter(r => r.status === 'pending' && r.toId === userId);
 }
 
+// ---------- Shared streaks ----------
+//
+// Keyed by the two ids sorted and joined, so a pair has exactly one record
+// however it was created and accepting twice cannot produce a second.
+async function saveSharedStreak(id, rec) {
+  await db().ref(`sharedStreaks/${id}`).set(rec);
+  return rec;
+}
+async function findSharedStreak(id) {
+  const snap = await db().ref(`sharedStreaks/${id}`).once('value');
+  return snap.val() || undefined;
+}
+async function deleteSharedStreak(id) {
+  await db().ref(`sharedStreaks/${id}`).remove();
+}
+async function listSharedStreaks(userId) {
+  const snap = await db().ref('sharedStreaks').once('value');
+  return Object.values(snap.val() || {}).filter(r => r.a === userId || r.b === userId);
+}
+
+async function createStreakInvite(rec) { return putOne('streakInvites', rec.id, rec); }
+async function findStreakInvite(id) { return getOne('streakInvites', id); }
+async function updateStreakInvite(id, patch) { return patchOne('streakInvites', id, patch); }
+async function pendingStreakInviteBetween(a, b) {
+  const all = await getAll('streakInvites');
+  return all.find(r => r.status === 'pending' &&
+    ((r.fromId === a && r.toId === b) || (r.fromId === b && r.toId === a)));
+}
+
 // ---------- Weekly results history ----------
 //
 // The leaderboard has always been computed live for the current week and then
@@ -457,6 +486,8 @@ module.exports = {
   addFriendEdge, removeFriendEdge, listFriendIds, areFriends,
   createFriendRequest, findFriendRequest, updateFriendRequest,
   pendingRequestBetween, listPendingRequestsFor,
+  saveSharedStreak, findSharedStreak, deleteSharedStreak, listSharedStreaks,
+  createStreakInvite, findStreakInvite, updateStreakInvite, pendingStreakInviteBetween,
   getPlanOverrides, setPlanOverride,
   getPaymentConfig, setPaymentConfig,
   getFxConfig, setFxConfig,
