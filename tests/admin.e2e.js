@@ -91,6 +91,16 @@ const expiryOf = async (id, d) => {
   await act(B.user.id, { action: 'extend', days: 3, dialect: 'eg', reason: 'Goodwill' });
   P('the expiry moves out by three days',
     Math.abs((await expiryOf(B.user.id)) - (beforeExt + 3 * DAY)) < 120000);
+  let bells = (await B.call('/api/notifications/me')).j.personal || [];
+  P('the student is told it was extended', bells.some(n => n.type === 'admin-extend'));
+  P('the message says how many days', bells.some(n => n.type === 'admin-extend' && /3 days/.test(n.title || '')));
+  P('and carries the reason', bells.some(n => n.type === 'admin-extend' && n.body === 'Goodwill'));
+
+  await act(B.user.id, { action: 'reduce', days: 1, dialect: 'eg', reason: 'Correcting an error' });
+  bells = (await B.call('/api/notifications/me')).j.personal || [];
+  P('a reduction is not announced', !bells.some(n => /reduc|shorten|removed/i.test(n.title || '')));
+  P('but it is still on the audit trail',
+    ((await admin('/audit?userId=' + B.user.id)).j.entries || []).some(e => e.action === 'reduce' && e.days === -1));
 
   section('the audit trail');
   const trail = (await admin('/audit?userId=' + B.user.id)).j;

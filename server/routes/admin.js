@@ -626,9 +626,23 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
       if (!planId || !PLANS[planId]) return res.status(400).json({ error: 'A valid planId is required.' });
       await setPlan(planId, user.planActivatedAt && action === 'change' ? user.planActivatedAt : now);
       break;
-    case 'extend':
-      await shiftExpiry(Math.abs(Number(days) || 0));
+    case 'extend': {
+      const n = Math.abs(Number(days) || 0);
+      await shiftExpiry(n);
+      // Worth telling them: their subscription now runs longer than it did.
+      // A reduction is deliberately not announced here — that is a
+      // conversation, not a notification.
+      if (n) {
+        await store.addUserNotification(user.id, {
+          id: nanoid(),
+          type: 'admin-extend',
+          title: 'Your subscription was extended by ' + n + ' day' + (n === 1 ? '' : 's'),
+          body: String((req.body && req.body.reason) || '').slice(0, 300) || 'Added by the Tabib Talk team.',
+          createdAt: now, readAt: null, actioned: null,
+        });
+      }
       break;
+    }
     case 'reduce':
       await shiftExpiry(-Math.abs(Number(days) || 0));
       break;

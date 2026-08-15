@@ -8923,17 +8923,29 @@ var __ttNotifiedGerman = false;
 /* One personal notification. A friend request keeps its Accept/Decline buttons
    until it is answered; once answered the buttons are replaced by the outcome,
    so an old card cannot be acted on twice. */
+/* The little mark before the second line. It began as a graduation cap because
+   the only thing that ever went there was somebody's college; now that days
+   earned and gifts arrive the same way, it follows what the message is about
+   rather than labelling a reward as a university. */
+var TT_NOTIF_MARK = {
+  'friend-request':'🎓', 'friend-accepted':'🎓',
+  'referral-reward':'🎁', 'admin-gift':'🎁', 'admin-extend':'⏳',
+  'streak-invite':'🔥',
+};
+
 function ttPersonalNotifHtml(n){
   var d = new Date(n.createdAt); var when = isNaN(d) ? '' : d.toLocaleDateString();
+  var mark = TT_NOTIF_MARK[n.type] || '•';
   var h = '<div class="notif-item'+(n.readAt?'':' notif-new')+'">'
         + '<div class="notif-item-msg"><b>'+esc(n.title||'')+'</b>'
-        + (n.body ? '<div class="notif-sub">🎓 '+esc(n.body)+'</div>' : '');
+        + (n.body ? '<div class="notif-sub">'+mark+' '+esc(n.body)+'</div>' : '');
   if (n.type === 'friend-request') {
     h += n.actioned
-      ? '<div class="notif-done">'+(n.actioned==='accepted'?'✓ You accepted':'Declined')+'</div>'
+      ? '<div class="notif-done">'+(n.actioned==='accepted'?'✓ You accepted':n.actioned==='ignored'?'Ignored':'Declined')+'</div>'
       : '<div class="notif-acts">'
         + '<button type="button" class="notif-btn" onclick="ttNotifRespond(\''+esc(n.requestId)+'\',true)">Accept</button>'
         + '<button type="button" class="notif-btn ghost" onclick="ttNotifRespond(\''+esc(n.requestId)+'\',false)">Decline</button>'
+        + '<button type="button" class="notif-btn ghost" onclick="ttNotifIgnore(\''+esc(n.requestId)+'\')">Ignore</button>'
         + '</div>';
   } else if (n.type === 'streak-invite') {
     h += n.actioned
@@ -8946,6 +8958,26 @@ function ttPersonalNotifHtml(n){
   h += '</div><div class="notif-item-date">'+when+'</div></div>';
   return h;
 }
+
+/* Choosing not to answer. Distinct from declining: neither is announced to the
+   person who asked, but their own list of sent requests shows which happened,
+   so they are not left waiting on something already dealt with. */
+function ttNotifIgnore(requestId){
+  fetch('/api/friends/ignore',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({requestId:requestId})})
+    .then(function(){
+      toast('Request ignored', 2200);
+      return fetch('/api/notifications/me',{credentials:'same-origin'}).then(function(r){ return r.json(); });
+    })
+    .then(function(d){
+      __ttPersonalCache = d.personal || [];
+      __ttNotifCache = d.notifications || [];
+      var ov=document.getElementById('notif-overlay');
+      if(ov){ closeNotif(); showNotif(); }
+    })
+    .catch(function(){ toast('Could not save that just now.', 3000); });
+}
+window.ttNotifIgnore=ttNotifIgnore;
 
 /* Answering from the bell. Re-fetches afterwards so the card shows the outcome
    rather than being patched in place and drifting from the server. */
