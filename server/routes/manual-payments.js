@@ -95,6 +95,13 @@ function createManualPaymentRouter(method, getDetails, label) {
     const proof = await store.findManualProof(req.params.id);
     if (!proof || proof.method !== method) return res.status(404).json({ error: 'Proof not found.' });
 
+    // Approving something already approved must not grant the plan a second
+    // time — it would push the expiry out by another full period. Answering
+    // with the same success keeps a double-click or a retried request harmless.
+    if (proof.status === 'approved') {
+      return res.json({ ok: true, already: true });
+    }
+
     const activatedAt = new Date().toISOString();
     const expiresAt = await computeExpiry(proof.planId, activatedAt); // null for lifetime
     await store.updateManualProof(proof.id, { status: 'approved', reviewedAt: activatedAt });
@@ -113,6 +120,17 @@ function createManualPaymentRouter(method, getDetails, label) {
       planExpiresAt: expiresAt,
       subStatus: 'active',
     }, cfg));
+
+    // If this buyer arrived through someone's invite, that person earns the
+    // paid-referral reward. Keyed on the proof id, so a repeated approval finds
+    // its own earlier ledger row and pays nothing further. Never allowed to
+    // fail the approval itself — the purchase matters more than the reward.
+    try {
+      const referrals = require('./referrals');
+      await referrals.rewardPaidReferral(proof.userId, proof.planId, proof.id);
+    } catch (e) {
+      console.error('[payments] paid-referral reward failed:', e.message);
+    }
 
     res.json({ ok: true });
   });

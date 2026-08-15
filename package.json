@@ -1,11 +1,13 @@
 {
   "name": "tabib-talk-web",
   "version": "1.0.0",
-  "description": "Tabib Talk — Egyptian Medical Arabic learning platform (web backend)",
+  "description": "Tabib Talk — Medical Arabic and history-taking platform (web backend)",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "test": "node tests/rewards.test.js",
+    "test:e2e": "node tests/referrals.e2e.js"
   },
   "engines": {
     "node": "24.x"

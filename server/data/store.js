@@ -324,6 +324,86 @@ async function listPendingRequestsBetween(a, b) {
     ((r.fromId === a && r.toId === b) || (r.fromId === b && r.toId === a)));
 }
 
+// ---------- Referrals ----------
+//
+// A token is the only thing that ever appears in an invite link. It maps to the
+// inviter and the dialect they invited from, so no account id is ever exposed
+// and a link cannot be edited into somebody else's.
+//
+// Keyed BY the token, so resolving a link is a direct read rather than a scan
+// of every referral in the system.
+async function saveReferralToken(token, rec) {
+  await db().ref(`referralTokens/${token}`).set(rec);
+  return rec;
+}
+async function findReferralToken(token) {
+  if (!token) return undefined;
+  const snap = await db().ref(`referralTokens/${token}`).once('value');
+  return snap.val() || undefined;
+}
+// One token per inviter per dialect, so the same link can be shared repeatedly.
+async function findTokenForUserDialect(userId, dialect) {
+  const snap = await db().ref('referralTokens').orderByChild('userId').equalTo(userId).once('value');
+  return Object.values(snap.val() || {}).find(t => t.dialect === dialect);
+}
+
+// A referral is keyed by the REFERRED account, which is what enforces "one
+// attribution per new account" structurally: a second attempt writes the same
+// key and cannot create a second record.
+async function saveReferral(referredId, rec) {
+  await db().ref(`referrals/${referredId}`).set(rec);
+  return rec;
+}
+async function findReferralByReferred(referredId) {
+  if (!referredId) return undefined;
+  const snap = await db().ref(`referrals/${referredId}`).once('value');
+  return snap.val() || undefined;
+}
+async function patchReferral(referredId, patch) {
+  const ref = db().ref(`referrals/${referredId}`);
+  if (!(await ref.once('value')).exists()) return null;
+  await ref.update(forUpdate(patch));
+  return (await ref.once('value')).val();
+}
+async function listReferralsBy(referrerId) {
+  const snap = await db().ref('referrals').orderByChild('referrerId').equalTo(referrerId).once('value');
+  return Object.values(snap.val() || {});
+}
+async function listAllReferrals() {
+  return getAll('referrals');
+}
+
+// ---------- Reward ledger ----------
+// Append-only. Nothing is ever updated or removed here — it is the record of
+// what was granted, and rewriting it would defeat the purpose.
+async function addRewardLedger(row) {
+  await db().ref(`rewardLedger/${row.id}`).set(row);
+  return row;
+}
+async function listRewardsFor(userId) {
+  const snap = await db().ref('rewardLedger').orderByChild('userId').equalTo(userId).once('value');
+  return newestFirst(Object.values(snap.val() || {}), 'createdAt');
+}
+async function listAllRewards() {
+  return newestFirst(await getAll('rewardLedger'), 'createdAt');
+}
+// Used to make a repeated payment event harmless: if a row already exists for
+// this payment, the reward has been given and must not be given again.
+async function findRewardByPayment(paymentId) {
+  if (!paymentId) return undefined;
+  const snap = await db().ref('rewardLedger').orderByChild('paymentId').equalTo(paymentId).once('value');
+  return Object.values(snap.val() || {})[0];
+}
+
+// ---------- Admin audit ----------
+async function addAdminAudit(row) {
+  await db().ref(`adminAudit/${row.id}`).set(row);
+  return row;
+}
+async function listAdminAudit() {
+  return newestFirst(await getAll('adminAudit'), 'createdAt');
+}
+
 // ---------- Shared streaks ----------
 //
 // Keyed by the two ids sorted and joined, so a pair has exactly one record
@@ -494,6 +574,10 @@ module.exports = {
   createShare, countSharesForUser, countRecentSharesForUser, listShares,
   createFeedPost, listFeedPosts, findFeedPost, setFeedLike, getAllFeedLikes,
   saveWeekResult, listWeekResults,
+  saveReferralToken, findReferralToken, findTokenForUserDialect,
+  saveReferral, findReferralByReferred, patchReferral, listReferralsBy, listAllReferrals,
+  addRewardLedger, listRewardsFor, listAllRewards, findRewardByPayment,
+  addAdminAudit, listAdminAudit,
   addUserNotification, listUserNotifications, patchUserNotification, markUserNotificationsRead,
   addFriendEdge, removeFriendEdge, listFriendIds, areFriends,
   createFriendRequest, findFriendRequest, updateFriendRequest,

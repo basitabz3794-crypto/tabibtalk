@@ -191,6 +191,13 @@ router.post('/firebase-session', async (req, res) => {
       planId: null, planActivatedAt: null, planExpiresAt: null,
       status: 'active',
       createdAt: new Date().toISOString(),
+      // Who invited them, remembered on the account itself rather than left in
+      // the browser. Signing up with email/password stops at the verification
+      // gate below, and the student comes back through a plain login with no
+      // profile and no link in the URL — so anything held only in the page is
+      // gone by then. Kept here, the invite survives that round trip. It is not
+      // a reward: nothing is paid until the session below is actually reached.
+      referredByToken: (profile && profile.ref) ? String(profile.ref).slice(0, 64) : undefined,
     });
   } else if (user.firebaseUid !== decoded.uid) {
     // Existing pre-Firebase account signing in through Firebase for the first
@@ -214,6 +221,28 @@ router.post('/firebase-session', async (req, res) => {
 
   user = await reconcileUser(user);
   req.session.userId = user.id;
+
+  // Referral attribution happens HERE and nowhere else — past the verification
+  // gate and the device check, at the first moment this account holds a real
+  // session. Clicking an invite link earns nobody anything, and neither does an
+  // account that never verifies its email: both stop short of this line.
+  //
+  // The token is taken from whatever the browser still has, and failing that
+  // from the account itself, which is the path an email/password signup takes:
+  // create record -> verify email -> come back and log in with no profile.
+  //
+  // Safe to reach twice: the referral is keyed by this account, so a second
+  // attempt finds the first and stops. Never allowed to fail the sign-in.
+  const refToken = (profile && profile.ref) || (req.body && req.body.ref) || user.referredByToken;
+  if (refToken) {
+    try {
+      const referrals = require('./referrals');
+      await referrals.attributeSignup(user, String(refToken));
+    } catch (e) {
+      console.error('[auth] referral attribution failed:', e.message);
+    }
+  }
+
   res.json(await publicUser(user));
 });
 
