@@ -7,9 +7,11 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "test": "node tests/rewards.test.js",
-    "test:e2e": "node tests/referrals.e2e.js && node tests/friends.e2e.js",
+    "test:e2e": "node tests/referrals.e2e.js && node tests/friends.e2e.js && node tests/admin.e2e.js && node tests/limits.e2e.js",
     "test:referrals": "node tests/referrals.e2e.js",
-    "test:friends": "node tests/friends.e2e.js"
+    "test:friends": "node tests/friends.e2e.js",
+    "test:admin": "node tests/admin.e2e.js",
+    "test:limits": "node tests/limits.e2e.js"
   },
   "engines": {
     "node": "24.x"

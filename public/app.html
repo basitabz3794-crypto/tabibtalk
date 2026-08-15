@@ -10069,7 +10069,7 @@ function ttRenderFriends(){
   var get=function(u){ return fetch(u,{credentials:'same-origin'})
     .then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); };
 
-  Promise.all([get('/api/friends'), get('/api/friends/requests'), get('/api/streaks')])
+  Promise.all([get('/api/friends'), get('/api/friends/requests'), get('/api/streaks'), get('/api/streaks/history')])
     .then(function(res){
       var box=document.getElementById('fr-list'); if(!box) return;
       box.className='';
@@ -10078,6 +10078,7 @@ function ttRenderFriends(){
       var friends=(res[0].friends)||[];
       var reqs=res[1]||{sent:[],received:[]};
       var streaks=((res[2]||{}).streaks)||[];
+      var past=((res[3]||{}).history)||[];
       var h='';
 
       /* Anything waiting on an answer goes first — it is the only part of this
@@ -10113,8 +10114,25 @@ function ttRenderFriends(){
             +'<span class="fr-who as-text"><b>'+who+'</b>'
             +  (s.isGroup&&names?'<span class="fr-uni">'+names+'</span>':'')
             +  '<span class="fr-uni">since '+esc(ttFrWhen(s.startedAt))+(s.atRisk?' · at risk today':'')+'</span>'
+            +  (s.brokeFrom?'<span class="fr-uni">best run '+s.brokeFrom+' days</span>':'')
             +'</span>'
             +'<span class="fr-chip streak">🔥 '+s.days+' day'+(s.days===1?'':'s')+'</span></div>';
+        }).join('');
+      }
+
+      /* Streaks that are over. Worth keeping in front of a student: a run of
+         thirty days that ended is still something they did. */
+      if(past.length){
+        h+='<div class="fr-head">Streaks you have kept</div>';
+        h+=past.map(function(s){
+          var names=(s.partners||[]).map(function(p){ return esc(p.name); }).join(', ');
+          var who = s.isGroup ? 'You and '+(s.partners||[]).length+' others' : 'You and '+names;
+          return '<div class="fr-row fr-streak">'
+            +'<span class="fr-who as-text"><b>'+who+'</b>'
+            +  (s.isGroup&&names?'<span class="fr-uni">'+names+'</span>':'')
+            +  '<span class="fr-uni">'+(s.outcome==='left'?'you left':'ended')+' '+esc(ttFrWhen(s.endedAt))+'</span>'
+            +'</span>'
+            +'<span class="fr-chip">🏁 '+s.bestDays+' day'+(s.bestDays===1?'':'s')+'</span></div>';
         }).join('');
       }
 

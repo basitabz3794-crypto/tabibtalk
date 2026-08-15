@@ -438,6 +438,24 @@ async function listSharedStreaks(userId) {
   });
 }
 
+// ---------- Ended streaks ----------
+//
+// A streak that is over is moved here rather than deleted, so a student can
+// still see what they kept and for how long. Kept separate from the live
+// collection so nothing that reads shared streaks has to learn to skip the
+// dead ones.
+async function archiveSharedStreak(rec) {
+  await db().ref(`streakHistory/${rec.id}`).set(rec);
+  return rec;
+}
+async function listStreakHistory(userId) {
+  const snap = await db().ref('streakHistory').once('value');
+  return newestFirst(Object.values(snap.val() || {}).filter((r) => {
+    const members = Array.isArray(r.members) ? r.members : [r.a, r.b].filter(Boolean);
+    return members.indexOf(userId) >= 0;
+  }), 'endedAt');
+}
+
 async function createStreakInvite(rec) { return putOne('streakInvites', rec.id, rec); }
 async function findStreakInvite(id) { return getOne('streakInvites', id); }
 async function updateStreakInvite(id, patch) { return patchOne('streakInvites', id, patch); }
@@ -593,6 +611,7 @@ module.exports = {
   listRequestsSentBy, listRequestsSentTo,
   pendingRequestBetween, listPendingRequestsFor, listPendingRequestsBetween,
   saveSharedStreak, findSharedStreak, deleteSharedStreak, listSharedStreaks,
+  archiveSharedStreak, listStreakHistory,
   createStreakInvite, findStreakInvite, updateStreakInvite, pendingStreakInviteBetween,
   getPlanOverrides, setPlanOverride,
   getPaymentConfig, setPaymentConfig,

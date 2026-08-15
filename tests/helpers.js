@@ -70,10 +70,16 @@ const profile = (name, extra) => Object.assign({
 
 // Signs a minted identity in and returns { call, user } — the client to act
 // through, and the account record the server created.
-async function signIn(account, name, extra) {
+//
+// `deviceId` sends the browser fingerprint header a real page sends. Passing
+// the same one for several accounts is how a test reproduces one person
+// signing up under several names, which is what the farming check looks for.
+async function signIn(account, name, extra, deviceId) {
   const call = client();
+  const headers = deviceId ? { 'x-device-id': deviceId } : undefined;
   const res = await call('/api/auth/firebase-session', {
-    method: 'POST', body: JSON.stringify({ idToken: account.idToken, profile: profile(name, extra) }),
+    method: 'POST', headers,
+    body: JSON.stringify({ idToken: account.idToken, profile: profile(name, extra) }),
   });
   return { call, user: res.j, status: res.status };
 }

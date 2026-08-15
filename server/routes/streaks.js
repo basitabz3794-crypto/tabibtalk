@@ -138,6 +138,16 @@ router.get('/', requireLogin, async (req, res) => {
       members.forEach(m => { daysByMember[m] = studyDays(progress[m]); });
       const s = computeShared(rec, daysByMember, now);
 
+      // The longest this streak has ever run. A streak's length is worked out
+      // from study days every time it is read, so a broken one silently falls
+      // back to zero and what it reached is gone. Remembering the high-water
+      // mark is what lets a student see they once kept twelve days, and lets a
+      // break be shown as a break rather than as a streak that never happened.
+      if (s.days > (rec.bestDays || 0)) {
+        rec = Object.assign({}, rec, { bestDays: s.days, bestAt: new Date().toISOString() });
+        await store.saveSharedStreak(rec.id, rec);
+      }
+
       const others = members.filter(m => m !== me);
       const people = await Promise.all(others.map(id => store.findUserById(id)));
       const partners = people.filter(Boolean).map(p => ({
@@ -154,6 +164,10 @@ router.get('/', requireLogin, async (req, res) => {
         partners,
         canAddMore: members.length < MAX_MEMBERS,
         days: s.days,
+        bestDays: rec.bestDays || s.days,
+        // A run that was longer than the current one means it broke and started
+        // again — worth saying, rather than quietly showing the smaller number.
+        brokeFrom: (rec.bestDays || 0) > s.days ? (rec.bestDays || 0) : null,
         bothToday: s.bothToday,
         atRisk: s.atRisk,
         waitingOnMe: s.waitingOn.indexOf(me) >= 0,
@@ -329,6 +343,8 @@ router.delete('/:id', requireLogin, async (req, res) => {
   const members = membersOf(rec);
   if (members.indexOf(me) < 0) return res.status(403).json({ error: 'That is not your streak.' });
 
+  const stamp = new Date().toISOString();
+
   // Leaving a group of three or more only removes you — the others keep theirs.
   // A pair has nothing left to be a streak, so it ends.
   if (members.length > 2) {
@@ -336,10 +352,53 @@ router.delete('/:id', requireLogin, async (req, res) => {
     const next = Object.assign({}, rec, { members: rest });
     delete next.a; delete next.b;
     await store.saveSharedStreak(rec.id, next);
+
+    // Kept for the person who walked away, so their own history still shows the
+    // streak they were part of and how far it got while they were in it.
+    await store.archiveSharedStreak(Object.assign({}, rec, {
+      id: rec.id + '__left__' + me,
+      members: [me],
+      alsoWith: rest,
+      endedAt: stamp,
+      endedBy: me,
+      outcome: 'left',
+    }));
     return res.json({ ok: true, left: true, remaining: rest.length });
   }
+
+  // Moved rather than dropped, so both people keep the record of it.
+  await store.archiveSharedStreak(Object.assign({}, rec, {
+    endedAt: stamp, endedBy: me, outcome: 'ended',
+  }));
   await store.deleteSharedStreak(rec.id);
   res.json({ ok: true, ended: true });
+});
+
+// ---- Streaks that are over ----
+// What a student kept and for how long, after the streak itself is gone.
+router.get('/history', requireLogin, async (req, res) => {
+  try {
+    const me = req.session.userId;
+    const rows = await store.listStreakHistory(me);
+    const out = await Promise.all(rows.map(async (rec) => {
+      const others = (Array.isArray(rec.alsoWith) ? rec.alsoWith : membersOf(rec)).filter(m => m !== me);
+      const people = await Promise.all(others.map(id => store.findUserById(id)));
+      return {
+        id: rec.id,
+        partners: people.filter(Boolean).map(p => ({ id: p.id, name: firstName(p), college: (p.college || '').trim() })),
+        isGroup: others.length > 1,
+        bestDays: rec.bestDays || 0,
+        startedAt: rec.startedAt || null,
+        endedAt: rec.endedAt || null,
+        outcome: rec.outcome || 'ended',
+        endedByMe: rec.endedBy === me,
+      };
+    }));
+    res.json({ history: out.filter(s => s.partners.length) });
+  } catch (err) {
+    console.error('[streaks] history failed:', err.message);
+    res.status(500).json({ error: 'Could not load your streak history.' });
+  }
 });
 
 // ---- Warn a partner whose streak is about to lapse ----

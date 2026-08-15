@@ -13,9 +13,26 @@ const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
 const rewards = require('../data/rewards');
+const rateLimit = require('../middleware/rate-limit');
 const { normaliseDialect } = require('../data/plans');
 
 const router = express.Router();
+
+// Resolving a link is the only thing here open to someone with no account, and
+// it reads the database on every call. A token is 22 characters from nanoid's
+// alphabet, so guessing one is not a real prospect; this is about not letting
+// an anonymous caller hammer the database for free. Set high enough that a
+// whole university behind one address never notices it.
+const resolveLimit = rateLimit({
+  name: 'ref-resolve', by: 'ip', windowMs: 60000, max: 60,
+  message: 'Too many invite links checked at once. Please wait a moment.',
+});
+
+// Counted per account: this is the student's own invite screen, and a normal
+// visit loads it once or twice.
+const meLimit = rateLimit({
+  name: 'ref-me', by: 'user', windowMs: 60000, max: 60,
+});
 
 function requireLogin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please log in first.' });
@@ -50,7 +67,7 @@ async function rewardedThisMonth(userId, when) {
 }
 
 // ---- Everything the invite screen needs ----
-router.get('/me', requireLogin, async (req, res) => {
+router.get('/me', requireLogin, meLimit, async (req, res) => {
   try {
     const me = req.session.userId;
     const user = await store.findUserById(me);
@@ -102,7 +119,7 @@ router.get('/me', requireLogin, async (req, res) => {
 // ---- What a link points at ----
 // Called by the signup screen so it can say who invited you. Returns only a
 // first name and the dialect — never the inviter's account id.
-router.get('/resolve/:token', async (req, res) => {
+router.get('/resolve/:token', resolveLimit, async (req, res) => {
   const rec = await store.findReferralToken(req.params.token);
   if (!rec) return res.status(404).json({ error: 'That invite link is not valid.' });
   const inviter = await store.findUserById(rec.userId);

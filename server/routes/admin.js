@@ -795,6 +795,183 @@ router.get('/referrals', requireAdmin, async (req, res) => {
   });
 });
 
+// ---- Referral patterns worth a second look ----
+//
+// The monthly cap limits what farming can earn, but it does not say who is
+// doing it, and ten free days a month taken repeatedly is still ten free days.
+// This looks for the shapes farming actually leaves behind.
+//
+// Everything here is a SIGNAL, not a verdict. Students really do sit together
+// and sign each other up on one laptop, and a first-year who joins and does not
+// come back is ordinary rather than fake. Nothing is blocked or reversed
+// automatically — the point is to put the pattern in front of a person who can
+// look at it and decide.
+router.get('/referrals/suspicious', requireAdmin, async (req, res) => {
+  const [referrals, users, devices, progress] = await Promise.all([
+    store.listAllReferrals(),
+    store.listAllUsers(),
+    store.listAllDevices(),
+    firebase.isEnabled() ? firebase.getAllProgress() : Promise.resolve({}),
+  ]);
+
+  const byId = {};
+  users.forEach(u => { byId[u.id] = u; });
+
+  // Which browsers each account has been seen on. The device id is a
+  // fingerprint the browser sends, so two accounts sharing one means the same
+  // browser signed into both — the clearest sign available that one person is
+  // behind several accounts.
+  const devicesOf = {};
+  devices.forEach((d) => {
+    if (!d.userId || !d.deviceId) return;
+    (devicesOf[d.userId] || (devicesOf[d.userId] = new Set())).add(d.deviceId);
+  });
+  const sharesDevice = (a, b) => {
+    const A = devicesOf[a], B = devicesOf[b];
+    if (!A || !B) return false;
+    for (const d of A) if (B.has(d)) return true;
+    return false;
+  };
+
+  // Did this account ever actually study? Farmed accounts sign up and stop.
+  const everStudied = (id) => {
+    const st = progress[id];
+    if (!st) return false;
+    return Object.keys(st).some(k => k.indexOf('tt_days') === 0 && String(st[k] || '').length > 4);
+  };
+
+  const grouped = {};
+  referrals.forEach((r) => {
+    (grouped[r.referrerId] || (grouped[r.referrerId] = [])).push(r);
+  });
+
+  const BURST_MS = 15 * 60000;
+  const flagged = [];
+
+  Object.entries(grouped).forEach(([inviterId, list]) => {
+    const rows = list.slice().sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    const reasons = [];
+
+    // 1. The inviter's own browser was used to sign up somebody they invited.
+    const onMyDevice = rows.filter(r => sharesDevice(inviterId, r.referredId));
+    if (onMyDevice.length) {
+      reasons.push({
+        code: 'same-device-as-inviter',
+        detail: onMyDevice.length + ' of their invitees signed in from the inviter\'s own browser',
+        weight: 3 * onMyDevice.length,
+      });
+    }
+
+    // 2. Several invitees sharing one browser with each other.
+    let sharedPairs = 0;
+    for (let i = 0; i < rows.length; i++) {
+      for (let j = i + 1; j < rows.length; j++) {
+        if (sharesDevice(rows[i].referredId, rows[j].referredId)) sharedPairs++;
+      }
+    }
+    if (sharedPairs) {
+      reasons.push({
+        code: 'invitees-share-a-device',
+        detail: sharedPairs + ' pair' + (sharedPairs === 1 ? '' : 's') + ' of their invitees used the same browser',
+        weight: 2 * sharedPairs,
+      });
+    }
+
+    // 3. A cluster of signups in minutes. Real word-of-mouth is spread out.
+    let biggestBurst = 1;
+    for (let i = 0; i < rows.length; i++) {
+      let n = 1;
+      for (let j = i + 1; j < rows.length; j++) {
+        if (Date.parse(rows[j].createdAt) - Date.parse(rows[i].createdAt) <= BURST_MS) n++;
+        else break;
+      }
+      if (n > biggestBurst) biggestBurst = n;
+    }
+    if (biggestBurst >= 3) {
+      reasons.push({
+        code: 'signup-burst',
+        detail: biggestBurst + ' accounts joined within fifteen minutes of each other',
+        weight: 2 * (biggestBurst - 2),
+      });
+    }
+
+    // 4. Nobody they invited ever opened a lesson. One is nothing; all of them
+    //    is the shape of accounts made to be counted rather than used.
+    const dormant = rows.filter(r => !everStudied(r.referredId));
+    if (rows.length >= 3 && dormant.length === rows.length) {
+      reasons.push({
+        code: 'nobody-ever-studied',
+        detail: 'none of their ' + rows.length + ' invitees has studied a single day',
+        weight: 3,
+      });
+    }
+
+    // 5. Email addresses that look generated rather than chosen.
+    const locals = rows.map(r => String((byId[r.referredId] || {}).email || '').split('@')[0].toLowerCase())
+      .filter(Boolean);
+    const stems = {};
+    locals.forEach((l) => {
+      const stem = l.replace(/[._+-]?\d+$/, '');
+      if (stem && stem !== l) stems[stem] = (stems[stem] || 0) + 1;
+    });
+    const patterned = Object.entries(stems).filter(([, n]) => n >= 3);
+    if (patterned.length) {
+      reasons.push({
+        code: 'numbered-addresses',
+        detail: patterned.map(([s, n]) => n + ' addresses starting "' + s + '" and ending in a number').join('; '),
+        weight: 3,
+      });
+    }
+
+    // 6. Hitting the ceiling every month is not proof of anything, but it is
+    //    the context in which everything above matters more.
+    const months = {};
+    rows.forEach((r) => {
+      if (!r.signupRewardedAt) return;
+      const k = rewards.monthKey(r.createdAt);
+      months[k] = (months[k] || 0) + 1;
+    });
+    const cappedMonths = Object.entries(months).filter(([, n]) => n >= rewards.MONTHLY_REWARD_CAP);
+    if (cappedMonths.length) {
+      reasons.push({
+        code: 'reached-the-cap',
+        detail: 'reached the monthly limit in ' + cappedMonths.map(([m]) => m).join(', '),
+        weight: 1,
+      });
+    }
+
+    if (!reasons.length) return;
+    const score = reasons.reduce((s, r) => s + r.weight, 0);
+    const u = byId[inviterId] || {};
+    flagged.push({
+      inviter: { id: inviterId, name: u.name || '(deleted account)', email: u.email || '', college: u.college || '' },
+      referrals: rows.length,
+      dormant: dormant.length,
+      score,
+      level: score >= 8 ? 'high' : score >= 4 ? 'medium' : 'low',
+      reasons,
+      invitees: rows.map(r => ({
+        person: byId[r.referredId]
+          ? { id: r.referredId, name: byId[r.referredId].name || '', email: byId[r.referredId].email || '' }
+          : { id: r.referredId, name: '(deleted account)', email: '' },
+        joinedAt: r.createdAt,
+        rewarded: !!r.signupRewardedAt,
+        sameDeviceAsInviter: sharesDevice(inviterId, r.referredId),
+        everStudied: everStudied(r.referredId),
+      })),
+    });
+  });
+
+  flagged.sort((a, b) => b.score - a.score);
+  res.json({
+    flagged,
+    checked: Object.keys(grouped).length,
+    // Said plainly so the hub does not present a guess as a finding.
+    note: 'These are patterns, not proof. Students do share a laptop, and somebody '
+        + 'who joins and never returns is ordinary. Nothing has been blocked or reversed.',
+  });
+});
+
 // ---- One student's referral picture, for their row in the hub ----
 router.get('/users/:id/referrals', requireAdmin, async (req, res) => {
   const id = req.params.id;

@@ -777,6 +777,53 @@ async function loadReferrals(){
         <thead><tr><th>Student</th><th>College</th><th>Invited</th><th>This month</th>
                    <th>Days earned</th><th>Subscribed</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>
+    </div>
+    <div id="suspicious-box"></div>`;
+  loadSuspicious();
+}
+
+/* ---- Referral patterns worth a second look ----
+   Deliberately worded as signals rather than findings: nothing here is proof,
+   and nothing has been acted on automatically. */
+async function loadSuspicious(){
+  let d = null;
+  try { d = await adminGet('/api/admin/referrals/suspicious'); }
+  catch (e) {
+    const box = document.getElementById('suspicious-box');
+    if (box) box.innerHTML = '<div class="card"><div class="empty">Could not check referral patterns.</div></div>';
+    return;
+  }
+  const box = document.getElementById('suspicious-box');
+  if (!box) return;
+
+  const LEVEL_COLOR = { high:'var(--danger, #ff6b6b)', medium:'var(--gold, #e0b341)', low:'var(--muted)' };
+  const cards = (d.flagged||[]).map(f => `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <b>${esc(f.inviter.name)||'—'}</b>
+          <div class="muted-sm">${esc(f.inviter.email)}${f.inviter.college?' · '+esc(f.inviter.college):''}</div>
+        </div>
+        <div style="text-align:right">
+          <span style="color:${LEVEL_COLOR[f.level]};font-weight:700;text-transform:uppercase;font-size:.74rem;letter-spacing:.08em">${f.level}</span>
+          <div class="muted-sm">${f.referrals} invited · ${f.dormant} never studied</div>
+        </div>
+      </div>
+      <ul style="margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:.84rem">
+        ${f.reasons.map(r=>`<li>${esc(r.detail)}</li>`).join('')}
+      </ul>
+      <div class="row-actions">
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:.78rem"
+                onclick="showUserHistory('${f.inviter.id}')">See their referrals</button>
+      </div>
+    </div>`).join('');
+
+  box.innerHTML = `
+    <div class="card">
+      <h3 class="sec">Patterns worth a look
+        <span style="color:var(--muted);font-weight:500">(${(d.flagged||[]).length} of ${d.checked||0} inviters)</span></h3>
+      <p style="color:var(--muted);font-size:.84rem;margin-top:0">${esc(d.note||'')}</p>
+      ${cards || '<div class="empty">Nothing unusual in how anyone is inviting.</div>'}
     </div>`;
 }
 

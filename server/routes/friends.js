@@ -11,8 +11,25 @@
 const express = require('express');
 const { nanoid } = require('nanoid');
 const store = require('../data/store');
+const rateLimit = require('../middleware/rate-limit');
 
 const router = express.Router();
+
+// Searching returns a first name and a college — the same as a post already
+// shows — but running it over and over with different fragments would walk the
+// whole student list. Counted per account, and set above what typing produces:
+// the box waits for a pause before asking, so even heavy use is a few a minute.
+const searchLimit = rateLimit({
+  name: 'friend-search', by: 'user', windowMs: 60000, max: 40,
+  message: 'That is a lot of searching at once. Please wait a moment.',
+});
+
+// Asking to be someone's friend costs them a notification, so this is the one
+// worth holding down. Thirty an hour is far more than anyone reaches honestly.
+const requestLimit = rateLimit({
+  name: 'friend-request', by: 'user', windowMs: 3600000, max: 30,
+  message: 'You have sent a lot of friend requests in the last hour. Please try again later.',
+});
 
 function requireLogin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Please log in first.' });
@@ -72,7 +89,7 @@ router.get('/status/:id', requireLogin, async (req, res) => {
 });
 
 // ---- Send a friend request ----
-router.post('/request', requireLogin, async (req, res) => {
+router.post('/request', requireLogin, requestLimit, async (req, res) => {
   const me = req.session.userId;
   const toId = (req.body || {}).toId;
   if (!toId) return res.status(400).json({ error: 'Who would you like to add?' });
@@ -222,7 +239,7 @@ async function searchableUsers() {
 //
 // Results carry a first name and a college and nothing else, the same shape a
 // profile card shows, so searching reveals no more than looking at a post does.
-router.get('/search', requireLogin, async (req, res) => {
+router.get('/search', requireLogin, searchLimit, async (req, res) => {
   const me = req.session.userId;
   const q = String(req.query.q || '').trim().toLowerCase();
   if (q.length < 2) return res.json({ results: [] });
