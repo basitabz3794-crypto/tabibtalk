@@ -323,6 +323,15 @@ async function listPendingRequestsBetween(a, b) {
   return (await getAll('friendRequests')).filter(r => r.status === 'pending' &&
     ((r.fromId === a && r.toId === b) || (r.fromId === b && r.toId === a)));
 }
+// Every request this person sent, and every one they were sent, whatever became
+// of it. The Friends panel shows both lists with their outcomes, so a student
+// can see that they did ask somebody rather than being left wondering.
+async function listRequestsSentBy(userId) {
+  return newestFirst((await getAll('friendRequests')).filter(r => r.fromId === userId), 'createdAt');
+}
+async function listRequestsSentTo(userId) {
+  return newestFirst((await getAll('friendRequests')).filter(r => r.toId === userId), 'createdAt');
+}
 
 // ---------- Referrals ----------
 //
@@ -581,6 +590,7 @@ module.exports = {
   addUserNotification, listUserNotifications, patchUserNotification, markUserNotificationsRead,
   addFriendEdge, removeFriendEdge, listFriendIds, areFriends,
   createFriendRequest, findFriendRequest, updateFriendRequest,
+  listRequestsSentBy, listRequestsSentTo,
   pendingRequestBetween, listPendingRequestsFor, listPendingRequestsBetween,
   saveSharedStreak, findSharedStreak, deleteSharedStreak, listSharedStreaks,
   createStreakInvite, findStreakInvite, updateStreakInvite, pendingStreakInviteBetween,

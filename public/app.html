@@ -9932,37 +9932,178 @@ function ttOpenFriends(){
   if(document.getElementById('tt-friends')) return;
   var ov=document.createElement('div');
   ov.id='tt-friends';
-  ov.innerHTML='<div class="pf-card" role="dialog" aria-modal="true" aria-labelledby="fr-h">'
+  ov.innerHTML='<div class="pf-card fr-card" role="dialog" aria-modal="true" aria-labelledby="fr-h">'
     +'<button type="button" class="pf-x" onclick="ttCloseFriends()" aria-label="Close">&times;</button>'
     +'<h2 id="fr-h" class="pf-name">Friends</h2>'
+    +'<div class="fr-search">'
+    +  '<input id="fr-q" type="search" placeholder="Search by name or college" autocomplete="off" aria-label="Search for a student">'
+    +  '<div id="fr-results"></div>'
+    +'</div>'
     +'<div id="fr-list" class="pf-loading">Loading…</div></div>';
   ov.addEventListener('click', function(e){ if(e.target===ov) ttCloseFriends(); });
   document.body.appendChild(ov);
+  var q=document.getElementById('fr-q');
+  if(q) q.addEventListener('input', function(){ ttFriendSearch(this.value); });
   ttRenderFriends();
 }
 window.ttOpenFriends=ttOpenFriends;
 
+/* Search runs a beat after typing stops, and only ever renders the answer to
+   the latest question — otherwise a slow early reply can land after a fast
+   later one and show results for something already deleted. */
+var _frSeq=0, _frTimer=null;
+function ttFriendSearch(raw){
+  var q=String(raw||'').trim();
+  clearTimeout(_frTimer);
+  var box=document.getElementById('fr-results'); if(!box) return;
+  if(q.length<2){ box.innerHTML=''; return; }
+  _frTimer=setTimeout(function(){
+    var mine=++_frSeq;
+    fetch('/api/friends/search?q='+encodeURIComponent(q),{credentials:'same-origin'})
+      .then(function(r){ return r.ok?r.json():{results:[]}; })
+      .then(function(d){
+        if(mine!==_frSeq) return;                 // a newer search has overtaken this one
+        var el=document.getElementById('fr-results'); if(!el) return;
+        var rs=d.results||[];
+        if(!rs.length){ el.innerHTML='<div class="fr-none">Nobody found. They may already be your friend.</div>'; return; }
+        el.innerHTML=rs.map(function(p){
+          var btn = p.status==='requested'
+              ? '<span class="fr-chip">Requested</span>'
+            : p.status==='awaiting-me'
+              ? '<button type="button" class="pf-btn" onclick="ttFriendRespond(\''+esc(p.requestId)+'\',true)">Accept</button>'
+              : '<button type="button" class="pf-btn" onclick="ttFriendAdd(\''+esc(p.id)+'\',this)">Add friend</button>';
+          return '<div class="fr-row">'
+            +'<button type="button" class="fr-who" onclick="ttCloseFriends();ttOpenProfile(\''+esc(p.id)+'\')">'
+            +  '<b>'+esc(p.name)+'</b>'
+            +  (p.college?'<span class="fr-uni">'+esc(p.college)+'</span>':'')
+            +'</button>'+btn+'</div>';
+        }).join('');
+      })
+      .catch(function(){});
+  }, 280);
+}
+window.ttFriendSearch=ttFriendSearch;
+
+window.ttFriendAdd=function(id,btn){
+  if(btn){ btn.disabled=true; btn.textContent='Sending…'; }
+  fetch('/api/friends/request',{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({toId:id})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(btn){ btn.outerHTML = d.status==='friends'
+        ? '<span class="fr-chip">Friends</span>' : '<span class="fr-chip">Requested</span>'; }
+      ttRenderFriends();
+    })
+    .catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Add friend'; } });
+};
+
+window.ttFriendRespond=function(requestId,accept){
+  fetch('/api/friends/respond',{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:requestId,accept:!!accept})})
+    .then(function(){ ttRenderFriends(); ttFriendSearch((document.getElementById('fr-q')||{}).value||''); })
+    .catch(function(){});
+};
+
+window.ttFriendIgnore=function(requestId){
+  fetch('/api/friends/ignore',{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:requestId})})
+    .then(function(){ ttRenderFriends(); })
+    .catch(function(){});
+};
+
+function ttFrWhen(iso){
+  try{
+    var d=new Date(iso), now=new Date();
+    if(d.toDateString()===now.toDateString()) return 'today';
+    var y=new Date(now.getTime()-86400000);
+    if(d.toDateString()===y.toDateString()) return 'yesterday';
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  }catch(e){ return ''; }
+}
+
+function ttFrPerson(x, trailing){
+  return '<div class="fr-row">'
+    +'<button type="button" class="fr-who" onclick="ttCloseFriends();ttOpenProfile(\''+esc(x.id)+'\')">'
+    +  '<b>'+esc(x.name)+'</b>'
+    +  (x.college?'<span class="fr-uni">'+esc(x.college)+'</span>':'')
+    +'</button>'+(trailing||'')+'</div>';
+}
+
+/* Friends, both directions of requests, and any streaks being kept together —
+   all three fetched at once so the panel appears in one go rather than filling
+   in section by section. A section with nothing in it is left out entirely. */
 function ttRenderFriends(){
   var el=document.getElementById('fr-list'); if(!el) return;
-  fetch('/api/friends',{credentials:'same-origin'})
-    .then(function(r){ if(!r.ok) throw new Error('friends'); return r.json(); })
-    .then(function(d){
+  var get=function(u){ return fetch(u,{credentials:'same-origin'})
+    .then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; }); };
+
+  Promise.all([get('/api/friends'), get('/api/friends/requests'), get('/api/streaks')])
+    .then(function(res){
       var box=document.getElementById('fr-list'); if(!box) return;
       box.className='';
-      var f=d.friends||[];
-      if(!f.length){
-        box.innerHTML='<div class="pf-empty">No friends yet. Tap anyone’s name in the Feed or on the leaderboard and choose <b>Add friend</b>.</div>';
-        return;
+      if(!res[0]){ box.innerHTML='<div class="pf-empty">Could not load your friends — check your connection.</div>'; return; }
+
+      var friends=(res[0].friends)||[];
+      var reqs=res[1]||{sent:[],received:[]};
+      var streaks=((res[2]||{}).streaks)||[];
+      var h='';
+
+      /* Anything waiting on an answer goes first — it is the only part of this
+         panel that asks something of the student. */
+      var waiting=(reqs.received||[]).filter(function(r){ return r.status==='pending'; });
+      if(waiting.length){
+        h+='<div class="fr-head">Waiting for you</div>';
+        h+=waiting.map(function(r){
+          return ttFrPerson(r.person,
+            '<span class="fr-acts">'
+            +'<button type="button" class="pf-btn" onclick="ttFriendRespond(\''+esc(r.id)+'\',true)">Accept</button>'
+            +'<button type="button" class="pf-btn ghost" onclick="ttFriendRespond(\''+esc(r.id)+'\',false)">Decline</button>'
+            +'<button type="button" class="pf-btn ghost" onclick="ttFriendIgnore(\''+esc(r.id)+'\')">Ignore</button>'
+            +'</span>');
+        }).join('');
       }
-      box.innerHTML=f.map(function(x){
-        return '<div class="fr-row">'
-          +'<button type="button" class="fr-who" onclick="ttCloseFriends();ttOpenProfile(\''+esc(x.id)+'\')">'
-          +  '<b>'+esc(x.name)+'</b>'
-          +  (x.college?'<span class="fr-uni">'+esc(x.college)+'</span>':'')
-          +'</button>'
-          +'<button type="button" class="pf-btn ghost fr-x" onclick="ttUnfriend(\''+esc(x.id)+'\')">Remove</button>'
-          +'</div>';
-      }).join('');
+
+      h+='<div class="fr-head">Your friends'+(friends.length?' <span class="fr-n">'+friends.length+'</span>':'')+'</div>';
+      h+= friends.length
+        ? friends.map(function(x){
+            return ttFrPerson(x, '<button type="button" class="pf-btn ghost fr-x" onclick="ttUnfriend(\''+esc(x.id)+'\')">Remove</button>');
+          }).join('')
+        : '<div class="pf-empty">No friends yet. Search above, or tap anyone’s name in the Feed or on the leaderboard.</div>';
+
+      if(streaks.length){
+        h+='<div class="fr-head">Streaks together</div>';
+        h+=streaks.map(function(s){
+          var who = s.isGroup
+            ? 'You and '+(s.partners||[]).length+' others'
+            : 'You and '+esc(((s.partners||[])[0]||{}).name||'a friend');
+          var names=(s.partners||[]).map(function(p){ return esc(p.name); }).join(', ');
+          return '<div class="fr-row fr-streak">'
+            +'<span class="fr-who as-text"><b>'+who+'</b>'
+            +  (s.isGroup&&names?'<span class="fr-uni">'+names+'</span>':'')
+            +  '<span class="fr-uni">since '+esc(ttFrWhen(s.startedAt))+(s.atRisk?' · at risk today':'')+'</span>'
+            +'</span>'
+            +'<span class="fr-chip streak">🔥 '+s.days+' day'+(s.days===1?'':'s')+'</span></div>';
+        }).join('');
+      }
+
+      var sent=(reqs.sent||[]).filter(function(r){ return r.status!=='superseded'; });
+      if(sent.length){
+        h+='<div class="fr-head">Requests you sent</div>';
+        h+=sent.map(function(r){
+          return ttFrPerson(r.person,
+            '<span class="fr-chip '+esc(r.status)+'">'+esc(r.label)+'</span>');
+        }).join('');
+      }
+
+      var answered=(reqs.received||[]).filter(function(r){ return r.status!=='pending' && r.status!=='superseded'; });
+      if(answered.length){
+        h+='<div class="fr-head">Requests you answered</div>';
+        h+=answered.map(function(r){
+          return ttFrPerson(r.person, '<span class="fr-chip '+esc(r.status)+'">'+esc(r.label)+'</span>');
+        }).join('');
+      }
+
+      box.innerHTML=h;
     })
     .catch(function(){
       var box=document.getElementById('fr-list');
@@ -12360,6 +12501,24 @@ body.tt-scifi.tt-green .qb-note{
 .inv-rules{border:1px solid var(--border);border-radius:12px;padding:6px 16px;margin-bottom:16px;background:rgba(0,0,0,.1)}
 .inv-rules li{margin:9px 0;font-size:.88rem;color:var(--text-dim)}
 .inv-cap{font-size:.83rem;color:var(--muted);margin-top:6px}
+/* Friends panel ---------------------------------------------------------- */
+.fr-card{max-height:86vh;overflow-y:auto}
+.fr-search{margin:4px 0 10px}
+.fr-search input{width:100%;padding:10px 13px;border-radius:10px;border:1px solid var(--border);
+  background:rgba(0,0,0,.25);color:var(--text);font-size:.88rem;font-family:inherit}
+.fr-none{color:var(--muted);font-size:.83rem;padding:8px 2px}
+.fr-head{font-family:var(--font-display);font-size:.76rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin:16px 0 4px;padding-top:10px;border-top:1px solid var(--border)}
+.fr-head:first-child{border-top:0;padding-top:0;margin-top:4px}
+.fr-n{color:var(--accent)}
+.fr-who.as-text{cursor:default;background:none}
+.fr-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.fr-chip{font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;
+  border:1px solid var(--border);color:var(--muted)}
+.fr-chip.accepted{border-color:var(--accent);color:var(--accent)}
+.fr-chip.rejected,.fr-chip.ignored{opacity:.75}
+.fr-chip.streak{border-color:var(--accent);color:var(--accent)}
+.fr-streak .fr-uni{display:block}
 .inv-hist{border-top:1px solid var(--border);padding:11px 2px;display:flex;justify-content:space-between;gap:12px;font-size:.86rem}
 .inv-hist .h-when{color:var(--muted);font-size:.78rem;white-space:nowrap}
 .inv-hist .h-days{color:var(--accent);font-weight:700;white-space:nowrap}

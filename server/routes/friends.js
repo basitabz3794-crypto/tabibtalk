@@ -180,6 +180,120 @@ router.post('/respond', requireLogin, async (req, res) => {
   res.json({ ok: true, status: 'friends' });
 });
 
+// ---- Ignore a request ----
+// Distinct from declining. A decline is an answer; ignoring is choosing not to
+// give one. Neither is announced to the sender, but the sender's own list shows
+// which happened, so they are not left waiting on something already dealt with.
+router.post('/ignore', requireLogin, async (req, res) => {
+  const me = req.session.userId;
+  const reqRec = await store.findFriendRequest((req.body || {}).requestId);
+  if (!reqRec) return res.status(404).json({ error: 'That request no longer exists.' });
+  if (reqRec.toId !== me) return res.status(403).json({ error: 'That request is not yours to answer.' });
+  if (reqRec.status !== 'pending') return res.json({ ok: true, status: reqRec.status, alreadyAnswered: true });
+
+  const now = new Date().toISOString();
+  await store.updateFriendRequest(reqRec.id, { status: 'ignored', respondedAt: now });
+  const mine = await store.listUserNotifications(me);
+  const card = mine.find(n => n.requestId === reqRec.id);
+  if (card) await store.patchUserNotification(me, card.id, { actioned: 'ignored', readAt: card.readAt || now });
+  res.json({ ok: true, status: 'ignored' });
+});
+
+// Searching means scanning every account, and a student types several letters
+// before they find who they mean. Reading the whole table for each of those is
+// a round trip we can skip: names and colleges do not change between
+// keystrokes. Half a minute old is fresh enough here — the only cost of a stale
+// entry is that somebody who signed up in the last few seconds is not yet
+// findable, and they will be on the next search.
+let searchCache = { at: 0, users: null };
+const SEARCH_CACHE_MS = 30000;
+async function searchableUsers() {
+  const now = Date.now();
+  if (searchCache.users && (now - searchCache.at) < SEARCH_CACHE_MS) return searchCache.users;
+  const users = await store.listAllUsers();
+  searchCache = { at: now, users };
+  return users;
+}
+
+// ---- Find someone ----
+// Matches on name or college, because a student looking for a classmate knows
+// one or the other. Banned accounts and the searcher themselves are left out,
+// and so is anyone already a friend — there is nothing to do with them here.
+//
+// Results carry a first name and a college and nothing else, the same shape a
+// profile card shows, so searching reveals no more than looking at a post does.
+router.get('/search', requireLogin, async (req, res) => {
+  const me = req.session.userId;
+  const q = String(req.query.q || '').trim().toLowerCase();
+  if (q.length < 2) return res.json({ results: [] });
+
+  const [all, friendIds] = await Promise.all([
+    searchableUsers(),
+    store.listFriendIds(me),
+  ]);
+  const already = new Set(friendIds.map(f => f.id));
+
+  const hits = all.filter((u) => {
+    if (!u || u.id === me || already.has(u.id)) return false;
+    if ((u.status || 'active') === 'banned') return false;
+    const name = String(u.name || '').toLowerCase();
+    const college = String(u.college || '').toLowerCase();
+    return name.indexOf(q) >= 0 || college.indexOf(q) >= 0;
+  });
+
+  // Someone whose name starts with what was typed is far more likely to be who
+  // was meant than someone who merely contains it somewhere.
+  hits.sort((a, b) => {
+    const an = String(a.name || '').toLowerCase(), bn = String(b.name || '').toLowerCase();
+    const as = an.indexOf(q) === 0 ? 0 : 1, bs = bn.indexOf(q) === 0 ? 0 : 1;
+    return as !== bs ? as - bs : an.localeCompare(bn);
+  });
+
+  // Pending requests come back with each result so the button can say Requested
+  // or Respond instead of offering to send a second one.
+  const top = hits.slice(0, 20);
+  const states = await Promise.all(top.map(u => store.pendingRequestBetween(me, u.id)));
+  res.json({
+    results: top.map((u, i) => Object.assign(brief(u), {
+      status: !states[i] ? 'none' : (states[i].fromId === me ? 'requested' : 'awaiting-me'),
+      requestId: states[i] ? states[i].id : null,
+    })),
+  });
+});
+
+// ---- Requests I sent, and requests sent to me ----
+router.get('/requests', requireLogin, async (req, res) => {
+  const me = req.session.userId;
+  const [sent, received] = await Promise.all([
+    store.listRequestsSentBy(me),
+    store.listRequestsSentTo(me),
+  ]);
+
+  const ids = [...new Set(sent.map(r => r.toId).concat(received.map(r => r.fromId)))];
+  const people = await Promise.all(ids.map(id => store.findUserById(id)));
+  const by = {};
+  ids.forEach((id, i) => { by[id] = brief(people[i]); });
+
+  // 'superseded' is an internal tidy-up — the two are friends by some other
+  // route — so it is shown as what it means rather than as jargon.
+  const label = s => (s === 'pending' ? 'Sent'
+    : s === 'accepted' || s === 'superseded' ? 'Accepted'
+    : s === 'rejected' ? 'Rejected'
+    : s === 'ignored' ? 'Ignored' : s);
+
+  res.json({
+    sent: sent.map(r => ({
+      id: r.id, person: by[r.toId], status: r.status, label: label(r.status),
+      createdAt: r.createdAt, respondedAt: r.respondedAt || null,
+    })).filter(r => r.person),
+    received: received.map(r => ({
+      id: r.id, person: by[r.fromId], status: r.status,
+      label: r.status === 'pending' ? 'Waiting for you' : label(r.status),
+      createdAt: r.createdAt, respondedAt: r.respondedAt || null,
+    })).filter(r => r.person),
+  });
+});
+
 // ---- My friends ----
 router.get('/', requireLogin, async (req, res) => {
   const edges = await store.listFriendIds(req.session.userId);
