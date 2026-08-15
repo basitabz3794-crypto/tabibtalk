@@ -6,8 +6,41 @@ const { requireAdmin } = require('./manual-payments');
 const { reconcileAllUsers } = require('./auth');
 const { isExpired, PLANS, accessTierForPlan, computeExpiry, baselineTier, DIALECTS, normaliseDialect, configForDialect } = require('../data/plans');
 const entitlements = require('../data/entitlements');
+const rewards = require('../data/rewards');
 
 const router = express.Router();
+
+// Who is doing this. There is no admin login — the hub is held behind a shared
+// key — so the best available answer is the name the hub sends and the address
+// it came from. Recorded rather than left blank, so the trail still says
+// something about origin while there is only one administrator.
+function actor(req) {
+  return {
+    adminId: String(req.headers['x-admin-name'] || 'admin'),
+    ip: String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim() || null,
+  };
+}
+
+// Every administrative change to somebody's access leaves a row here: who did
+// it, to whom, what changed, and why. Written after the change succeeds, so the
+// trail never claims something that did not happen. Never allowed to fail the
+// action itself — a missing audit row is bad, but refusing a legitimate change
+// because the log write failed is worse.
+async function audit(req, fields) {
+  try {
+    const who = actor(req);
+    await store.addAdminAudit(Object.assign({
+      id: nanoid(),
+      createdAt: new Date().toISOString(),
+      adminId: who.adminId,
+      ip: who.ip,
+      userId: null, action: null, dialect: null, days: null,
+      planId: null, reason: null, previousExpiry: null, newExpiry: null,
+    }, fields));
+  } catch (e) {
+    console.error('[admin] audit write failed:', e.message);
+  }
+}
 
 // ---- Existing: all pending proofs across every method ----
 router.get('/pending', requireAdmin, async (req, res) => {
@@ -525,6 +558,10 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
   // only being able to touch whichever one the student happens to be sitting in.
   const target = req.body && req.body.dialect ? normaliseDialect(req.body.dialect) : normaliseDialect(user.dialect);
 
+  // Read before anything changes, so the audit row can say what it was as well
+  // as what it became.
+  const beforeEnt = entitlements.forDialect(user, target, cfg);
+
   // Revoking a plan drops the student to the free baseline of the TARGET
   // dialect's plans page — Basic under new-plans, Explorer under the classic
   // page. Read per dialect, not globally: the global value is Egyptian's, so
@@ -595,6 +632,43 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
     case 'reduce':
       await shiftExpiry(-Math.abs(Number(days) || 0));
       break;
+    case 'gift': {
+      // Days given as a gift, rather than an adjustment to a plan already held.
+      //
+      // Deliberately routed through the same code a referral reward uses, so a
+      // gift behaves exactly like earned days: it extends from whichever is
+      // later — now or the current expiry — never truncates time already paid
+      // for, never knocks the student down a tier, and grants the dialect's own
+      // reward plan to somebody who holds nothing.
+      const n = Math.abs(Number(days) || 0);
+      if (!n) return res.status(400).json({ error: 'How many days would you like to give?' });
+      if (n > 3650) return res.status(400).json({ error: 'That is more than ten years — please check the number.' });
+
+      const giftPlan = planId && PLANS[planId] ? planId : rewards.rewardPlanFor(cfg, target);
+      const patch = rewards.extendPatch(user, target, n, giftPlan, cfg);
+      if (!patch) {
+        return res.status(400).json({ error: 'This student already has lifetime access in ' + target + ' — there is nothing to extend.' });
+      }
+
+      // The ledger is what makes a gift accountable: it says who gave it, how
+      // many days, on which plan, and the reason typed at the time.
+      const who = actor(req);
+      await store.addRewardLedger(rewards.ledgerRow({
+        userId: user.id, type: 'admin-gift', days: n, planId: giftPlan, dialect: target,
+        source: 'given by an administrator', adminId: who.adminId,
+        reason: String((req.body && req.body.reason) || '').slice(0, 300) || null,
+      }));
+      await store.updateUser(user.id, patch);
+
+      await store.addUserNotification(user.id, {
+        id: nanoid(),
+        type: 'admin-gift',
+        title: n + ' day' + (n === 1 ? '' : 's') + ' added to your subscription',
+        body: String((req.body && req.body.reason) || '').slice(0, 300) || 'A gift from the Tabib Talk team.',
+        createdAt: now, readAt: null, actioned: null,
+      });
+      break;
+    }
     case 'expire': { // force the plan to end right now -> revert to the free baseline
       const ent = currentEnt();
       await store.updateUser(user.id, entitlements.grant(user, target, {
@@ -622,6 +696,22 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Unknown action.' });
   }
   const updated = await store.findUserById(user.id);
+
+  // Recorded after the change went through, so the trail never claims something
+  // that did not happen.
+  const afterEnt = entitlements.forDialect(updated, target, cfg);
+  await audit(req, {
+    userId: user.id, action, dialect: target,
+    days: (action === 'extend' || action === 'reduce' || action === 'gift')
+      ? (action === 'reduce' ? -Math.abs(Number(days) || 0) : Math.abs(Number(days) || 0)) : null,
+    planId: afterEnt.planId || planId || null,
+    reason: String((req.body && req.body.reason) || '').slice(0, 300) || null,
+    previousExpiry: beforeEnt.planExpiresAt || null,
+    newExpiry: afterEnt.planExpiresAt || null,
+    previousTier: beforeEnt.tier || null,
+    newTier: afterEnt.tier || null,
+  });
+
   // `dialect` echoes which dialect was acted on, and `dialects` is the full
   // per-dialect picture, so the admin hub can refresh the row it just changed
   // without needing a second request.
@@ -631,6 +721,121 @@ router.post('/users/:id/action', requireAdmin, async (req, res) => {
     perDialect[d] = { tier: e.tier, planId: e.planId, planExpiresAt: e.planExpiresAt, subStatus: e.subStatus };
   });
   res.json({ ok: true, dialect: target, user: updated, dialects: perDialect });
+});
+
+// ---- Referrals: who invited whom, and what it cost ----
+//
+// Built from the ledger rather than from running totals on accounts, so the
+// figures here are the record of what was actually granted and cannot drift
+// away from it.
+router.get('/referrals', requireAdmin, async (req, res) => {
+  const [referrals, ledger, users] = await Promise.all([
+    store.listAllReferrals(),
+    store.listAllRewards(),
+    store.listAllUsers(),
+  ]);
+  const byId = {};
+  users.forEach(u => { byId[u.id] = u; });
+  const brief = id => (byId[id]
+    ? { id, name: byId[id].name || '', email: byId[id].email || '', college: byId[id].college || '' }
+    : { id, name: '(deleted account)', email: '', college: '' });
+
+  const month = rewards.monthKey();
+  const inviters = {};
+  referrals.forEach((r) => {
+    const row = inviters[r.referrerId] || (inviters[r.referrerId] = {
+      inviter: brief(r.referrerId), total: 0, thisMonth: 0,
+      daysEarned: 0, paid: 0, referred: [],
+    });
+    row.total += 1;
+    if (rewards.monthKey(r.createdAt) === month) row.thisMonth += 1;
+    row.referred.push({
+      person: brief(r.referredId), dialect: r.dialect, joinedAt: r.createdAt,
+      rewarded: !!r.signupRewardedAt, paidRewarded: !!r.paidRewardedAt,
+      cappedAt: r.cappedAt || null,
+    });
+  });
+  // Days come from the ledger, which is the only place a grant is recorded.
+  ledger.forEach((l) => {
+    if (l.type !== 'referral-signup' && l.type !== 'referral-paid') return;
+    const row = inviters[l.userId];
+    if (!row) return;
+    row.daysEarned += Number(l.days) || 0;
+    if (l.type === 'referral-paid') row.paid += 1;
+  });
+
+  const list = Object.values(inviters).sort((a, b) => b.total - a.total);
+  res.json({
+    inviters: list,
+    totals: {
+      referrals: referrals.length,
+      inviters: list.length,
+      daysGranted: ledger.filter(l => l.type === 'referral-signup' || l.type === 'referral-paid')
+        .reduce((s, l) => s + (Number(l.days) || 0), 0),
+      paidConversions: ledger.filter(l => l.type === 'referral-paid').length,
+      giftedDays: ledger.filter(l => l.type === 'admin-gift').reduce((s, l) => s + (Number(l.days) || 0), 0),
+    },
+    monthlyCap: rewards.MONTHLY_REWARD_CAP,
+    signupDays: rewards.SIGNUP_REWARD_DAYS,
+    paidDays: rewards.PAID_REWARD_DAYS,
+  });
+});
+
+// ---- One student's referral picture, for their row in the hub ----
+router.get('/users/:id/referrals', requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  const [sent, ledger, wasReferred] = await Promise.all([
+    store.listReferralsBy(id),
+    store.listRewardsFor(id),
+    store.findReferralByReferred(id),
+  ]);
+  const ids = sent.map(r => r.referredId).concat(wasReferred ? [wasReferred.referrerId] : []);
+  const people = await Promise.all(ids.map(x => store.findUserById(x)));
+  const byId = {};
+  ids.forEach((x, i) => { byId[x] = people[i]; });
+  const brief = x => (byId[x]
+    ? { id: x, name: byId[x].name || '', email: byId[x].email || '' }
+    : { id: x, name: '(deleted account)', email: '' });
+
+  const month = rewards.monthKey();
+  res.json({
+    invited: sent.map(r => ({
+      person: brief(r.referredId), dialect: r.dialect, joinedAt: r.createdAt,
+      rewarded: !!r.signupRewardedAt, paidRewarded: !!r.paidRewardedAt, cappedAt: r.cappedAt || null,
+    })),
+    invitedBy: wasReferred ? {
+      person: brief(wasReferred.referrerId), dialect: wasReferred.dialect, joinedAt: wasReferred.createdAt,
+    } : null,
+    rewardedThisMonth: ledger.filter(l => l.type === 'referral-signup'
+      && rewards.monthKey(l.createdAt) === month).length,
+    monthlyCap: rewards.MONTHLY_REWARD_CAP,
+    daysEarned: ledger.filter(l => l.type === 'referral-signup' || l.type === 'referral-paid')
+      .reduce((s, l) => s + (Number(l.days) || 0), 0),
+    daysGifted: ledger.filter(l => l.type === 'admin-gift').reduce((s, l) => s + (Number(l.days) || 0), 0),
+    ledger: ledger.slice(0, 50).map(l => ({
+      type: l.type, days: l.days, planId: l.planId, dialect: l.dialect,
+      source: l.source, reason: l.reason, adminId: l.adminId,
+      paymentId: l.paymentId, createdAt: l.createdAt,
+    })),
+  });
+});
+
+// ---- The audit trail ----
+// Every administrative change to somebody's access, newest first.
+router.get('/audit', requireAdmin, async (req, res) => {
+  const [rows, users] = await Promise.all([store.listAdminAudit(), store.listAllUsers()]);
+  const byId = {};
+  users.forEach(u => { byId[u.id] = u; });
+  const limit = Math.min(Number(req.query.limit) || 200, 1000);
+  const filtered = req.query.userId ? rows.filter(r => r.userId === req.query.userId) : rows;
+  res.json({
+    entries: filtered.slice(0, limit).map(r => Object.assign({}, r, {
+      user: byId[r.userId]
+        ? { id: r.userId, name: byId[r.userId].name || '', email: byId[r.userId].email || '' }
+        : { id: r.userId, name: '(deleted account)', email: '' },
+    })),
+    total: filtered.length,
+  });
 });
 
 // ---- Send a broadcast notification to every user (shows up in their notification bell) ----

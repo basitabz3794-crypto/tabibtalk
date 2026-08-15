@@ -60,6 +60,10 @@
   .empty { color:var(--muted); padding:30px; text-align:center; }
   .gate { max-width:400px; }
   h3.sec { font-family:var(--font-display); font-weight:600; margin:0 0 14px; }
+  .muted-sm { color:var(--muted); font-size:.78rem; margin-top:2px; }
+  .stat-row { display:flex; gap:22px; flex-wrap:wrap; padding:12px 14px; border:1px solid var(--border);
+              border-radius:10px; font-size:.86rem; color:var(--muted); }
+  .stat-row b { color:var(--text); font-family:var(--font-display); font-size:1.15rem; }
 
   /* ---- Accounts section ---- */
   .cur-switch { display:flex; gap:4px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:4px; }
@@ -121,6 +125,8 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
       <button data-tab="resets">Password resets</button>
       <button data-tab="recs">Recommendations</button>
       <button data-tab="devices">Devices &amp; violations</button>
+      <button data-tab="referrals">Referrals</button>
+      <button data-tab="audit">Audit trail</button>
       <button data-tab="notify">Notifications</button>
       <button data-tab="shares">Phrase Shares</button>
       <button data-tab="interests">Interests</button>
@@ -133,6 +139,8 @@ try{if(localStorage.getItem('tt_display_mode')!=='gamify'){document.documentElem
     <div class="panel" id="panel-resets"></div>
     <div class="panel" id="panel-recs"></div>
     <div class="panel" id="panel-devices"></div>
+    <div class="panel" id="panel-referrals"></div>
+    <div class="panel" id="panel-audit"></div>
     <div class="panel" id="panel-notify"></div>
     <div class="panel" id="panel-shares"></div>
     <div class="panel" id="panel-interests"></div>
@@ -188,7 +196,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click
   b.classList.add('on'); document.getElementById('panel-'+b.dataset.tab).classList.add('on');
 }));
 
-async function loadAll(){ await Promise.all([loadStats(), loadSubs(), loadUsers(), loadSignins(), loadResets(), loadRecs(), loadDevices(), loadNotify(), loadShares(), loadInterests(), loadDev(), loadAccounts()]); }
+async function loadAll(){ await Promise.all([loadStats(), loadSubs(), loadUsers(), loadSignins(), loadResets(), loadRecs(), loadDevices(), loadNotify(), loadShares(), loadInterests(), loadDev(), loadAccounts(), loadReferrals(), loadAudit()]); }
 
 document.getElementById('refresh-btn').addEventListener('click', async () => {
   const btn = document.getElementById('refresh-btn');
@@ -606,13 +614,29 @@ async function manageSub(userId, currentPlan, subState){
           <button class="btn btn-outline" onclick="doManage('${userId}','activate')">Activate fresh</button>
         </div>
         <div class="field"><label>Adjust duration (days)</label><input type="number" id="mng-days" value="30" min="1"></div>
+        <div class="field">
+          <label>Reason <span style="color:var(--muted);font-weight:400">— kept on the record for extend, reduce and gift</span></label>
+          <input type="text" id="mng-reason" placeholder="e.g. compensation for downtime" maxlength="300">
+        </div>
         <div class="row-actions" style="margin-bottom:16px">
           <button class="btn btn-outline" onclick="doManage('${userId}','extend')">Extend</button>
           <button class="btn btn-ghost" onclick="doManage('${userId}','reduce')">Reduce</button>
         </div>
+        <div class="field" style="border-top:1px solid var(--border);padding-top:14px">
+          <label>Gift free days</label>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 8px">
+            Adds the days on top of any time already held, never truncating a paid plan
+            and never dropping the student to a lower tier. Goes on their record with
+            the reason above, and they are told in their notification bell.
+          </p>
+          <button class="btn btn-primary" onclick="doManage('${userId}','gift')">Gift these days</button>
+        </div>
         <div class="row-actions">
           <button class="btn btn-ghost" onclick="doManage('${userId}','reactivate')">Reactivate</button>
           <button class="btn btn-danger" onclick="doManage('${userId}','expire')">Expire now</button>
+        </div>
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:12px">
+          <button class="btn btn-ghost" onclick="showUserHistory('${userId}')">See referrals &amp; history</button>
         </div>
       </div>
     </div>`;
@@ -642,10 +666,153 @@ async function doManage(userId, action){
   const planId = (document.getElementById('mng-plan')||{}).value;
   const dialect = (document.getElementById('mng-dialect')||{}).value || undefined;
   const days = Number((document.getElementById('mng-days')||{}).value || 0);
-  await adminPost(`/api/admin/users/${userId}/action`, { action, planId, days, dialect });
+  const reason = (document.getElementById('mng-reason')||{}).value || '';
+  // A gift grants the dialect's own reward plan unless a plan is chosen
+  // deliberately, so the plan dropdown is not forced onto it.
+  const body = { action, days, dialect, reason };
+  if (action !== 'gift') body.planId = planId;
+  try {
+    await adminPost(`/api/admin/users/${userId}/action`, body);
+  } catch (e) {
+    alert('That did not go through: ' + e.message);
+    return;
+  }
   closeManage(); loadAll();
 }
 window.manageSub=manageSub; window.closeManage=closeManage; window.doManage=doManage;
+
+/* One student's referral picture and everything ever granted to them. */
+async function showUserHistory(userId){
+  let d = null;
+  try { d = await adminGet(`/api/admin/users/${userId}/referrals`); }
+  catch (e) { alert('Could not load that history: ' + e.message); return; }
+
+  const invited = (d.invited||[]).map(x => `<tr>
+      <td>${esc(x.person.name)||'—'}<div class="muted-sm">${esc(x.person.email)}</div></td>
+      <td>${dialectLabel(x.dialect)}</td>
+      <td>${fmt(x.joinedAt)}</td>
+      <td>${x.rewarded ? 'Yes' : (x.cappedAt ? 'Over the monthly cap' : 'No')}</td>
+      <td>${x.paidRewarded ? 'Yes' : 'No'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty">Nobody yet.</td></tr>';
+
+  const ledger = (d.ledger||[]).map(l => `<tr>
+      <td>${esc(LEDGER_LABEL[l.type]||l.type)}</td>
+      <td>+${l.days} day${l.days===1?'':'s'}</td>
+      <td>${esc(l.planId||'—')}</td>
+      <td>${dialectLabel(l.dialect)}</td>
+      <td>${esc(l.reason || l.source || '—')}${l.adminId?`<div class="muted-sm">by ${esc(l.adminId)}</div>`:''}</td>
+      <td>${fmt(l.createdAt)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty">Nothing granted yet.</td></tr>';
+
+  const html = `
+    <div class="modal-overlay open" id="hist-modal">
+      <div class="modal" style="max-width:900px">
+        <button class="modal-x" onclick="closeHistory()">&times;</button>
+        <h2>Referrals &amp; granted days</h2>
+        <div class="stat-row" style="margin-bottom:14px">
+          <div><b>${d.daysEarned}</b> days earned</div>
+          <div><b>${d.daysGifted}</b> days gifted</div>
+          <div><b>${d.rewardedThisMonth} / ${d.monthlyCap}</b> rewarded this month</div>
+        </div>
+        ${d.invitedBy ? `<p style="color:var(--muted)">Joined through an invite from
+           <b>${esc(d.invitedBy.person.name)}</b> (${esc(d.invitedBy.person.email)}) on ${fmt(d.invitedBy.joinedAt)}.</p>` : ''}
+        <h3 class="sec">People they invited</h3>
+        <div class="table-scroll"><table class="data">
+          <thead><tr><th>Student</th><th>Dialect</th><th>Joined</th><th>Earned a day</th><th>Bought a plan</th></tr></thead>
+          <tbody>${invited}</tbody></table></div>
+        <h3 class="sec">Every day ever granted</h3>
+        <div class="table-scroll"><table class="data">
+          <thead><tr><th>Why</th><th>Days</th><th>Plan</th><th>Dialect</th><th>Reason</th><th>When</th></tr></thead>
+          <tbody>${ledger}</tbody></table></div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeHistory(){ const m=document.getElementById('hist-modal'); if(m) m.remove(); }
+window.showUserHistory=showUserHistory; window.closeHistory=closeHistory;
+
+const LEDGER_LABEL = {
+  'referral-signup': 'A friend joined',
+  'referral-paid': 'A friend subscribed',
+  'admin-gift': 'Gift from an admin',
+};
+
+/* ---- Referrals: who is inviting, and what it has cost in free days ---- */
+async function loadReferrals(){
+  let d = null;
+  try { d = await adminGet('/api/admin/referrals'); }
+  catch (e) {
+    document.getElementById('panel-referrals').innerHTML =
+      '<div class="card"><div class="empty">Could not load referrals.</div></div>';
+    return;
+  }
+  const t = d.totals || {};
+  const rows = (d.inviters||[]).map(r => `<tr>
+      <td>${esc(r.inviter.name)||'—'}<div class="muted-sm">${esc(r.inviter.email)}</div></td>
+      <td>${esc(r.inviter.college)||'—'}</td>
+      <td>${r.total}</td>
+      <td>${r.thisMonth} / ${d.monthlyCap}</td>
+      <td>${r.daysEarned}</td>
+      <td>${r.paid}</td>
+      <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:.78rem"
+            onclick="showUserHistory('${r.inviter.id}')">Details</button></td>
+    </tr>`).join('') || '<tr><td colspan="7" class="empty">Nobody has invited anyone yet.</td></tr>';
+
+  document.getElementById('panel-referrals').innerHTML = `
+    <div class="card">
+      <h3 class="sec">Referrals</h3>
+      <div class="stat-row" style="margin-bottom:16px">
+        <div><b>${t.referrals||0}</b> students joined through a link</div>
+        <div><b>${t.inviters||0}</b> people inviting</div>
+        <div><b>${t.daysGranted||0}</b> free days earned</div>
+        <div><b>${t.paidConversions||0}</b> went on to subscribe</div>
+        <div><b>${t.giftedDays||0}</b> days gifted by hand</div>
+      </div>
+      <p style="color:var(--muted);font-size:.84rem;margin-top:0">
+        ${d.signupDays} day when someone finishes signing up, ${d.paidDays} days if they subscribe,
+        up to ${d.monthlyCap} rewarded invites each month. Invites past the cap still count —
+        only the free days pause.
+      </p>
+      <div class="table-scroll"><table class="data">
+        <thead><tr><th>Student</th><th>College</th><th>Invited</th><th>This month</th>
+                   <th>Days earned</th><th>Subscribed</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+    </div>`;
+}
+
+/* ---- Audit trail: every administrative change to somebody's access ---- */
+async function loadAudit(){
+  let d = null;
+  try { d = await adminGet('/api/admin/audit?limit=300'); }
+  catch (e) {
+    document.getElementById('panel-audit').innerHTML =
+      '<div class="card"><div class="empty">Could not load the audit trail.</div></div>';
+    return;
+  }
+  const rows = (d.entries||[]).map(e => `<tr>
+      <td>${fmt(e.createdAt)}</td>
+      <td>${esc(e.adminId||'admin')}${e.ip?`<div class="muted-sm">${esc(e.ip)}</div>`:''}</td>
+      <td>${esc(e.user.name)||'—'}<div class="muted-sm">${esc(e.user.email)}</div></td>
+      <td>${esc(e.action||'')}${e.days?` <b>${e.days>0?'+':''}${e.days}d</b>`:''}</td>
+      <td>${dialectLabel(e.dialect)}</td>
+      <td>${e.previousTier||'—'} &rarr; ${e.newTier||'—'}
+          <div class="muted-sm">${e.previousExpiry?fmt(e.previousExpiry):'no expiry'} &rarr; ${e.newExpiry?fmt(e.newExpiry):'no expiry'}</div></td>
+      <td>${esc(e.reason||'—')}</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="empty">Nothing has been changed by hand yet.</td></tr>';
+
+  document.getElementById('panel-audit').innerHTML = `
+    <div class="card">
+      <h3 class="sec">Audit trail <span style="color:var(--muted);font-weight:500">(${d.total||0})</span></h3>
+      <p style="color:var(--muted);font-size:.84rem;margin-top:0">
+        Every subscription change made by hand from this hub — who did it, to whom,
+        what moved, and the reason given at the time.
+      </p>
+      <div class="table-scroll"><table class="data">
+        <thead><tr><th>When</th><th>By</th><th>Student</th><th>Action</th>
+                   <th>Dialect</th><th>Before &rarr; after</th><th>Reason</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+    </div>`;
+}
 
 async function loadResets(){
   const { requests } = await adminGet('/api/admin/reset-requests');

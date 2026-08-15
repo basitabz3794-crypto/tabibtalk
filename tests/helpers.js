@@ -99,6 +99,12 @@ async function cleanup() {
       if (r && ids.has(r.userId)) await db.ref(path + '/' + k).remove();
     }
   }
+  // The audit trail is keyed by the account an action was taken against.
+  const trail = (await db.ref('adminAudit').once('value')).val() || {};
+  for (const [k, r] of Object.entries(trail)) {
+    if (r && ids.has(r.userId)) await db.ref('adminAudit/' + k).remove();
+  }
+
   // Requests and shared streaks reference people by other field names.
   const reqs = (await db.ref('friendRequests').once('value')).val() || {};
   for (const [k, r] of Object.entries(reqs)) {
