@@ -4634,6 +4634,7 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
         <div id="page-streak" class="page-section"><div class="tool-wrap" id="streak-body"></div></div>
         <div id="page-leaderboard" class="page-section"><div class="tool-wrap" id="leaderboard-body"></div></div>
         <div id="page-feed" class="page-section"><div class="tool-wrap" id="feed-body"></div></div>
+        <div id="page-invite" class="page-section"><div class="tool-wrap" id="invite-body"></div></div>
         <div id="page-qanalysis" class="page-section"><div class="tool-wrap" id="qanalysis-body"></div></div>
         <div id="page-chapter" class="page-section"><div class="tool-wrap" id="chapter-body"></div></div>
         <div id="page-chapter-cat" class="page-section"><div class="tool-wrap" id="chapter-cat-body"></div></div>
@@ -9211,6 +9212,12 @@ function buildDrawer(){
   [['\uD83D\uDCAC Conversations','page-conversations'],['\uD83E\uDDE0 Flashcards','page-flashcards'],['\uD83C\uDF93 Quiz Hub','page-quiz-hub'],['\uD83E\uDE7A AI Patient','page-ai'],['\uD83D\uDD24 Translate','page-translate'],['\uD83D\uDD0D Search','page-search'],['\uD83D\uDCD8 QBank (Pro)','page-qbank'],['\uD83D\uDD16 Bookmarks','page-bookmarks'],['\uD83D\uDD25 Streaks and analysis','page-streak'],['\uD83C\uDFC6 Leaderboard','page-leaderboard'],['\uD83D\uDCE3 Feed','page-feed']].forEach(function(t){ h+='<div class="drawer-link" onclick="navigate(\''+t[1]+'\')">'+t[0]+'</div>'; });
   /* Friends opens a panel rather than a page, so it is appended separately. */
   h+='<div class="drawer-link" onclick="closeDrawer();ttOpenFriends()">\uD83E\uDD1D Friends</div>';
+  /* Invite is here for everyone, on every plan \u2014 earning days is how a student
+     on the free plan gets a paid one. The days already earned ride along in the
+     label once they are known, so the reward is visible without opening it. */
+  h+='<div class="drawer-link" onclick="navigate(\'page-invite\')">\uD83C\uDF81 Invite'
+     + (window.TT_INVITE_DAYS > 0 ? '<span class="drawer-earned">'+window.TT_INVITE_DAYS+' day'+(window.TT_INVITE_DAYS===1?'':'s')+' earned</span>' : '')
+     + '</div>';
   h+='<div class="drawer-group">Unlocked Courses <span class="drawer-hint">Fully unlocked study paths \u2014 an effective bedside history-taking companion &amp; reference</span></div>';
   var CATS={'Foundations':[],'Internal Medicine':[],'Specialties':[],'Dictionary':[]};
   SUBJECTS.forEach(function(s){
@@ -12330,6 +12337,198 @@ body.tt-scifi.tt-green .qb-note{
   start();
   choreograph('page-main-menu');
   setTimeout(function(){ adopt(); measure(); }, 400);
+})();
+</script>
+
+<style>
+/* Invite ------------------------------------------------------------------ */
+.drawer-earned{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;
+  background:var(--accent);color:#08131f;font-size:.66rem;font-weight:800;vertical-align:middle}
+.inv-hero{border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;
+  background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(0,0,0,.12))}
+.inv-days{font-family:var(--font-display);font-size:2.7rem;line-height:1;font-weight:800;color:var(--accent)}
+.inv-days-sub{color:var(--muted);font-size:.9rem;margin-top:4px}
+.inv-linkrow{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.inv-linkrow input{flex:1;min-width:200px;padding:11px 13px;border-radius:10px;border:1px solid var(--border);
+  background:rgba(0,0,0,.25);color:var(--text);font-size:.85rem;font-family:inherit}
+.inv-code{margin-top:10px;color:var(--muted);font-size:.85rem}
+.inv-code b{font-family:var(--font-display);letter-spacing:.14em;color:var(--text);font-size:1rem}
+.inv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
+.inv-stat{border:1px solid var(--border);border-radius:12px;padding:13px 14px;background:rgba(0,0,0,.14)}
+.inv-stat-n{font-family:var(--font-display);font-size:1.5rem;font-weight:700}
+.inv-stat-l{color:var(--muted);font-size:.78rem;margin-top:2px}
+.inv-rules{border:1px solid var(--border);border-radius:12px;padding:6px 16px;margin-bottom:16px;background:rgba(0,0,0,.1)}
+.inv-rules li{margin:9px 0;font-size:.88rem;color:var(--text-dim)}
+.inv-cap{font-size:.83rem;color:var(--muted);margin-top:6px}
+.inv-hist{border-top:1px solid var(--border);padding:11px 2px;display:flex;justify-content:space-between;gap:12px;font-size:.86rem}
+.inv-hist .h-when{color:var(--muted);font-size:.78rem;white-space:nowrap}
+.inv-hist .h-days{color:var(--accent);font-weight:700;white-space:nowrap}
+</style>
+
+<script>
+/* ==================== Invite a friend ====================
+   Every student can invite, on every plan — earning days is how somebody on
+   the free plan reaches a paid one. What each invite is worth, and which plan
+   the days are paid in, comes from the server: the reward follows the dialect's
+   own configuration, so nothing here needs to know or repeat it. */
+(function(){
+  var CACHE=null;
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function when(iso){
+    try{
+      var d=new Date(iso), now=new Date();
+      if(d.toDateString()===now.toDateString()) return 'Today';
+      var y=new Date(now.getTime()-86400000);
+      if(d.toDateString()===y.toDateString()) return 'Yesterday';
+      return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    }catch(e){ return ''; }
+  }
+
+  function currentDialect(){
+    try{ return JSON.parse(localStorage.getItem('tt_dialect')||'"eg"')||'eg'; }catch(e){ return 'eg'; }
+  }
+
+  /* Keep the side-menu badge in step whenever the numbers are refreshed. */
+  function noteDays(n){
+    window.TT_INVITE_DAYS=n;
+    try{ if(typeof buildDrawer==='function') buildDrawer(); }catch(e){}
+  }
+
+  function renderInvite(){
+    var body=document.getElementById('invite-body'); if(!body) return;
+    body.innerHTML='<div class="backbar"><button class="back-to-home" onclick="navigate(\'page-main-menu\')">&larr; Back To Home</button><span class="ctx-chip">Invite</span></div>'
+      +'<h1 class="tool-title">🎁 Invite a friend</h1>'
+      +'<p class="tool-sub">Share your link with someone studying medicine. When they finish setting up their account you get a free day, and if they subscribe you get a week &mdash; added straight onto your own plan.</p>'
+      +'<div id="invite-main" class="fc-count">Loading your invite link…</div>';
+
+    if(!(location.protocol==='http:'||location.protocol==='https:')){
+      document.getElementById('invite-main').innerHTML='Inviting needs the website version of the app.';
+      return;
+    }
+
+    fetch('/api/referrals/me?dialect='+encodeURIComponent(currentDialect()),{credentials:'same-origin'})
+      .then(function(r){ if(!r.ok) throw new Error('invite'); return r.json(); })
+      .then(function(d){
+        CACHE=d;
+        noteDays(d.daysEarned||0);
+        var el=document.getElementById('invite-main'); if(!el) return;
+        var days=d.daysEarned||0;
+        var used=d.rewardedThisMonth||0;
+
+        el.innerHTML=
+          '<div class="inv-hero">'
+          +  '<div class="inv-days">'+days+'</div>'
+          +  '<div class="inv-days-sub">'+(days===1?'free day':'free days')+' earned so far, added to your '+esc(d.rewardPlan)+' access</div>'
+          +  '<div class="inv-linkrow">'
+          +    '<input id="inv-link" type="text" readonly value="'+esc(d.link)+'" onclick="this.select()">'
+          +    '<button type="button" class="pill" onclick="ttInviteCopy()">Copy link</button>'
+          +    '<button type="button" class="pill outline" onclick="ttInviteShare()">Share</button>'
+          +  '</div>'
+          +  '<div class="inv-code">Or give them this code to type: <b>'+esc(d.code)+'</b></div>'
+          +'</div>'
+
+          +'<div class="inv-rules"><ul>'
+          +  '<li><b>'+d.signupDays+' free day</b> when someone joins with your link and finishes setting up their account.</li>'
+          +  '<li><b>'+d.paidDays+' free days</b> if they go on to buy a paid plan.</li>'
+          +  '<li>Days are added to your '+esc(d.rewardPlan)+' access for '+esc(ttDialectName(d.dialect))+', on top of any time you already have.</li>'
+          +  '<li>Up to <b>'+d.monthlyCap+' rewarded invites a month</b>. Invites past that still count here — only the free days pause until next month.</li>'
+          +'</ul></div>'
+
+          +'<div class="inv-grid">'
+          +  '<div class="inv-stat"><div class="inv-stat-n">'+(d.totalReferrals||0)+'</div><div class="inv-stat-l">friends joined</div></div>'
+          +  '<div class="inv-stat"><div class="inv-stat-n">'+(d.paidReferrals||0)+'</div><div class="inv-stat-l">bought a plan</div></div>'
+          +  '<div class="inv-stat"><div class="inv-stat-n">'+used+' / '+d.monthlyCap+'</div><div class="inv-stat-l">rewarded this month</div>'
+          +    '<div class="inv-cap">'+(d.slotsLeftThisMonth>0 ? d.slotsLeftThisMonth+' left' : 'resets next month')+'</div></div>'
+          +'</div>'
+
+          + (d.history && d.history.length
+              ? '<h3 class="tool-sub" style="margin-bottom:2px">Your free days</h3>'
+                + d.history.map(function(h){
+                    return '<div class="inv-hist"><span>'+(h.type==='referral-paid'
+                        ? 'A friend you invited bought a plan'
+                        : 'A friend you invited joined')+'</span>'
+                      +'<span><span class="h-days">+'+h.days+(h.days===1?' day':' days')+'</span> '
+                      +'<span class="h-when">'+esc(when(h.createdAt))+'</span></span></div>';
+                  }).join('')
+              : '<p class="tool-sub">No free days yet — send your link to someone who would find this useful.</p>');
+      })
+      .catch(function(){
+        var el=document.getElementById('invite-main');
+        if(el) el.innerHTML='<div class="feed-empty"><div class="feed-empty-t">Could not load your invite link</div>'
+          +'<div class="feed-empty-d">Check your connection, then <button type="button" class="pill outline" onclick="renderInvite()">try again</button></div></div>';
+      });
+  }
+
+  function ttDialectName(d){
+    return ({eg:'Egyptian',hejazi:'Hejazi',khaleeji:'Khaleeji'})[d]||'Egyptian';
+  }
+
+  /* Copy, with a fallback for browsers that refuse the clipboard API over a
+     plain http:// origin (which is every iPhone on a local network). */
+  window.ttInviteCopy=function(){
+    var el=document.getElementById('inv-link'); if(!el) return;
+    var done=function(){ ttInviteToast('Link copied'); };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(el.value).then(done, function(){ legacy(); });
+        return;
+      }
+    }catch(e){}
+    legacy();
+    function legacy(){
+      try{ el.select(); el.setSelectionRange(0,99999); document.execCommand('copy'); done(); }
+      catch(e2){ ttInviteToast('Press and hold the link to copy it'); }
+    }
+  };
+
+  /* The phone's own share sheet when there is one — that is how a student
+     actually sends this, into WhatsApp. Otherwise fall back to copying. */
+  window.ttInviteShare=function(){
+    var el=document.getElementById('inv-link'); if(!el) return;
+    var text='Join me on Tabib Talk — medical Arabic and history taking for medical students: '+el.value;
+    if(navigator.share){
+      navigator.share({title:'Tabib Talk', text:text}).catch(function(){});
+      return;
+    }
+    window.ttInviteCopy();
+  };
+
+  window.ttInviteToast=function(msg){
+    var t=document.getElementById('inv-toast');
+    if(!t){ t=document.createElement('div'); t.id='inv-toast';
+      t.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:9999;'
+        +'background:var(--accent);color:#08131f;font-weight:700;padding:10px 18px;border-radius:999px;'
+        +'font-size:.85rem;box-shadow:0 6px 24px rgba(0,0,0,.4);transition:opacity .25s';
+      document.body.appendChild(t);
+    }
+    t.textContent=msg; t.style.opacity='1';
+    clearTimeout(t._h); t._h=setTimeout(function(){ t.style.opacity='0'; }, 1900);
+  };
+
+  window.renderInvite=renderInvite;
+
+  /* Route it like every other section. */
+  try{
+    var _n=window.navigate;
+    window.navigate=function(id,nh){ _n(id,nh);
+      if(id==='page-invite'){ try{ renderInvite(); }catch(e){ console.error('invite',e); } }
+    };
+  }catch(e){}
+
+  /* Learn the earned-days count once at startup so the side menu can show it
+     without the student opening the page first. Quiet on failure: the menu
+     entry is still there, just without a badge. */
+  window.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      if(!(location.protocol==='http:'||location.protocol==='https:')) return;
+      fetch('/api/referrals/me?dialect='+encodeURIComponent(currentDialect()),{credentials:'same-origin'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ if(d && d.daysEarned) noteDays(d.daysEarned); })
+        .catch(function(){});
+    }, 2200);
+  });
 })();
 </script>
 
