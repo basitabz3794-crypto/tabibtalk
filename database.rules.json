@@ -1,0 +1,49 @@
+// Realtime Database rules for Tabib Talk.
+//
+// Access is closed outright: no browser may read or write anything here. The
+// app reaches the database only through the server, using the Admin SDK, which
+// authenticates as a service account and bypasses rules entirely. That is what
+// lets progress, streaks and scores be trusted — a student cannot edit their
+// own streak because their browser can never reach the record.
+//
+// Everything below is therefore about indexes, not permissions.
+//
+// A query using orderByChild works WITHOUT an index: Firebase downloads the
+// whole collection and filters it in the client, and warns in the log while
+// doing so. That is fine at a few hundred records and steadily less fine after
+// that. An index makes the same query a lookup on the server instead.
+//
+// Every entry here matches a real query in server/data/store.js. An index for a
+// field nothing queries costs write speed for no gain, so the two are kept in
+// step: a new orderByChild in the code needs a line here.
+//
+// Deploy with:  firebase deploy --only database
+// or paste into the Rules tab of the Realtime Database in the Firebase console.
+
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    // findUserByEmail and findUserByFirebaseUid — both run on every sign-in.
+    "users": {
+      ".indexOn": ["emailLower", "firebaseUid"]
+    },
+
+    // findTokenForUserDialect — one invite link per student per dialect.
+    "referralTokens": {
+      ".indexOn": ["userId"]
+    },
+
+    // listReferralsBy — everyone one student has invited.
+    "referrals": {
+      ".indexOn": ["referrerId"]
+    },
+
+    // listRewardsFor, for days earned, and findRewardByPayment, which is what
+    // stops a payment approved twice from paying the reward twice.
+    "rewardLedger": {
+      ".indexOn": ["userId", "paymentId"]
+    }
+  }
+}
