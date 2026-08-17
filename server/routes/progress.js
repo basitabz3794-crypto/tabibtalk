@@ -30,6 +30,78 @@ function cleanPatch(patch) {
   return clean;
 }
 
+// ---- Progress that only ever accumulates ----
+//
+// Most keys here are last-write-wins, which is right for things that genuinely
+// change: a streak resets when it breaks, a bookmark can be removed, a resume
+// point moves. But three of them only ever grow, and for those last-write-wins
+// is a way to lose work:
+//
+//   tt_path   which lesson sections have been passed
+//   tt_days   which days were studied
+//   tt_time   how long was spent on each day
+//
+// Nothing in the app un-completes a lesson or un-studies a day. So a save that
+// arrives holding LESS than what is stored is not new information — it is a
+// browser that started from an incomplete picture, and taking it at face value
+// deletes real work. This happened: a student on an iPhone whose progress read
+// failed began a session blank, finished one lesson, and the save replaced a
+// full record with that single lesson.
+//
+// Merging these on the server makes that impossible rather than unlikely, and
+// also settles the two-device case, where whoever saves last would otherwise
+// erase the other. Anything that does not parse into the expected shape falls
+// straight through to the incoming value, so this can never make things worse
+// than the plain write it replaces.
+const MONOTONIC = { tt_path: 'passed', tt_days: 'days', tt_time: 'time' };
+
+// Keys carry a __hejazi / __khaleeji suffix for the other dialects.
+function baseKey(k) { return String(k).split('__')[0]; }
+
+function mergeMonotonic(kind, storedRaw, incomingRaw) {
+  let stored, incoming;
+  try { stored = JSON.parse(storedRaw); incoming = JSON.parse(incomingRaw); }
+  catch (e) { return incomingRaw; }
+  if (stored === null || stored === undefined) return incomingRaw;
+
+  try {
+    if (kind === 'days') {
+      // A list of 'YYYY-MM-DD'. Union, so a day studied is never un-studied.
+      if (!Array.isArray(stored) || !Array.isArray(incoming)) return incomingRaw;
+      const all = stored.concat(incoming).map(String);
+      return JSON.stringify([...new Set(all)].sort());
+    }
+
+    if (kind === 'time') {
+      // { 'YYYY-MM-DD': seconds }. The larger count for a day is the true one —
+      // a browser that missed part of a session must not shorten it.
+      if (typeof stored !== 'object' || typeof incoming !== 'object') return incomingRaw;
+      const out = Object.assign({}, stored);
+      for (const [day, secs] of Object.entries(incoming)) {
+        const a = Number(out[day]) || 0, b = Number(secs) || 0;
+        out[day] = Math.max(a, b);
+      }
+      return JSON.stringify(out);
+    }
+
+    // 'passed': { courseKey: { passed: [ids] } }. Union per course, so a
+    // section once completed stays completed.
+    if (typeof stored !== 'object' || typeof incoming !== 'object') return incomingRaw;
+    const out = {};
+    for (const key of new Set(Object.keys(stored).concat(Object.keys(incoming)))) {
+      const a = (stored[key] && Array.isArray(stored[key].passed)) ? stored[key].passed : [];
+      const b = (incoming[key] && Array.isArray(incoming[key].passed)) ? incoming[key].passed : [];
+      const merged = [...new Set(a.concat(b).map(String))];
+      // Anything else the record carries is kept from whichever side has it,
+      // with the incoming side winning, so this stays a merge and not a filter.
+      out[key] = Object.assign({}, stored[key] || {}, incoming[key] || {}, { passed: merged });
+    }
+    return JSON.stringify(out);
+  } catch (e) {
+    return incomingRaw;
+  }
+}
+
 // Progress lives in Firebase. There's no local fallback any more: the whole
 // database moved there when the app went to Vercel, whose filesystem is
 // read-only, so there is nowhere local left to fall back to.
@@ -38,6 +110,17 @@ async function readProgress(userId) {
 }
 
 async function writeProgress(userId, patch) {
+  // Only read back when the patch actually touches a key that needs merging —
+  // most saves do not, and those stay a single write.
+  const needsMerge = Object.keys(patch).filter(k => MONOTONIC[baseKey(k)]);
+  if (needsMerge.length) {
+    const current = await firebase.getProgress(userId);
+    for (const k of needsMerge) {
+      if (typeof current[k] === 'string') {
+        patch[k] = mergeMonotonic(MONOTONIC[baseKey(k)], current[k], patch[k]);
+      }
+    }
+  }
   return firebase.mergeProgress(userId, patch);
 }
 

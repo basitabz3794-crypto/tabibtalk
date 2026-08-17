@@ -1512,7 +1512,56 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
   // tt_sync_ack is this module's own bookkeeping (see below). It must never be
   // uploaded or hydrated — and it is deliberately NOT in KEEP_ON_WIPE, so an
   // account switch clears it along with the previous account's progress.
-  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1, tt_dialect: 1, tt_sync_ack: 1 };
+  var EXCLUDE = { tt_tier: 1, tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1, tt_dialect: 1, tt_sync_ack: 1, tt_sync_blocked: 1 };
+
+  /* ---- Progress that only ever accumulates --------------------------------
+     Three keys only ever grow: sections passed, days studied, and time spent
+     on each day. Nothing in the app un-completes a lesson or un-studies a day.
+
+     So when this browser and the account disagree about one of them, the answer
+     is not to pick a side — it is both. The server does the same merge on the
+     way in (see server/routes/progress.js); doing it here as well is what makes
+     the student SEE their finished courses immediately on the visit that
+     reconnects, instead of a page that still looks half-empty until the next
+     reload. Anything that does not parse falls through to the local value, so
+     this can only ever add. */
+  var MONO = { tt_path: 'passed', tt_days: 'days', tt_time: 'time' };
+  function monoKind(k){ return MONO[String(k).split('__')[0]]; }
+  function mergeMono(kind, serverRaw, localRaw){
+    var a, b;
+    try { a = JSON.parse(serverRaw); b = JSON.parse(localRaw); } catch(e){ return localRaw; }
+    if (a === null || a === undefined) return localRaw;
+    try {
+      if (kind === 'days') {
+        if (!(a instanceof Array) || !(b instanceof Array)) return localRaw;
+        var seen = {}, out = [];
+        a.concat(b).forEach(function(d){ d = String(d); if (!seen[d]) { seen[d] = 1; out.push(d); } });
+        return JSON.stringify(out.sort());
+      }
+      if (kind === 'time') {
+        if (typeof a !== 'object' || typeof b !== 'object') return localRaw;
+        var t = {}; Object.keys(a).forEach(function(d){ t[d] = Number(a[d]) || 0; });
+        Object.keys(b).forEach(function(d){ t[d] = Math.max(Number(t[d]) || 0, Number(b[d]) || 0); });
+        return JSON.stringify(t);
+      }
+      if (typeof a !== 'object' || typeof b !== 'object') return localRaw;
+      var res = {}, keys = {};
+      Object.keys(a).forEach(function(k){ keys[k] = 1; });
+      Object.keys(b).forEach(function(k){ keys[k] = 1; });
+      Object.keys(keys).forEach(function(k){
+        var pa = (a[k] && a[k].passed instanceof Array) ? a[k].passed : [];
+        var pb = (b[k] && b[k].passed instanceof Array) ? b[k].passed : [];
+        var got = {}, list = [];
+        pa.concat(pb).forEach(function(i){ i = String(i); if (!got[i]) { got[i] = 1; list.push(i); } });
+        var merged = {};
+        Object.keys(a[k] || {}).forEach(function(f){ merged[f] = a[k][f]; });
+        Object.keys(b[k] || {}).forEach(function(f){ merged[f] = b[k][f]; });
+        merged.passed = list;
+        res[k] = merged;
+      });
+      return JSON.stringify(res);
+    } catch(e){ return localRaw; }
+  }
   // Keys kept when wiping a previous account's data on account switch.
   var KEEP_ON_WIPE = { tt_device_id: 1, tt_display_mode: 1, tt_progress_owner: 1 };
 
@@ -1548,12 +1597,42 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
   // Synchronous XHR: deliberately blocking so this finishes before the rest of
   // the page's scripts read localStorage for first paint.
   var _origSetItem = localStorage.setItem.bind(localStorage);
-  try {
+
+  // Whether we actually know what the account holds. This is the important one.
+  //
+  // If this read fails we have NO idea what the server has, and this browser
+  // may have nothing either — iOS Safari clears local storage for sites not
+  // visited in about a week, which is longer than plenty of students go between
+  // sessions. Uploading from that state is how completed work disappears: the
+  // page starts blank, marks a lesson done, writes the whole progress object
+  // back with that one lesson in it, and the real record is gone.
+  //
+  // So: no successful read, no uploading. Whatever happens in the session stays
+  // in this browser and goes up on the next load that does succeed, because the
+  // ack below will not match. Nothing is lost either way.
+  var hydrated = false;
+
+  function tryHydrate() {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/progress/me', false); // false = synchronous
     xhr.setRequestHeader('x-device-id', getDeviceId());
     xhr.send(null);
-    if (xhr.status === 200) {
+    return xhr;
+  }
+
+  try {
+    var xhr;
+    try { xhr = tryHydrate(); }
+    catch (e1) {
+      // One retry. A cold serverless start can take long enough for a phone on
+      // a weak connection to give up on the first attempt, and the cost of
+      // being wrong here is somebody's course progress.
+      try { xhr = tryHydrate(); } catch (e2) { xhr = null; }
+    }
+    if (xhr && xhr.status !== 200) { try { xhr = tryHydrate(); } catch (e3) {} }
+
+    if (xhr && xhr.status === 200) {
+      hydrated = true;
       var data = JSON.parse(xhr.responseText);
       var state = (data && data.state) || {};
       var owner = (data && data.userId) ? String(data.userId) : '';
@@ -1565,14 +1644,32 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
       // Without this, a second account opened in the same browser inherits the
       // first account's leftover streak/scores and then uploads them. Uses the
       // original (un-wrapped) setItem so wiping doesn't trigger a sync-up.
-      if (owner && owner !== localOwner) {
+      //
+      // One case must NOT be read as a different account. When a previous visit
+      // could not reach the server, it never learned whose progress it was
+      // holding, so it left no owner — while the work done in that visit is
+      // sitting right here, belonging to the account now signing in. Wiping on
+      // that would throw away exactly the work the offline guard was protecting.
+      // The marker below is written only by a signed-in session that failed to
+      // read, and is cleared on logout with every other tt_ key, so it cannot
+      // carry across from somebody else.
+      var wasBlocked = false;
+      try { wasBlocked = localStorage.getItem('tt_sync_blocked') === '1'; } catch(e){}
+      var unattributedButOurs = (!localOwner && wasBlocked);
+
+      if (owner && owner !== localOwner && !unattributedButOurs) {
         try {
           Object.keys(localStorage).forEach(function(k){
             if (String(k).indexOf('tt_') === 0 && !KEEP_ON_WIPE[k]) localStorage.removeItem(k);
           });
-          _origSetItem('tt_progress_owner', owner);
         } catch(e){}
       }
+      // Recorded either way, so the next visit knows whose this is even if the
+      // wipe was skipped.
+      try {
+        _origSetItem('tt_progress_owner', owner);
+        localStorage.removeItem('tt_sync_blocked');
+      } catch(e){}
 
       // Hydrate from this account's server state, but only where this browser
       // has nothing unsynced. The server is the source of truth for keys we
@@ -1590,7 +1687,17 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
           if (lv !== sv) { try { _origSetItem(k, sv); } catch(e){} }
           ack[k] = sv;
         } else {
-          carryOver[k] = lv;   // unsynced local progress — keep it, re-send it
+          // Unsynced local progress. For the accumulating keys, take BOTH —
+          // otherwise reconnecting after an offline session shows the account's
+          // finished courses as unfinished until the next reload.
+          var kind = monoKind(k);
+          if (kind) {
+            var both = mergeMono(kind, sv, lv);
+            if (both !== lv) { try { _origSetItem(k, both); } catch(e){} }
+            carryOver[k] = both;
+          } else {
+            carryOver[k] = lv;   // keep it, re-send it
+          }
         }
       });
       // Keys this browser holds that the account has never seen (a first sync,
@@ -1628,6 +1735,13 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
       } catch(e){}
     }
   } catch (e) { /* offline or first run — fall through with local/default state */ }
+
+  // Leave a note that this visit could not read the account. The next visit
+  // that CAN read uses it to tell "work done while offline, still unattributed"
+  // apart from "a different account's leftovers", and keeps the former.
+  if (!hydrated) {
+    try { _origSetItem('tt_sync_blocked', '1'); } catch(e){}
+  }
 
   // Mirror every relevant localStorage write to the account server-side, so
   // progress follows the user across devices and survives refresh/logout.
@@ -1685,11 +1799,16 @@ window.ttInstallStorageOverride = ttInstallStorageOverride;
   var syncInstalled = ttInstallStorageOverride('setItem', function(key, value){
     _origSetItem(key, value);
     if (EXCLUDE[key] || String(key).indexOf('tt_') !== 0) return;
+    // Never upload from a session that could not read what the account holds —
+    // see `hydrated` above. Writing locally is still fine and still works; it
+    // simply is not allowed to overwrite the record until we have seen it.
+    if (!hydrated) return;
     pending[key] = value;
     if (flushTimer) clearTimeout(flushTimer);
     flushTimer = setTimeout(flush, 900);
   });
-  window.__ttSyncActive = syncInstalled;
+  window.__ttSyncActive = syncInstalled && hydrated;
+  window.__ttHydrated = hydrated;
   // Flush reliably whenever the page is being backgrounded or left.
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') doFlush(true); });
   window.addEventListener('pagehide', function(){ doFlush(true); });
