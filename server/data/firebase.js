@@ -165,6 +165,23 @@ async function getProgress(userId) {
   return snapshot.val() || {};
 }
 
+// Merge ONE progress key atomically.
+//
+// A read-then-write in ordinary code is not safe here. Saves overlap all the
+// time — a debounced flush racing the page-hide beacon, or two tabs open — and
+// when they do, each one reads the same starting value and the last write wins,
+// silently dropping whatever the others had added. That is how a student who
+// passed five sections came back to three.
+//
+// A transaction makes the read and the write one operation: if the value
+// changed underneath, Firebase re-runs the merge against the new value and
+// tries again, so every concurrent save contributes instead of competing.
+async function mergeProgressKey(userId, key, mergeFn) {
+  if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
+  const res = await progressRef(userId).child(key).transaction(current => mergeFn(current));
+  return res && res.committed;
+}
+
 async function mergeProgress(userId, patch) {
   if (!isEnabled()) throw new Error('Firebase is not configured on this server.');
   if (!patch || !Object.keys(patch).length) return {};
@@ -184,5 +201,5 @@ async function getAllProgress() {
 module.exports = {
   isEnabled, whyDisabled, database,
   verifyIdToken, getAuthUserByEmail, getAuthUser, listAuthUsers, setEmailVerified, generateVerificationLink, revokeTokens,
-  getProgress, mergeProgress, getAllProgress,
+  getProgress, mergeProgress, mergeProgressKey, getAllProgress,
 };

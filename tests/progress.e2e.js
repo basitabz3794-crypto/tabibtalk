@@ -63,6 +63,20 @@ const passedIn = (st, course) => {
   P('both devices keep their work', passedIn(st, 'vocab').join(',') === '0,1,2,3',
     passedIn(st, 'vocab').join(','));
 
+  section('saves that overlap');
+  // The failure this exists for: saves overlap all the time — the debounced
+  // flush racing the page-hide beacon, or a second tab — and a read-then-write
+  // merge lets them overwrite each other. A student who passed five sections
+  // came back to three that way.
+  await save(call, { tt_path: JSON.stringify({ race: { passed: ['0'] } }) });
+  await Promise.all(Array.from({ length: 10 }, (_, i) =>
+    save(call, { tt_path: JSON.stringify({ race: { passed: [String(i + 1)] } }) })));
+  await new Promise(r => setTimeout(r, 1500));
+  st = await read(call);
+  const race = passedIn(st, 'race');
+  P('every one of eleven concurrent saves survives', race.length === 11,
+    race.length + '/11 kept: ' + race.join(','));
+
   section('days studied');
   await save(call, { tt_days: JSON.stringify(['2026-08-05']) });
   st = await read(call);

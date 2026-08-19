@@ -59,14 +59,23 @@ async function hammer(call, path, n) {
   P('and another one can too', (await B.call('/api/friends/search?q=Third')).status === 200);
 
   section('searching over and over');
-  // A fresh account, so the count starts at zero and the number below means
-  // what it says rather than depending on what earlier sections used up.
+  // A fresh account, so the count starts at zero rather than depending on what
+  // earlier sections used up.
+  //
+  // Fired all at once rather than one after another, which is both what a real
+  // sweep looks like and the only way to test a per-minute limit: run
+  // sequentially and each search's own round trip is slow enough that the
+  // earliest ones age out of the window before the last one is sent, so the
+  // limit is never reached and the test proves nothing.
   const sA = await h.mint('lim4', STAMP);
   const S = await h.signIn(sA, 'Searching Student');
-  const searchCodes = await hammer(S.call, '/api/friends/search?q=stu', 46);
-  P('forty searches a minute all get through', searchCodes.slice(0, 40).every(c => c === 200),
-    searchCodes.slice(0, 40).filter(c => c === 200).length + '/40');
-  P('but a sweep beyond that is stopped', searchCodes.some(c => c === 429));
+  const swept = await Promise.all(
+    Array.from({ length: 60 }, () => S.call('/api/friends/search?q=stu').then(r => r.status)));
+  const allowed = swept.filter(c => c === 200).length;
+  const refused = swept.filter(c => c === 429).length;
+  P('a sweep is stopped', refused > 0, refused + ' of 60 refused');
+  P('but not before the honest allowance', allowed >= 35 && allowed <= 40, allowed + ' allowed');
+  P('nothing else broke', swept.every(c => c === 200 || c === 429));
   P('a different student is unaffected', (await B.call('/api/friends/search?q=stu')).status === 200);
 
   section('friend requests');

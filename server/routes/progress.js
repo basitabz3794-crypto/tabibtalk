@@ -110,18 +110,28 @@ async function readProgress(userId) {
 }
 
 async function writeProgress(userId, patch) {
-  // Only read back when the patch actually touches a key that needs merging —
-  // most saves do not, and those stay a single write.
-  const needsMerge = Object.keys(patch).filter(k => MONOTONIC[baseKey(k)]);
-  if (needsMerge.length) {
-    const current = await firebase.getProgress(userId);
-    for (const k of needsMerge) {
-      if (typeof current[k] === 'string') {
-        patch[k] = mergeMonotonic(MONOTONIC[baseKey(k)], current[k], patch[k]);
-      }
-    }
+  // The accumulating keys are merged one at a time, each inside a transaction.
+  //
+  // Doing it as a read, then a merge, then a write was not enough. Saves
+  // overlap constantly — the debounced flush racing the page-hide beacon, or a
+  // second tab — and each one would read the same starting value and then
+  // overwrite the others, dropping sections that had genuinely been passed.
+  // A transaction re-runs the merge if the value moved underneath, so every
+  // save contributes instead of competing.
+  const mono = [], plain = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (MONOTONIC[baseKey(k)]) mono.push(k); else plain[k] = v;
   }
-  return firebase.mergeProgress(userId, patch);
+
+  if (Object.keys(plain).length) await firebase.mergeProgress(userId, plain);
+
+  for (const k of mono) {
+    const kind = MONOTONIC[baseKey(k)];
+    const incoming = patch[k];
+    await firebase.mergeProgressKey(userId, k, (current) => (
+      typeof current === 'string' ? mergeMonotonic(kind, current, incoming) : incoming
+    ));
+  }
 }
 
 // ---- Get the signed-in user's saved app state (streak, progress, bookmarks, etc.) ----
